@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: visioninspect-ai-backend
+    env: python
+    plan: free
+    region: singapore
+    rootDir: .
+    buildCommand: pip install --upgrade pip && pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APP_NAME
+        value: VisionInspect AI
+      - key: ENVIRONMENT
+        value: production
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: MONGODB_DATABASE
+        value: visioninspect_ai
+      - key: MODEL_CHECKPOINT_PATH
+        value: ../models/checkpoints/padim_mvtec_bottle_v1.ckpt
+      - key: CLASSIFIER_MODEL_PATH
+        value: ../models/defect_classifier.pkl
+      - key: MODEL_METADATA_PATH
+        value: ../models/model_metadata.json
+      - key: BASELINE_REFERENCE_PATH
+        value: ../models/inference/normal_reference.png
+      - key: BASELINE_THRESHOLD
+        value: "61.99"
+      - key: UPLOAD_DIR
+        value: app/uploads
+      - key: SECRET_KEY
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: BACKEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

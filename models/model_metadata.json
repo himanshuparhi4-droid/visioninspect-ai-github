@@ -1,0 +1,35 @@
+{
+  "project": "VisionInspect AI",
+  "model_name": "padim",
+  "model_version": "v1",
+  "dataset": "MVTec AD bottle",
+  "category": "bottle",
+  "image_size": [
+    256,
+    256
+  ],
+  "train_batch_size": 4,
+  "eval_batch_size": 4,
+  "accelerator": "gpu",
+  "checkpoint_path": "C:\\Users\\HP\\Desktop\\springboard\\visioninspect-ai\\models\\checkpoints\\padim_mvtec_bottle_v1.ckpt",
+  "metrics": {
+    "image_AUROC": 1.0,
+    "image_F1Score": 0.9919999837875366,
+    "pixel_AUROC": 0.9787426590919495,
+    "pixel_F1Score": 0.6798816919326782
+  },
+  "defect_classifier": {
+    "model_type": "ResNet18 features + Logistic Regression",
+    "artifact_path": "C:\\Users\\HP\\Desktop\\springboard\\visioninspect-ai\\models\\defect_classifier.pkl",
+    "labels": [
+      "good",
+      "broken_large",
+      "broken_small",
+      "contamination"
+    ],
+    "accuracy": 0.9318,
+    "train_size": 204,
+    "eval_size": 88,
+    "feature_extractor": "resnet18_imagenet1k_v1"
+  }
+}

@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+frontend/next-dev*.log
+pnpm-lock.yaml
+
+# Large local artifacts
+data/raw/
+data/processed/
+data/sample_images/
+models/checkpoints/
+models/exported/
+outputs/
+results/
+tmp/
+backend/app/uploads_temp/
+backend/app/uploads/
+backend/results/
+backend/*.log
+frontend/*.log
+database/local-mongodb/
+tools/mongodb/
+tools/
+
+# Local report artifacts kept out of the GitHub upload
+docs/
+presentation/
+
+# Keep folder markers
+!.gitkeep
