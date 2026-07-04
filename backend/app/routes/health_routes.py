@@ -1,4 +1,7 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.services.cloudinary_service import cloudinary_is_configured, storage_backend
@@ -15,7 +18,10 @@ async def health_check(request: Request) -> dict:
 
     return {
         "status": "ok",
+        "service": settings.app_name,
+        "version": settings.app_version,
         "environment": settings.environment,
+        "started_at": getattr(request.app.state, "started_at", None),
         "database_ready": getattr(request.app.state, "database_ready", False),
         "database_error": getattr(request.app.state, "database_error", None),
         "artifacts": {
@@ -33,3 +39,32 @@ async def health_check(request: Request) -> dict:
             "padim_accelerator": settings.padim_inference_accelerator,
         },
     }
+
+
+@router.get("/live")
+async def liveness_check() -> dict:
+    return {
+        "status": "alive",
+        "service": settings.app_name,
+        "checked_at": datetime.now(UTC),
+    }
+
+
+@router.get("/ready")
+async def readiness_check(request: Request) -> JSONResponse:
+    classifier_path = resolve_backend_path(settings.classifier_model_path)
+    reference_path = resolve_backend_path(settings.baseline_reference_path)
+    checks = {
+        "database_ready": getattr(request.app.state, "database_ready", False),
+        "defect_classifier": classifier_path.exists(),
+        "baseline_reference": reference_path.exists(),
+    }
+    ready = all(checks.values())
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={
+            "status": "ready" if ready else "not_ready",
+            "checks": checks,
+            "database_error": getattr(request.app.state, "database_error", None),
+        },
+    )

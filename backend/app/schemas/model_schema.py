@@ -14,3 +14,4 @@ class ModelMetricsResponse(BaseModel):
     model_comparison: list[dict]
     classifier_report: dict
     confusion_matrix: dict
+    threshold_calibration: dict = Field(default_factory=dict)

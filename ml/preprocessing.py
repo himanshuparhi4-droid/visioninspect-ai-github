@@ -23,4 +23,3 @@ def enhance_contrast(gray_image: np.ndarray) -> np.ndarray:
 
 def detect_edges(gray_image: np.ndarray) -> np.ndarray:
     return cv2.Canny(gray_image, 100, 200)
-

@@ -80,7 +80,10 @@ export default function CameraPage() {
   }, []);
 
   return (
-    <AppShell title="Camera Simulation" subtitle="Simulated production-line image acquisition and live inspection feed.">
+    <AppShell
+      title="Camera Simulation"
+      subtitle="Simulated production-line image acquisition and live inspection feed."
+    >
       <div className="page-actions">
         <button className="ghost-button" type="button" onClick={loadSamples}>
           <RefreshCw size={16} />
@@ -90,7 +93,12 @@ export default function CameraPage() {
           <Play size={16} />
           Start stream
         </button>
-        <button className="ghost-button" type="button" onClick={() => inspectNextFrame(frameIndexRef.current)} disabled={running}>
+        <button
+          className="ghost-button"
+          type="button"
+          onClick={() => inspectNextFrame(frameIndexRef.current)}
+          disabled={running}
+        >
           Inspect one frame
         </button>
         <button className="ghost-button" type="button" onClick={stopStream} disabled={!running}>

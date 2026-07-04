@@ -24,8 +24,7 @@ def prepare_classifier_dataframe(root: Path, max_images_per_class: int | None = 
 
     if max_images_per_class:
         sampled_groups = [
-            group.sample(min(len(group), max_images_per_class), random_state=42)
-            for _, group in data.groupby("label")
+            group.sample(min(len(group), max_images_per_class), random_state=42) for _, group in data.groupby("label")
         ]
         data = pd.concat(sampled_groups, ignore_index=True) if sampled_groups else data.iloc[0:0].copy()
 
@@ -140,14 +139,19 @@ def main() -> None:
         output_dir=args.output_dir,
     )
 
-    print(json.dumps({
-        "effective_folds": summary["effective_folds"],
-        "total_images": summary["total_images"],
-        "class_counts": summary["class_counts"],
-        "mean_accuracy": summary["mean_accuracy"],
-        "std_accuracy": summary["std_accuracy"],
-        "output_path": summary["output_path"],
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "effective_folds": summary["effective_folds"],
+                "total_images": summary["total_images"],
+                "class_counts": summary["class_counts"],
+                "mean_accuracy": summary["mean_accuracy"],
+                "std_accuracy": summary["std_accuracy"],
+                "output_path": summary["output_path"],
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

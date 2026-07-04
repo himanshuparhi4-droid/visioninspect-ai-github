@@ -4,7 +4,11 @@ from app.dependencies import get_current_user, require_roles
 from app.models.user_model import User
 from app.schemas.model_schema import ModelMetricsResponse, RuntimeModelSettings
 from app.services.audit_service import record_audit_event
-from app.services.model_settings_service import build_model_metrics_payload, load_runtime_settings, save_runtime_settings
+from app.services.model_settings_service import (
+    build_model_metrics_payload,
+    load_runtime_settings,
+    save_runtime_settings,
+)
 
 router = APIRouter(prefix="/model", tags=["model"])
 

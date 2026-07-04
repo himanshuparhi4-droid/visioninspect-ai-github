@@ -25,4 +25,3 @@ def read_image(path: str) -> np.ndarray:
     if image is None:
         raise FileNotFoundError(f"Could not read image: {path}")
     return image
-

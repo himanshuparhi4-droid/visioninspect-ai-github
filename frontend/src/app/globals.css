@@ -500,6 +500,25 @@ button:disabled {
   margin: 4px 0 0;
 }
 
+.error-panel {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #f1b7b7;
+  border-radius: 8px;
+  color: var(--red);
+  background: #fff0f0;
+}
+
+.error-panel p {
+  margin: 0;
+  color: var(--text);
+}
+
+.error-panel small {
+  color: var(--muted);
+}
+
 .explainability-box {
   margin-top: 12px;
   padding: 12px;
@@ -733,6 +752,12 @@ th {
   border-radius: 8px;
   background: var(--surface-2);
   padding: 0 10px;
+}
+
+.ticket-timeline .overdue-chip {
+  border-color: #f1b7b7;
+  color: var(--red);
+  background: #fff0f0;
 }
 
 .rework-callout {

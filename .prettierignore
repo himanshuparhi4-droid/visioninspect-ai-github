@@ -1,0 +1,14 @@
+.git
+node_modules
+frontend/.next
+frontend/out
+backend/app/uploads
+data
+models/checkpoints
+*.log
+*.pkl
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.ipynb

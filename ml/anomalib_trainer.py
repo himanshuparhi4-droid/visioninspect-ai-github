@@ -1,11 +1,10 @@
 from pathlib import Path
 
 import torch
-from torchvision.transforms import v2
-
 from anomalib.data import MVTecAD
 from anomalib.engine import Engine
 from anomalib.models import Fastflow, Padim, Patchcore
+from torchvision.transforms import v2
 
 from ml.config import MODELS_DIR, RAW_DATA_DIR
 

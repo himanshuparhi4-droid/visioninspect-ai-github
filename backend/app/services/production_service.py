@@ -1,12 +1,20 @@
 from app.models.production_model import BatchRecord, Product, ProductionLine
-from app.schemas.production_schema import BatchRecordResponse, ProductResponse, ProductionCatalogResponse, ProductionLineResponse
-
+from app.schemas.production_schema import (
+    BatchRecordResponse,
+    ProductionCatalogResponse,
+    ProductionLineResponse,
+    ProductResponse,
+)
 
 DEFAULT_SHIFTS = ["Shift A", "Shift B", "Shift C", "Night Shift"]
 
 DEFAULT_PRODUCTS = [
-    ProductResponse(product_id="BOTTLE-STD-500", name="Bottle 500ml", category="Bottle", critical_zones=["neck", "cap-ring", "base"]),
-    ProductResponse(product_id="BOTTLE-STD-750", name="Bottle 750ml", category="Bottle", critical_zones=["neck", "body", "base"]),
+    ProductResponse(
+        product_id="BOTTLE-STD-500", name="Bottle 500ml", category="Bottle", critical_zones=["neck", "cap-ring", "base"]
+    ),
+    ProductResponse(
+        product_id="BOTTLE-STD-750", name="Bottle 750ml", category="Bottle", critical_zones=["neck", "body", "base"]
+    ),
     ProductResponse(product_id="BOTTLE-QA-SAMPLE", name="QA Sample Bottle", category="Bottle", critical_zones=["body"]),
 ]
 
@@ -17,9 +25,15 @@ DEFAULT_LINES = [
 ]
 
 DEFAULT_BATCHES = [
-    BatchRecordResponse(batch_number="BATCH-DEMO-A", product_id="BOTTLE-STD-500", production_line="Line-01", shift="Shift A"),
-    BatchRecordResponse(batch_number="BATCH-DEMO-B", product_id="BOTTLE-STD-750", production_line="Line-02", shift="Shift B"),
-    BatchRecordResponse(batch_number="SIM-DEMO", product_id="BOTTLE-QA-SAMPLE", production_line="Line-SIM-01", shift="Shift A"),
+    BatchRecordResponse(
+        batch_number="BATCH-DEMO-A", product_id="BOTTLE-STD-500", production_line="Line-01", shift="Shift A"
+    ),
+    BatchRecordResponse(
+        batch_number="BATCH-DEMO-B", product_id="BOTTLE-STD-750", production_line="Line-02", shift="Shift B"
+    ),
+    BatchRecordResponse(
+        batch_number="SIM-DEMO", product_id="BOTTLE-QA-SAMPLE", production_line="Line-SIM-01", shift="Shift A"
+    ),
 ]
 
 
@@ -62,9 +76,16 @@ def batch_to_response(item: BatchRecord) -> BatchRecordResponse:
 
 
 async def build_production_catalog() -> ProductionCatalogResponse:
-    products = [product_to_response(item) for item in await Product.find(Product.is_active == True).sort("product_id").to_list()]  # noqa: E712
-    lines = [line_to_response(item) for item in await ProductionLine.find(ProductionLine.is_active == True).sort("line_id").to_list()]  # noqa: E712
-    batches = [batch_to_response(item) for item in await BatchRecord.find_all().sort("-created_at").limit(100).to_list()]
+    products = [
+        product_to_response(item) for item in await Product.find(Product.is_active == True).sort("product_id").to_list()
+    ]  # noqa: E712
+    lines = [
+        line_to_response(item)
+        for item in await ProductionLine.find(ProductionLine.is_active == True).sort("line_id").to_list()
+    ]  # noqa: E712
+    batches = [
+        batch_to_response(item) for item in await BatchRecord.find_all().sort("-created_at").limit(100).to_list()
+    ]
 
     return ProductionCatalogResponse(
         products=products or DEFAULT_PRODUCTS,

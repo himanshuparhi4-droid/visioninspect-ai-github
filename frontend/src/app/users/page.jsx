@@ -1,30 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KeyRound, RefreshCw, ShieldCheck, UserPlus, UserRound } from "lucide-react";
+import { KeyRound, RefreshCw, ShieldCheck, UserPlus } from "lucide-react";
 
 import AppShell from "../../components/AppShell";
+import UserAccountCard, { EMPTY_USER_FORM, ROLE_OPTIONS } from "../../components/UserAccountCard";
 import { formatDateTime } from "../../services/dateTime";
-import { approveUser, createUser, listAuditLogs, listUsers, rejectUser, resetUserPassword, updateUser } from "../../services/userApi";
-
-const roleOptions = [
-  { value: "quality_engineer", label: "Quality engineer" },
-  { value: "factory_supervisor", label: "Factory supervisor" },
-  { value: "quality_manager", label: "Quality manager" },
-  { value: "admin", label: "Admin" },
-];
-
-const initialForm = {
-  name: "",
-  email: "",
-  password: "",
-  role: "quality_engineer",
-};
+import {
+  approveUser,
+  createUser,
+  listAuditLogs,
+  listUsers,
+  rejectUser,
+  resetUserPassword,
+  updateUser,
+} from "../../services/userApi";
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(EMPTY_USER_FORM);
   const [passwords, setPasswords] = useState({});
   const [notice, setNotice] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(false);
@@ -52,7 +47,7 @@ export default function UsersPage() {
     try {
       const user = await createUser(form);
       setUsers((current) => [user, ...current.filter((item) => item.id !== user.id)]);
-      setForm(initialForm);
+      setForm(EMPTY_USER_FORM);
       setNotice({ type: "success", text: `Created ${user.email}` });
     } catch (err) {
       setNotice({ type: "error", text: err.message || "Could not create user" });
@@ -98,6 +93,10 @@ export default function UsersPage() {
     }
   }
 
+  function updatePassword(userId, password) {
+    setPasswords((current) => ({ ...current, [userId]: password }));
+  }
+
   useEffect(() => {
     loadUsers();
   }, []);
@@ -140,7 +139,7 @@ export default function UsersPage() {
             <label>
               Role
               <select value={form.role} onChange={(event) => updateField("role", event.target.value)}>
-                {roleOptions.map((role) => (
+                {ROLE_OPTIONS.map((role) => (
                   <option key={role.value} value={role.value}>
                     {role.label}
                   </option>
@@ -174,54 +173,15 @@ export default function UsersPage() {
           </div>
           <div className="user-grid">
             {users.map((user) => (
-              <div key={user.id} className="user-card">
-                <span className="stat-icon">
-                  <UserRound size={18} />
-                </span>
-                <strong>{user.name}</strong>
-                <small>{user.email}</small>
-                <span className="role-chip">{user.role}</span>
-                <small>
-                  {user.is_active ? "Active" : "Inactive"} | Approval: {user.approval_status || "approved"}
-                </small>
-                <small>
-                  Requested role: {user.requested_role || user.role} | Last login: {user.last_login_at ? formatDateTime(user.last_login_at) : "Never"}
-                </small>
-                {user.approval_status === "pending" ? (
-                  <div className="page-actions compact">
-                    <button className="primary-button" type="button" onClick={() => handleApproval(user, "approve")}>
-                      Approve
-                    </button>
-                    <button className="ghost-button" type="button" onClick={() => handleApproval(user, "reject")}>
-                      Reject
-                    </button>
-                  </div>
-                ) : null}
-                <select value={user.role} onChange={(event) => handleUserUpdate(user.id, { role: event.target.value })}>
-                  {roleOptions.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="page-actions compact">
-                  <button className="ghost-button" type="button" onClick={() => handleUserUpdate(user.id, { is_active: !user.is_active })}>
-                    {user.is_active ? "Deactivate" : "Reactivate"}
-                  </button>
-                </div>
-                <div className="password-reset-row">
-                  <input
-                    type="password"
-                    minLength={6}
-                    placeholder="New password"
-                    value={passwords[user.id] || ""}
-                    onChange={(event) => setPasswords((current) => ({ ...current, [user.id]: event.target.value }))}
-                  />
-                  <button className="ghost-button" type="button" onClick={() => handlePasswordReset(user)}>
-                    Reset
-                  </button>
-                </div>
-              </div>
+              <UserAccountCard
+                key={user.id}
+                user={user}
+                password={passwords[user.id] || ""}
+                onPasswordChange={updatePassword}
+                onUpdate={handleUserUpdate}
+                onApproval={handleApproval}
+                onPasswordReset={handlePasswordReset}
+              />
             ))}
             {!users.length ? <div className="empty-visual">No users visible for this role.</div> : null}
           </div>
@@ -252,7 +212,11 @@ export default function UsersPage() {
                   <td>{formatDateTime(log.created_at)}</td>
                   <td>{log.action}</td>
                   <td>{log.entity_type}</td>
-                  <td>{Object.entries(log.metadata || {}).map(([key, value]) => `${key}: ${value}`).join(", ") || "None"}</td>
+                  <td>
+                    {Object.entries(log.metadata || {})
+                      .map(([key, value]) => `${key}: ${value}`)
+                      .join(", ") || "None"}
+                  </td>
                 </tr>
               ))}
               {!auditLogs.length ? (

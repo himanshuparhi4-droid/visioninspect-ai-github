@@ -7,6 +7,7 @@ import { FileText, RefreshCw, Wrench } from "lucide-react";
 import AppShell from "../../components/AppShell";
 import DefectHeatmap from "../../components/DefectHeatmap";
 import InspectionResult from "../../components/InspectionResult";
+import ProductionMetadataForm, { EMPTY_CATALOG, EMPTY_METADATA } from "../../components/ProductionMetadataForm";
 import SeverityBadge from "../../components/SeverityBadge";
 import { formatDateTime } from "../../services/dateTime";
 import { getCurrentUser } from "../../services/authApi";
@@ -26,15 +27,8 @@ export default function InspectionPage() {
   const [reviewNotes, setReviewNotes] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [reworkTicket, setReworkTicket] = useState(null);
-  const [catalog, setCatalog] = useState({ products: [], production_lines: [], batches: [], shifts: [] });
-  const [metadataForm, setMetadataForm] = useState({
-    batch_number: "",
-    product_id: "",
-    production_line: "",
-    shift: "",
-    operator_name: "",
-    source_label: "",
-  });
+  const [catalog, setCatalog] = useState(EMPTY_CATALOG);
+  const [metadataForm, setMetadataForm] = useState(EMPTY_METADATA);
 
   async function loadInspections() {
     const payload = await listInspections({ limit: 50, ...filters });
@@ -44,14 +38,19 @@ export default function InspectionPage() {
 
   useEffect(() => {
     loadInspections().catch(() => setMessage("Could not load inspections"));
-    getProductionCatalog().then(setCatalog).catch(() => setCatalog({ products: [], production_lines: [], batches: [], shifts: [] }));
-    getCurrentUser().then(setCurrentUser).catch(() => setCurrentUser(null));
+    getProductionCatalog()
+      .then(setCatalog)
+      .catch(() => setCatalog(EMPTY_CATALOG));
+    getCurrentUser()
+      .then(setCurrentUser)
+      .catch(() => setCurrentUser(null));
   }, []);
 
   useEffect(() => {
     setReviewNotes(selected?.review_notes || "");
     setReworkTicket(null);
     setMetadataForm({
+      ...EMPTY_METADATA,
       batch_number: selected?.batch_number || "",
       product_id: selected?.product_id || "",
       production_line: selected?.production_line || "",
@@ -93,21 +92,6 @@ export default function InspectionPage() {
     setMessage("Production metadata updated");
   }
 
-  function updateMetadataForm(field, value) {
-    setMetadataForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function selectMetadataBatch(batchNumber) {
-    const batch = catalog.batches.find((item) => item.batch_number === batchNumber);
-    setMetadataForm((current) => ({
-      ...current,
-      batch_number: batchNumber,
-      product_id: batch?.product_id || current.product_id,
-      production_line: batch?.production_line || current.production_line,
-      shift: batch?.shift || current.shift,
-    }));
-  }
-
   async function handleReport() {
     if (!selected?.id) return;
     const report = await createInspectionReport(selected.id);
@@ -132,25 +116,38 @@ export default function InspectionPage() {
         <div className="metadata-grid">
           <label>
             Product ID
-            <select value={filters.productId} onChange={(event) => setFilters((current) => ({ ...current, productId: event.target.value }))}>
+            <select
+              value={filters.productId}
+              onChange={(event) => setFilters((current) => ({ ...current, productId: event.target.value }))}
+            >
               <option value="">All products</option>
               {catalog.products.map((product) => (
-                <option key={product.product_id} value={product.product_id}>{product.product_id}</option>
+                <option key={product.product_id} value={product.product_id}>
+                  {product.product_id}
+                </option>
               ))}
             </select>
           </label>
           <label>
             Production line
-            <select value={filters.productionLine} onChange={(event) => setFilters((current) => ({ ...current, productionLine: event.target.value }))}>
+            <select
+              value={filters.productionLine}
+              onChange={(event) => setFilters((current) => ({ ...current, productionLine: event.target.value }))}
+            >
               <option value="">All lines</option>
               {catalog.production_lines.map((line) => (
-                <option key={line.line_id} value={line.line_id}>{line.name}</option>
+                <option key={line.line_id} value={line.line_id}>
+                  {line.name}
+                </option>
               ))}
             </select>
           </label>
           <label>
             Review status
-            <select value={filters.reviewStatus} onChange={(event) => setFilters((current) => ({ ...current, reviewStatus: event.target.value }))}>
+            <select
+              value={filters.reviewStatus}
+              onChange={(event) => setFilters((current) => ({ ...current, reviewStatus: event.target.value }))}
+            >
               <option value="">All statuses</option>
               <option value="ai_completed">AI completed</option>
               <option value="manual_review">Manual review</option>
@@ -183,7 +180,10 @@ export default function InspectionPage() {
               >
                 <span>
                   <strong>{item.prediction || "Pending"}</strong>
-                  <small>{item.product_id || "No product"} | {item.defect_type || "Unknown"} | {formatDateTime(item.created_at)}</small>
+                  <small>
+                    {item.product_id || "No product"} | {item.defect_type || "Unknown"} |{" "}
+                    {formatDateTime(item.created_at)}
+                  </small>
                 </span>
                 <SeverityBadge level={item.severity_level} />
               </button>
@@ -216,21 +216,38 @@ export default function InspectionPage() {
                   <strong>{reworkTicket.ticket_number || "Rework ticket"}</strong>
                   <small>{reworkTicket.status ? formatReviewStatus(reworkTicket.status) : "Open"}</small>
                 </span>
-                <Link className="primary-link" href="/rework">Open queue</Link>
+                <Link className="primary-link" href="/rework">
+                  Open queue
+                </Link>
               </div>
             ) : null}
             {REVIEW_ROLES.has(currentUser?.role) ? (
-            <div className="page-actions compact review-actions">
-              <button className="ghost-button" type="button" onClick={() => handleReviewStatus("approved")} disabled={!selected}>
-                Approve
-              </button>
-              <button className="ghost-button" type="button" onClick={() => handleReviewStatus("rejected")} disabled={!selected}>
-                Reject
-              </button>
-              <button className="ghost-button" type="button" onClick={() => handleReviewStatus("sent_for_rework")} disabled={!selected}>
-                Rework
-              </button>
-            </div>
+              <div className="page-actions compact review-actions">
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={() => handleReviewStatus("approved")}
+                  disabled={!selected}
+                >
+                  Approve
+                </button>
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={() => handleReviewStatus("rejected")}
+                  disabled={!selected}
+                >
+                  Reject
+                </button>
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={() => handleReviewStatus("sent_for_rework")}
+                  disabled={!selected}
+                >
+                  Rework
+                </button>
+              </div>
             ) : (
               <p className="form-success">Review actions are available to supervisors and quality managers.</p>
             )}
@@ -242,52 +259,13 @@ export default function InspectionPage() {
                 <p>Assign traceability details for audits and reports.</p>
               </div>
             </div>
-            <div className="metadata-grid">
-              <label>
-                Product ID
-                <select value={metadataForm.product_id} onChange={(event) => updateMetadataForm("product_id", event.target.value)} disabled={!selected}>
-                  <option value="">Unassigned</option>
-                  {catalog.products.map((product) => (
-                    <option key={product.product_id} value={product.product_id}>{product.product_id} - {product.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Batch number
-                <select value={metadataForm.batch_number} onChange={(event) => selectMetadataBatch(event.target.value)} disabled={!selected}>
-                  <option value="">Unassigned</option>
-                  {catalog.batches.map((batch) => (
-                    <option key={batch.batch_number} value={batch.batch_number}>{batch.batch_number}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Production line
-                <select value={metadataForm.production_line} onChange={(event) => updateMetadataForm("production_line", event.target.value)} disabled={!selected}>
-                  <option value="">Unassigned</option>
-                  {catalog.production_lines.map((line) => (
-                    <option key={line.line_id} value={line.line_id}>{line.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Shift
-                <select value={metadataForm.shift} onChange={(event) => updateMetadataForm("shift", event.target.value)} disabled={!selected}>
-                  <option value="">Unassigned</option>
-                  {catalog.shifts.map((shift) => (
-                    <option key={shift} value={shift}>{shift}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Operator
-                <input value={metadataForm.operator_name} onChange={(event) => updateMetadataForm("operator_name", event.target.value)} disabled={!selected} />
-              </label>
-              <label>
-                Source label
-                <input value={metadataForm.source_label} onChange={(event) => updateMetadataForm("source_label", event.target.value)} disabled={!selected} />
-              </label>
-            </div>
+            <ProductionMetadataForm
+              value={metadataForm}
+              catalog={catalog}
+              onChange={setMetadataForm}
+              disabled={!selected}
+              placeholders={{ batch: "Unassigned", product: "Unassigned", line: "Unassigned" }}
+            />
             <div className="page-actions compact">
               <button className="primary-button" type="button" onClick={handleMetadataSave} disabled={!selected}>
                 Save metadata

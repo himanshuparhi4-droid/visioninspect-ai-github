@@ -18,10 +18,7 @@ export default function DashboardPage() {
 
   async function loadDashboard() {
     setLoading(true);
-    const [analytics, history] = await Promise.all([
-      getAnalyticsSummary(),
-      listInspections({ limit: 6 }),
-    ]);
+    const [analytics, history] = await Promise.all([getAnalyticsSummary(), listInspections({ limit: 6 })]);
     setSummary(analytics);
     setInspections(history.items || []);
     setLoading(false);
@@ -74,7 +71,9 @@ export default function DashboardPage() {
                   <td>{item.product_id || "Unassigned"}</td>
                   <td>{item.production_line || "Unassigned"}</td>
                   <td>{item.defect_type || "Unknown"}</td>
-                  <td><SeverityBadge level={item.severity_level} /></td>
+                  <td>
+                    <SeverityBadge level={item.severity_level} />
+                  </td>
                   <td>{item.pass_fail || "Pending"}</td>
                   <td>{item.confidence != null ? `${(item.confidence * 100).toFixed(1)}%` : "Pending"}</td>
                   <td>{formatDateTime(item.created_at)}</td>

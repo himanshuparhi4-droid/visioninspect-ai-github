@@ -3,7 +3,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 ReworkStatus = Literal["open", "in_progress", "completed", "closed"]
 ReworkPriority = Literal["Low", "Medium", "High", "Critical"]
 

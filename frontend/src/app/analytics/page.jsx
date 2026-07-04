@@ -60,14 +60,19 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     loadSummary().catch(() => setLoading(false));
-    getProductionCatalog().then(setCatalog).catch(() => setCatalog({ products: [], production_lines: [] }));
+    getProductionCatalog()
+      .then(setCatalog)
+      .catch(() => setCatalog({ products: [], production_lines: [] }));
   }, []);
 
-  const qualityMix = useMemo(() => ({
-    pass: summary?.pass_count || 0,
-    review: summary?.review_count || 0,
-    fail: summary?.fail_count || 0,
-  }), [summary]);
+  const qualityMix = useMemo(
+    () => ({
+      pass: summary?.pass_count || 0,
+      review: summary?.review_count || 0,
+      fail: summary?.fail_count || 0,
+    }),
+    [summary]
+  );
 
   return (
     <AppShell title="Analytics" subtitle="Production quality monitoring and defect trend summary.">
@@ -86,27 +91,45 @@ export default function AnalyticsPage() {
         <div className="metadata-grid">
           <label>
             Date from
-            <input type="datetime-local" value={filters.dateFrom} onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))} />
+            <input
+              type="datetime-local"
+              value={filters.dateFrom}
+              onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))}
+            />
           </label>
           <label>
             Date to
-            <input type="datetime-local" value={filters.dateTo} onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))} />
+            <input
+              type="datetime-local"
+              value={filters.dateTo}
+              onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))}
+            />
           </label>
           <label>
             Production line
-            <select value={filters.productionLine} onChange={(event) => setFilters((current) => ({ ...current, productionLine: event.target.value }))}>
+            <select
+              value={filters.productionLine}
+              onChange={(event) => setFilters((current) => ({ ...current, productionLine: event.target.value }))}
+            >
               <option value="">All lines</option>
               {catalog.production_lines.map((line) => (
-                <option key={line.line_id} value={line.line_id}>{line.name}</option>
+                <option key={line.line_id} value={line.line_id}>
+                  {line.name}
+                </option>
               ))}
             </select>
           </label>
           <label>
             Product ID
-            <select value={filters.productId} onChange={(event) => setFilters((current) => ({ ...current, productId: event.target.value }))}>
+            <select
+              value={filters.productId}
+              onChange={(event) => setFilters((current) => ({ ...current, productId: event.target.value }))}
+            >
               <option value="">All products</option>
               {catalog.products.map((product) => (
-                <option key={product.product_id} value={product.product_id}>{product.product_id}</option>
+                <option key={product.product_id} value={product.product_id}>
+                  {product.product_id}
+                </option>
               ))}
             </select>
           </label>

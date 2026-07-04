@@ -48,7 +48,7 @@ const stripExtensionAttributesScript = `
 
 export const metadata = {
   title: "VisionInspect AI",
-  description: "Manufacturing defect detection dashboard"
+  description: "Manufacturing defect detection dashboard",
 };
 
 export default function RootLayout({ children }) {

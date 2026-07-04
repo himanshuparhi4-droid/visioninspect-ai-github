@@ -6,4 +6,3 @@ class AnalyticsSummary(BaseModel):
     defective_count: int
     good_count: int
     average_confidence: float
-

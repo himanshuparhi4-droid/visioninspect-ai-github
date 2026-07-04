@@ -10,4 +10,4 @@ def test_dataset_loader_finds_mvtec_bottle_records():
 
     assert len(dataset) == 292
     assert set(dataset["label"]) == {"good", "broken_large", "broken_small", "contamination"}
-    assert dataset[(dataset["is_defective"] == True) & (dataset["mask_path"].isna())].empty
+    assert dataset[dataset["is_defective"] & dataset["mask_path"].isna()].empty

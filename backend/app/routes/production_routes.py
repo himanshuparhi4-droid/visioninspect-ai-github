@@ -7,13 +7,18 @@ from app.schemas.production_schema import (
     BatchRecordCreate,
     BatchRecordResponse,
     ProductCreate,
-    ProductResponse,
     ProductionCatalogResponse,
     ProductionLineCreate,
     ProductionLineResponse,
+    ProductResponse,
 )
 from app.services.audit_service import record_audit_event
-from app.services.production_service import batch_to_response, build_production_catalog, line_to_response, product_to_response
+from app.services.production_service import (
+    batch_to_response,
+    build_production_catalog,
+    line_to_response,
+    product_to_response,
+)
 
 router = APIRouter(prefix="/production", tags=["production"])
 
@@ -39,7 +44,13 @@ async def create_product(
     else:
         item = Product(**payload.model_dump())
         await item.insert()
-    await record_audit_event(actor=current_user, action="production.product_saved", entity_type="product", entity_id=str(item.id), metadata={"product_id": item.product_id})
+    await record_audit_event(
+        actor=current_user,
+        action="production.product_saved",
+        entity_type="product",
+        entity_id=str(item.id),
+        metadata={"product_id": item.product_id},
+    )
     return product_to_response(item)
 
 
@@ -58,7 +69,13 @@ async def create_production_line(
     else:
         item = ProductionLine(**payload.model_dump())
         await item.insert()
-    await record_audit_event(actor=current_user, action="production.line_saved", entity_type="production_line", entity_id=str(item.id), metadata={"line_id": item.line_id})
+    await record_audit_event(
+        actor=current_user,
+        action="production.line_saved",
+        entity_type="production_line",
+        entity_id=str(item.id),
+        metadata={"line_id": item.line_id},
+    )
     return line_to_response(item)
 
 
@@ -76,5 +93,11 @@ async def create_batch_record(
     else:
         item = BatchRecord(**payload.model_dump())
         await item.insert()
-    await record_audit_event(actor=current_user, action="production.batch_saved", entity_type="batch", entity_id=str(item.id), metadata={"batch_number": item.batch_number})
+    await record_audit_event(
+        actor=current_user,
+        action="production.batch_saved",
+        entity_type="batch",
+        entity_id=str(item.id),
+        metadata={"batch_number": item.batch_number},
+    )
     return batch_to_response(item)

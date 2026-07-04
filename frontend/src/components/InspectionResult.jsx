@@ -63,21 +63,44 @@ export default function InspectionResult({ result }) {
       </div>
 
       <div className="metadata-summary">
-        <span><strong>Product:</strong> {result.product_id || "Unassigned"}</span>
-        <span><strong>Batch:</strong> {result.batch_number || "Unassigned"}</span>
-        <span><strong>Line:</strong> {result.production_line || "Unassigned"}</span>
-        <span><strong>Shift:</strong> {result.shift || "Unassigned"}</span>
-        <span><strong>Source:</strong> {result.source_label || formatSourceType(result.source_type)}</span>
-        <span><strong>Review:</strong> {formatReviewStatus(result.review_status)}</span>
+        <span>
+          <strong>Product:</strong> {result.product_id || "Unassigned"}
+        </span>
+        <span>
+          <strong>Batch:</strong> {result.batch_number || "Unassigned"}
+        </span>
+        <span>
+          <strong>Line:</strong> {result.production_line || "Unassigned"}
+        </span>
+        <span>
+          <strong>Shift:</strong> {result.shift || "Unassigned"}
+        </span>
+        <span>
+          <strong>Source:</strong> {result.source_label || formatSourceType(result.source_type)}
+        </span>
+        <span>
+          <strong>Review:</strong> {formatReviewStatus(result.review_status)}
+        </span>
       </div>
 
       <div className="explainability-box">
         <small>AI explainability</small>
         <div className="explainability-grid">
-          <span><strong>Threshold:</strong> {result.explainability?.decision_threshold ?? "Pending"}</span>
-          <span><strong>Defect area:</strong> {result.explainability?.defect_area_percent != null ? `${result.explainability.defect_area_percent}%` : "Pending"}</span>
-          <span><strong>Heatmap P95:</strong> {result.explainability?.heatmap_intensity_p95 ?? "Pending"}</span>
-          <span><strong>Critical zone:</strong> {result.explainability?.critical_location ? "Yes" : "No"}</span>
+          <span>
+            <strong>Threshold:</strong> {result.explainability?.decision_threshold ?? "Pending"}
+          </span>
+          <span>
+            <strong>Defect area:</strong>{" "}
+            {result.explainability?.defect_area_percent != null
+              ? `${result.explainability.defect_area_percent}%`
+              : "Pending"}
+          </span>
+          <span>
+            <strong>Heatmap P95:</strong> {result.explainability?.heatmap_intensity_p95 ?? "Pending"}
+          </span>
+          <span>
+            <strong>Critical zone:</strong> {result.explainability?.critical_location ? "Yes" : "No"}
+          </span>
         </div>
         <ul>
           {(result.explainability?.notes || ["No explainability notes recorded."]).map((note) => (

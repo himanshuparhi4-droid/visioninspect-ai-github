@@ -4,4 +4,3 @@ def inspect_image() -> dict:
         "status": "model_not_ready",
         "message": "Train and export the model before enabling predictions.",
     }
-

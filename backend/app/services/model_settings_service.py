@@ -65,6 +65,37 @@ def build_model_metrics_payload() -> dict:
     classifier_report = classifier_metrics.get("classification_report", {})
     labels = classifier_metrics.get("labels") or metadata.get("defect_classifier", {}).get("labels", [])
     confusion_matrix = classifier_metrics.get("confusion_matrix", [])
+    runtime_settings = load_runtime_settings()
+    class_rows = {label: row for label, row in classifier_report.items() if isinstance(row, dict) and "f1-score" in row}
+    weakest_class = None
+    if class_rows:
+        weakest_label, weakest_row = min(class_rows.items(), key=lambda item: item[1].get("f1-score", 0))
+        weakest_class = {
+            "label": weakest_label,
+            "precision": weakest_row.get("precision"),
+            "recall": weakest_row.get("recall"),
+            "f1_score": weakest_row.get("f1-score"),
+            "support": weakest_row.get("support"),
+        }
+    threshold_calibration = {
+        "source": "Saved classifier evaluation metrics and active runtime thresholds",
+        "eval_size": classifier_metrics.get("eval_size") or metadata.get("defect_classifier", {}).get("eval_size"),
+        "accuracy": classifier_metrics.get("accuracy") or metadata.get("defect_classifier", {}).get("accuracy"),
+        "macro_f1": classifier_report.get("macro avg", {}).get("f1-score"),
+        "weighted_f1": classifier_report.get("weighted avg", {}).get("f1-score"),
+        "weakest_class": weakest_class,
+        "active_thresholds": {
+            "baseline_threshold": runtime_settings.baseline_threshold,
+            "review_severity_threshold": runtime_settings.review_severity_threshold,
+            "fail_severity_threshold": runtime_settings.fail_severity_threshold,
+            "padim_score_threshold": runtime_settings.padim_score_threshold,
+        },
+        "guidance": [
+            "Increase fail severity threshold if too many products are rejected.",
+            "Decrease review severity threshold if manual review should catch more borderline defects.",
+            "Re-run k-fold validation after changing model features or defect classes.",
+        ],
+    }
 
     model_comparison = [
         {
@@ -92,7 +123,7 @@ def build_model_metrics_payload() -> dict:
             "task": "Fallback anomaly scoring and visual heatmap",
             "framework": "OpenCV / NumPy",
             "primary_metric": "Threshold",
-            "score": load_runtime_settings().baseline_threshold,
+            "score": runtime_settings.baseline_threshold,
             "secondary_metric": "Purpose",
             "secondary_score": "fallback",
             "status": "backup",
@@ -107,5 +138,7 @@ def build_model_metrics_payload() -> dict:
         "confusion_matrix": {
             "labels": labels,
             "matrix": confusion_matrix,
+            "description": "Rows are actual labels; columns are predicted labels.",
         },
+        "threshold_calibration": threshold_calibration,
     }

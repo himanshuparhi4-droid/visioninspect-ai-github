@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "VisionInspect AI"
+    app_version: str = "1.0.0"
     environment: str = "development"
     secret_key: str = "change-me"
     access_token_expire_minutes: int = 60
@@ -22,6 +23,9 @@ class Settings(BaseSettings):
     baseline_reference_path: str = "../models/inference/normal_reference.png"
     baseline_threshold: float = 61.99
     upload_dir: str = "app/uploads"
+    max_upload_size_mb: int = 10
+    request_logging_enabled: bool = True
+    security_headers_enabled: bool = True
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),

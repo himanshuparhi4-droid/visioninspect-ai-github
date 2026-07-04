@@ -13,5 +13,15 @@ from app.models.user_model import User
 async def init_database() -> None:
     await init_beanie(
         database=get_database(),
-        document_models=[User, Inspection, Report, ModelVersion, AuditLog, ReworkTicket, Product, ProductionLine, BatchRecord],
+        document_models=[
+            User,
+            Inspection,
+            Report,
+            ModelVersion,
+            AuditLog,
+            ReworkTicket,
+            Product,
+            ProductionLine,
+            BatchRecord,
+        ],
     )

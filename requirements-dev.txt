@@ -24,3 +24,5 @@ python-jose[cryptography]
 cloudinary
 pytest
 httpx
+black
+ruff

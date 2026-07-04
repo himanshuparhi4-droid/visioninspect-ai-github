@@ -32,18 +32,20 @@ def collect_bottle_images(root: Path = RAW_DATA_DIR) -> list[dict]:
     train_good = root / "train" / "good"
     for image_path in sorted(train_good.glob("*.png")) if train_good.exists() else []:
         width, height, channels = read_image_shape(image_path)
-        records.append({
-            "split": "train",
-            "label": "good",
-            "target": 0,
-            "target_name": "good",
-            "is_defective": False,
-            "image_path": str(image_path),
-            "mask_path": None,
-            "width": width,
-            "height": height,
-            "channels": channels,
-        })
+        records.append(
+            {
+                "split": "train",
+                "label": "good",
+                "target": 0,
+                "target_name": "good",
+                "is_defective": False,
+                "image_path": str(image_path),
+                "mask_path": None,
+                "width": width,
+                "height": height,
+                "channels": channels,
+            }
+        )
 
     test_dir = root / "test"
     for label in ALL_LABELS:
@@ -52,18 +54,20 @@ def collect_bottle_images(root: Path = RAW_DATA_DIR) -> list[dict]:
             is_defective = label != "good"
             width, height, channels = read_image_shape(image_path)
             mask_path = get_mask_path(root, image_path, label)
-            records.append({
-                "split": "test",
-                "label": label,
-                "target": 1 if is_defective else 0,
-                "target_name": "defective" if is_defective else "good",
-                "is_defective": is_defective,
-                "image_path": str(image_path),
-                "mask_path": str(mask_path) if mask_path else None,
-                "width": width,
-                "height": height,
-                "channels": channels,
-            })
+            records.append(
+                {
+                    "split": "test",
+                    "label": label,
+                    "target": 1 if is_defective else 0,
+                    "target_name": "defective" if is_defective else "good",
+                    "is_defective": is_defective,
+                    "image_path": str(image_path),
+                    "mask_path": str(mask_path) if mask_path else None,
+                    "width": width,
+                    "height": height,
+                    "channels": channels,
+                }
+            )
 
     return records
 

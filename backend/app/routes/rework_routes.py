@@ -57,10 +57,14 @@ async def get_rework_ticket_for_inspection(
     if current_user.role not in ADMIN_ROLES and inspection.uploaded_by != str(current_user.id):
         raise HTTPException(status_code=403, detail="You cannot access this inspection")
 
-    ticket = await ReworkTicket.find(
-        ReworkTicket.inspection_id == inspection_id,
-        ReworkTicket.status != "closed",
-    ).sort("-created_at").first_or_none()
+    ticket = (
+        await ReworkTicket.find(
+            ReworkTicket.inspection_id == inspection_id,
+            ReworkTicket.status != "closed",
+        )
+        .sort("-created_at")
+        .first_or_none()
+    )
     if ticket is None:
         raise HTTPException(status_code=404, detail="Rework ticket not found for this inspection")
     return ReworkTicketResponse(**rework_to_response(ticket))
@@ -94,7 +98,13 @@ async def create_rework_ticket(
     inspection.reviewed_at = utc_now()
     inspection.updated_at = utc_now()
     await inspection.save()
-    await record_audit_event(actor=current_user, action="rework.ticket_created", entity_type="rework_ticket", entity_id=str(ticket.id), metadata={"inspection_id": payload.inspection_id})
+    await record_audit_event(
+        actor=current_user,
+        action="rework.ticket_created",
+        entity_type="rework_ticket",
+        entity_id=str(ticket.id),
+        metadata={"inspection_id": payload.inspection_id},
+    )
     return ReworkTicketResponse(**rework_to_response(ticket))
 
 

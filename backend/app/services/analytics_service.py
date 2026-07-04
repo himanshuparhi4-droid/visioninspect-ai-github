@@ -94,9 +94,7 @@ async def build_analytics_summary(
         "fail_count": fail_count,
         "defect_rate": round(defective_count / total, 4) if total else 0.0,
         "average_confidence": round(sum(confidences) / len(confidences), 4) if confidences else 0.0,
-        "average_severity_score": round(sum(severity_scores) / len(severity_scores), 2)
-        if severity_scores
-        else 0.0,
+        "average_severity_score": round(sum(severity_scores) / len(severity_scores), 2) if severity_scores else 0.0,
         "defect_type_distribution": dict(defect_types),
         "severity_distribution": dict(severity_levels),
         "review_status_distribution": dict(review_statuses),

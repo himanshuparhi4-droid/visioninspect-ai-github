@@ -50,7 +50,7 @@ def extract_features(
     features = []
     with torch.inference_mode():
         for start in range(0, len(image_paths), batch_size):
-            batch_paths = image_paths[start:start + batch_size]
+            batch_paths = image_paths[start : start + batch_size]
             tensors = [preprocess(load_rgb_image(path)) for path in batch_paths]
             batch = torch.stack(tensors).to(device)
             embeddings = feature_extractor(batch)
@@ -61,17 +61,19 @@ def extract_features(
 
 
 def create_classifier() -> Pipeline:
-    return Pipeline([
-        ("scaler", StandardScaler()),
-        (
-            "classifier",
-            LogisticRegression(
-                max_iter=3000,
-                class_weight="balanced",
-                random_state=42,
+    return Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "classifier",
+                LogisticRegression(
+                    max_iter=3000,
+                    class_weight="balanced",
+                    random_state=42,
+                ),
             ),
-        ),
-    ])
+        ]
+    )
 
 
 def train_defect_classifier(
@@ -175,7 +177,7 @@ def predict_defect_type(image_path: str | Path, classifier_bundle: dict) -> dict
     confidence = float(np.max(probabilities))
     class_probabilities = {
         str(class_name): float(probability)
-        for class_name, probability in zip(classifier.classes_, probabilities)
+        for class_name, probability in zip(classifier.classes_, probabilities, strict=False)
     }
 
     return {

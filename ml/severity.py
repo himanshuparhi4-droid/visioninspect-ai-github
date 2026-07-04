@@ -83,12 +83,7 @@ def calculate_severity(
     defect_type_score: float,
     confidence_score: float,
 ) -> dict:
-    score = (
-        size_score * 0.30
-        + location_score * 0.25
-        + defect_type_score * 0.25
-        + confidence_score * 0.20
-    )
+    score = size_score * 0.30 + location_score * 0.25 + defect_type_score * 0.25 + confidence_score * 0.20
     level = severity_level_from_score(score)
 
     return {
@@ -123,11 +118,13 @@ def calculate_severity_from_prediction(
         defect_type_score=defect_type_score,
         confidence_score=confidence_score,
     )
-    result.update({
-        "defect_type": defect_type,
-        "confidence": round(float(confidence), 4),
-        "area_ratio": round(float(area_ratio), 4),
-        "is_critical_location": bool(is_critical_location),
-        "defect_center_y_ratio": None if defect_center_y_ratio is None else round(float(defect_center_y_ratio), 4),
-    })
+    result.update(
+        {
+            "defect_type": defect_type,
+            "confidence": round(float(confidence), 4),
+            "area_ratio": round(float(area_ratio), 4),
+            "is_critical_location": bool(is_critical_location),
+            "defect_center_y_ratio": None if defect_center_y_ratio is None else round(float(defect_center_y_ratio), 4),
+        }
+    )
     return result

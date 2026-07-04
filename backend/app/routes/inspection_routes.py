@@ -2,17 +2,25 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
+import cv2
+import numpy as np
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
+from app.config import settings
 from app.dependencies import get_current_user
 from app.models.inspection_model import Inspection
 from app.models.user_model import User
-from app.schemas.inspection_schema import InspectionListResponse, InspectionMetadataUpdate, InspectionResponse, ReviewStatusUpdate
+from app.schemas.inspection_schema import (
+    InspectionListResponse,
+    InspectionMetadataUpdate,
+    InspectionResponse,
+    ReviewStatusUpdate,
+)
 from app.serializers import inspection_to_response
-from app.services.cloudinary_service import upload_image_or_local_url
 from app.services.audit_service import record_audit_event
+from app.services.cloudinary_service import upload_image_or_local_url
 from app.services.prediction_service import PredictionError, inspect_image_file, uploads_path
 from app.services.rework_service import create_or_update_rework_ticket
 from app.time_utils import utc_now
@@ -21,8 +29,35 @@ router = APIRouter(prefix="/inspections", tags=["inspections"])
 
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 ADMIN_ROLES = {"admin", "quality_manager", "factory_supervisor"}
+CAMERA_LABELS = ["good", "broken_large", "broken_small", "contamination"]
+CAMERA_DEMO_CONTROLS = [
+    {"value": "", "label": "Mixed production stream"},
+    {"value": "good", "label": "Good bottles"},
+    {"value": "broken_large", "label": "Broken large defects"},
+    {"value": "broken_small", "label": "Broken small defects"},
+    {"value": "contamination", "label": "Contamination defects"},
+]
+METADATA_FIELDS = ["batch_number", "product_id", "production_line", "shift", "operator_name", "source_label"]
+PREDICTION_FIELDS = [
+    "processed_image_url",
+    "processed_image_path",
+    "heatmap_url",
+    "heatmap_path",
+    "prediction",
+    "defect_type",
+    "confidence",
+    "anomaly_score",
+    "defect_area_ratio",
+    "severity_score",
+    "severity_level",
+    "pass_fail",
+    "recommended_action",
+    "model_version",
+]
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+APP_ROOT = Path(__file__).resolve().parents[1]
 CAMERA_SAMPLE_ROOT = PROJECT_ROOT / "data" / "raw" / "mvtec_anomaly_detection" / "bottle" / "test"
+DEMO_SAMPLE_ROOT = APP_ROOT / "demo_samples" / "bottle" / "test"
 
 
 def parse_document_id(value: str) -> PydanticObjectId:
@@ -30,6 +65,68 @@ def parse_document_id(value: str) -> PydanticObjectId:
         return PydanticObjectId(value)
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid inspection id") from exc
+
+
+def optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+def metadata_fields(metadata: dict | None) -> dict:
+    metadata = metadata or {}
+    return {field: optional_text(metadata.get(field)) for field in METADATA_FIELDS}
+
+
+def prediction_fields(prediction: dict) -> dict:
+    fields = {field: prediction.get(field) for field in PREDICTION_FIELDS}
+    fields["class_probabilities"] = prediction.get("class_probabilities", {})
+    fields["severity_components"] = prediction.get("severity_components", {})
+    fields["explainability"] = prediction.get("explainability", {})
+    return fields
+
+
+def inspection_base_fields(
+    *,
+    image_path: Path,
+    original_url: str,
+    current_user: User,
+    metadata: dict | None,
+    source_type: str,
+) -> dict:
+    return {
+        "uploaded_by": str(current_user.id),
+        "original_image_url": original_url,
+        "original_image_path": str(image_path),
+        "source_type": source_type,
+        **metadata_fields(metadata),
+    }
+
+
+def summarize_batch(inspections: list[Inspection]) -> dict:
+    def count(field: str, expected: str) -> int:
+        return sum(1 for item in inspections if getattr(item, field) == expected)
+
+    return {
+        "total": len(inspections),
+        "good": count("prediction", "Good"),
+        "defective": count("prediction", "Defective"),
+        "pass": count("pass_fail", "Pass"),
+        "review": count("pass_fail", "Review"),
+        "fail": count("pass_fail", "Fail"),
+        "critical": count("severity_level", "Critical"),
+        "average_confidence": round(sum(item.confidence or 0 for item in inspections) / len(inspections), 4),
+    }
+
+
+def ordered_label_counts(paths: list[Path]) -> dict[str, int]:
+    labels: dict[str, int] = {}
+    for path in paths:
+        labels[path.parent.name] = labels.get(path.parent.name, 0) + 1
+    ordered = {label: labels[label] for label in CAMERA_LABELS if labels.get(label)}
+    ordered.update({label: count for label, count in labels.items() if label not in ordered})
+    return ordered
 
 
 async def save_upload(file: UploadFile) -> Path:
@@ -44,6 +141,15 @@ async def save_upload(file: UploadFile) -> Path:
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Image exceeds {settings.max_upload_size_mb} MB upload limit",
+        )
+    decoded = cv2.imdecode(np.frombuffer(content, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if decoded is None:
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image")
 
     destination.write_bytes(content)
     return destination
@@ -67,12 +173,12 @@ def inspection_metadata(
     source_label: str | None = Form(default=None),
 ) -> dict:
     return {
-        "batch_number": batch_number or None,
-        "product_id": product_id or None,
-        "production_line": production_line or None,
-        "shift": shift or None,
-        "operator_name": operator_name or None,
-        "source_label": source_label or None,
+        "batch_number": optional_text(batch_number),
+        "product_id": optional_text(product_id),
+        "production_line": optional_text(production_line),
+        "shift": optional_text(shift),
+        "operator_name": optional_text(operator_name),
+        "source_label": optional_text(source_label),
     }
 
 
@@ -101,34 +207,15 @@ async def create_inspection_from_path(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     inspection = Inspection(
-        uploaded_by=str(current_user.id),
-        original_image_url=original_url,
-        original_image_path=str(image_path),
-        processed_image_url=prediction.get("processed_image_url"),
-        processed_image_path=prediction.get("processed_image_path"),
-        heatmap_url=prediction.get("heatmap_url"),
-        heatmap_path=prediction.get("heatmap_path"),
-        prediction=prediction.get("prediction"),
-        defect_type=prediction.get("defect_type"),
-        confidence=prediction.get("confidence"),
-        anomaly_score=prediction.get("anomaly_score"),
-        defect_area_ratio=prediction.get("defect_area_ratio"),
-        class_probabilities=prediction.get("class_probabilities", {}),
-        severity_score=prediction.get("severity_score"),
-        severity_level=prediction.get("severity_level"),
-        severity_components=prediction.get("severity_components", {}),
-        explainability=prediction.get("explainability", {}),
-        pass_fail=prediction.get("pass_fail"),
-        recommended_action=prediction.get("recommended_action"),
-        model_version=prediction.get("model_version"),
+        **inspection_base_fields(
+            image_path=image_path,
+            original_url=original_url,
+            current_user=current_user,
+            metadata=metadata,
+            source_type=source_type,
+        ),
+        **prediction_fields(prediction),
         review_status="ai_completed",
-        batch_number=metadata.get("batch_number"),
-        product_id=metadata.get("product_id"),
-        production_line=metadata.get("production_line"),
-        shift=metadata.get("shift"),
-        operator_name=metadata.get("operator_name"),
-        source_type=source_type,
-        source_label=metadata.get("source_label"),
     )
     await inspection.insert()
     await record_audit_event(
@@ -156,14 +243,17 @@ async def create_inspection_from_file(file: UploadFile, current_user: User, meta
 
 
 def camera_sample_paths(label: str | None = None) -> list[Path]:
-    if not CAMERA_SAMPLE_ROOT.exists():
-        return []
-    roots = [CAMERA_SAMPLE_ROOT / label] if label else [path for path in CAMERA_SAMPLE_ROOT.iterdir() if path.is_dir()]
-    paths: list[Path] = []
-    for root in roots:
-        if root.exists() and root.is_dir():
-            paths.extend(sorted(path for path in root.glob("*.png")))
-    return sorted(paths)
+    for sample_root in (CAMERA_SAMPLE_ROOT, DEMO_SAMPLE_ROOT):
+        if not sample_root.exists():
+            continue
+        roots = [sample_root / label] if label else [path for path in sample_root.iterdir() if path.is_dir()]
+        paths: list[Path] = []
+        for root in roots:
+            if root.exists() and root.is_dir():
+                paths.extend(sorted(path for path in root.glob("*.png")))
+        if paths:
+            return sorted(paths)
+    return []
 
 
 @router.post("/upload", response_model=InspectionResponse, status_code=201)
@@ -177,17 +267,14 @@ async def upload_image(
     image_path = await save_upload(file)
     original_url = upload_image_or_local_url(image_path, "original")
     inspection = Inspection(
-        uploaded_by=str(current_user.id),
-        original_image_url=original_url,
-        original_image_path=str(image_path),
+        **inspection_base_fields(
+            image_path=image_path,
+            original_url=original_url,
+            current_user=current_user,
+            metadata=metadata,
+            source_type="manual_upload",
+        ),
         review_status="uploaded",
-        batch_number=metadata.get("batch_number"),
-        product_id=metadata.get("product_id"),
-        production_line=metadata.get("production_line"),
-        shift=metadata.get("shift"),
-        operator_name=metadata.get("operator_name"),
-        source_type="manual_upload",
-        source_label=metadata.get("source_label"),
     )
     await inspection.insert()
     await record_audit_event(
@@ -208,7 +295,7 @@ async def update_inspection_metadata(
 ) -> InspectionResponse:
     inspection = await get_visible_inspection(inspection_id, current_user)
     for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(inspection, field, value.strip() if isinstance(value, str) and value.strip() else None)
+        setattr(inspection, field, optional_text(value) if isinstance(value, str) else value)
     inspection.updated_at = utc_now()
     await inspection.save()
     await record_audit_event(
@@ -252,55 +339,27 @@ async def batch_inspect_images(
         inspection = await create_inspection_from_file(file, current_user, metadata)
         inspections.append(inspection)
 
-    summary = {
-        "total": len(inspections),
-        "good": sum(1 for item in inspections if item.prediction == "Good"),
-        "defective": sum(1 for item in inspections if item.prediction == "Defective"),
-        "pass": sum(1 for item in inspections if item.pass_fail == "Pass"),
-        "review": sum(1 for item in inspections if item.pass_fail == "Review"),
-        "fail": sum(1 for item in inspections if item.pass_fail == "Fail"),
-        "critical": sum(1 for item in inspections if item.severity_level == "Critical"),
-        "average_confidence": round(
-            sum(item.confidence or 0 for item in inspections) / len(inspections),
-            4,
-        ),
-    }
-
     return InspectionListResponse(
         total=len(inspections),
         items=[inspection_to_response(inspection) for inspection in inspections],
-        summary=summary,
+        summary=summarize_batch(inspections),
     )
 
 
 @router.get("/camera-samples")
 async def get_camera_samples(current_user: User = Depends(get_current_user)) -> dict:
     paths = camera_sample_paths()
-    labels: dict[str, int] = {}
-    for path in paths:
-        labels[path.parent.name] = labels.get(path.parent.name, 0) + 1
+    labels = ordered_label_counts(paths)
     await record_audit_event(
         actor=current_user,
         action="camera.samples_viewed",
         entity_type="camera_simulation",
         metadata={"total_samples": len(paths), "labels": labels},
     )
-    ordered_labels = {
-        key: labels.get(key, 0)
-        for key in ["good", "broken_large", "broken_small", "contamination"]
-        if labels.get(key, 0)
-    }
-    ordered_labels.update({key: value for key, value in labels.items() if key not in ordered_labels})
     return {
         "total": len(paths),
-        "labels": ordered_labels,
-        "demo_controls": [
-            {"value": "", "label": "Mixed production stream"},
-            {"value": "good", "label": "Good bottles"},
-            {"value": "broken_large", "label": "Broken large defects"},
-            {"value": "broken_small", "label": "Broken small defects"},
-            {"value": "contamination", "label": "Contamination defects"},
-        ],
+        "labels": labels,
+        "demo_controls": CAMERA_DEMO_CONTROLS,
     }
 
 
@@ -415,7 +474,11 @@ async def update_review_status(
         action="inspection.review_status_updated",
         entity_type="inspection",
         entity_id=str(inspection.id),
-        metadata={"review_status": inspection.review_status, "review_notes": inspection.review_notes, **ticket_metadata},
+        metadata={
+            "review_status": inspection.review_status,
+            "review_notes": inspection.review_notes,
+            **ticket_metadata,
+        },
     )
     response = inspection_to_response(inspection)
     response.rework_ticket_id = ticket_metadata.get("rework_ticket_id")

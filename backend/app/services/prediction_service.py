@@ -19,8 +19,17 @@ PROJECT_ROOT = BACKEND_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+
 class PredictionError(RuntimeError):
     pass
+
+
+def default_model_metadata() -> dict:
+    return {
+        "model_name": "classifier",
+        "model_version": "local",
+        "metrics": {},
+    }
 
 
 def resolve_backend_path(value: str | Path) -> Path:
@@ -40,11 +49,7 @@ def uploads_path(*parts: str) -> Path:
 def load_model_metadata() -> dict:
     path = resolve_backend_path(settings.model_metadata_path)
     if not path.exists():
-        return {
-            "model_name": "classifier",
-            "model_version": "local",
-            "metrics": {},
-        }
+        return default_model_metadata()
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -85,7 +90,7 @@ def classify_defect_type(image_path: str | Path) -> dict:
     probabilities = classifier.predict_proba(features)[0]
     class_probabilities = {
         str(class_name): round(float(probability), 4)
-        for class_name, probability in zip(classifier.classes_, probabilities)
+        for class_name, probability in zip(classifier.classes_, probabilities, strict=False)
     }
 
     return {
@@ -151,21 +156,22 @@ def save_visual_outputs(image_bgr: np.ndarray, diff_map: np.ndarray) -> dict:
 
 
 def baseline_anomaly_prediction(image_bgr: np.ndarray) -> dict:
-    from ml.baseline_detector import anomaly_map, anomaly_score
     from app.services.model_settings_service import load_runtime_settings
+    from ml.baseline_detector import anomaly_map, anomaly_score
 
     reference = load_reference_image()
     threshold = load_runtime_settings().baseline_threshold
     diff_map = anomaly_map(image_bgr, reference)
     score = round(float(anomaly_score(diff_map)), 4)
     binary_mask = diff_map > threshold
+    classification = baseline_fallback_classification(score)
 
     return {
         "engine": "baseline",
         "anomaly_score": score,
         "decision_threshold": threshold,
         "is_defective": score > threshold,
-        "detection_confidence": baseline_fallback_classification(score)["confidence"],
+        "detection_confidence": classification["confidence"],
         "anomaly_map": diff_map,
         "pred_mask": binary_mask,
     }
@@ -219,9 +225,52 @@ def live_anomaly_prediction(image_path: Path, image_bgr: np.ndarray) -> dict:
     return baseline_anomaly_prediction(image_bgr)
 
 
+def classify_prediction(image_path: Path, score: float, detection_confidence: float, is_defective: bool) -> dict:
+    if not is_defective:
+        return {
+            "defect_type": "good",
+            "confidence": detection_confidence,
+            "class_probabilities": {"good": detection_confidence},
+        }
+
+    try:
+        classification = classify_defect_type(image_path)
+    except Exception:
+        classification = baseline_fallback_classification(score)
+
+    if classification["defect_type"] == "good":
+        classification["defect_type"] = "unknown_defect"
+    classification["confidence"] = max(float(classification["confidence"]), detection_confidence)
+    return classification
+
+
+def apply_quality_decision(severity: dict) -> dict:
+    from app.services.model_settings_service import load_runtime_settings
+
+    runtime_settings = load_runtime_settings()
+    score = severity["severity_score"]
+
+    if score >= runtime_settings.fail_severity_threshold:
+        return {
+            **severity,
+            "pass_fail": "Fail",
+            "recommended_action": "Reject product or send to rework based on QA policy",
+        }
+    if score >= runtime_settings.review_severity_threshold:
+        return {
+            **severity,
+            "pass_fail": "Review",
+            "recommended_action": "Manual quality review required before release",
+        }
+    return {
+        **severity,
+        "pass_fail": "Pass",
+        "recommended_action": "Product generally acceptable",
+    }
+
+
 def inspect_image_file(image_path: str | Path) -> dict:
     from ml.severity import calculate_severity_from_prediction
-    from app.services.model_settings_service import load_runtime_settings
 
     image_path = Path(image_path)
     image_bgr = cv2.imread(str(image_path))
@@ -235,23 +284,8 @@ def inspect_image_file(image_path: str | Path) -> dict:
     is_defective = bool(anomaly["is_defective"])
     detection_confidence = float(anomaly["detection_confidence"])
 
-    if is_defective:
-        try:
-            classification = classify_defect_type(image_path)
-        except Exception:
-            classification = baseline_fallback_classification(score)
-
-        if classification["defect_type"] == "good":
-            classification["defect_type"] = "unknown_defect"
-        confidence = max(float(classification["confidence"]), detection_confidence)
-    else:
-        classification = {
-            "defect_type": "good",
-            "confidence": detection_confidence,
-            "class_probabilities": {"good": detection_confidence},
-        }
-        confidence = detection_confidence
-
+    classification = classify_prediction(image_path, score, detection_confidence, is_defective)
+    confidence = float(classification["confidence"])
     defect_type = classification["defect_type"]
     prediction = "Defective" if is_defective else "Good"
     geometry = compute_defect_geometry(binary_mask, defect_type)
@@ -262,16 +296,7 @@ def inspect_image_file(image_path: str | Path) -> dict:
         is_critical_location=geometry["is_critical_location"],
         defect_center_y_ratio=geometry["defect_center_y_ratio"],
     )
-    runtime_settings = load_runtime_settings()
-    if severity["severity_score"] >= runtime_settings.fail_severity_threshold:
-        severity["pass_fail"] = "Fail"
-        severity["recommended_action"] = "Reject product or send to rework based on QA policy"
-    elif severity["severity_score"] >= runtime_settings.review_severity_threshold:
-        severity["pass_fail"] = "Review"
-        severity["recommended_action"] = "Manual quality review required before release"
-    else:
-        severity["pass_fail"] = "Pass"
-        severity["recommended_action"] = "Product generally acceptable"
+    severity = apply_quality_decision(severity)
     outputs = save_visual_outputs(image_bgr, diff_map)
     metadata = load_model_metadata()
     explainability = build_explainability(

@@ -81,10 +81,12 @@ def score_dataframe(dataset_df: pd.DataFrame, reference_image: np.ndarray, thres
         diff = anomaly_map(image_bgr, reference_image)
         score = anomaly_score(diff)
         prediction = predict_from_score(score, threshold)
-        rows.append({
-            **row.to_dict(),
-            "anomaly_score": score,
-            "prediction": prediction,
-            "prediction_name": "defective" if prediction == 1 else "good",
-        })
+        rows.append(
+            {
+                **row.to_dict(),
+                "anomaly_score": score,
+                "prediction": prediction,
+                "prediction_name": "defective" if prediction == 1 else "good",
+            }
+        )
     return pd.DataFrame(rows)

@@ -1,13 +1,12 @@
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.config import allowed_cors_origins, settings
 from app.db.init_beanie import init_database
 from app.db.mongodb import close_database, ping_database
+from app.errors import register_exception_handlers
+from app.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.routes import (
     analytics_routes,
     audit_routes,
@@ -20,11 +19,15 @@ from app.routes import (
     rework_routes,
     user_routes,
 )
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.database_ready = False
+    app.state.started_at = datetime.now(UTC)
     try:
         await ping_database()
         await init_database()
@@ -37,10 +40,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.1.0",
+    version=settings.app_version,
     description="Manufacturing defect detection and quality inspection API",
     lifespan=lifespan,
 )
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestContextMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,6 +55,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+register_exception_handlers(app)
 
 uploads_dir = Path(__file__).resolve().parent / "app" / "uploads"
 uploads_dir.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,39 @@
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | venv
+  | frontend
+  | data
+  | models/checkpoints
+  | backend/app/uploads
+)/
+'''
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+  ".git",
+  ".venv",
+  "venv",
+  "frontend",
+  "data",
+  "models/checkpoints",
+  "backend/app/uploads",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/app/services/production_service.py" = ["E712"]
+"tests/*.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["backend", "."]

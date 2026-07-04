@@ -17,11 +17,7 @@ cloudinary.config(
 
 
 def cloudinary_is_configured() -> bool:
-    return bool(
-        settings.cloudinary_cloud_name
-        and settings.cloudinary_api_key
-        and settings.cloudinary_api_secret
-    )
+    return bool(settings.cloudinary_cloud_name and settings.cloudinary_api_key and settings.cloudinary_api_secret)
 
 
 def storage_backend() -> str:

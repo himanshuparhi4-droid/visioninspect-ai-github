@@ -36,7 +36,9 @@ export default function ReportTable({ reports, onError }) {
                 <button
                   className="icon-link"
                   type="button"
-                  onClick={() => downloadReport(report).catch((err) => onError?.(err.message || "Could not open report"))}
+                  onClick={() =>
+                    downloadReport(report).catch((err) => onError?.(err.message || "Could not open report"))
+                  }
                   aria-label="Open report PDF"
                 >
                   <ExternalLink size={16} />

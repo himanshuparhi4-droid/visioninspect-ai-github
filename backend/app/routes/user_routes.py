@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.dependencies import get_current_user, require_roles
 from app.models.user_model import User
 from app.schemas.user_schema import PasswordReset, UserCreate, UserResponse, UserUpdate
-from app.serializers import user_to_response
 from app.security import hash_password
+from app.serializers import user_to_response
 from app.services.audit_service import record_audit_event
 from app.services.auth_service import create_user
 from app.time_utils import utc_now

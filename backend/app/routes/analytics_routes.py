@@ -38,7 +38,9 @@ async def export_inspections_csv(current_user: User = Depends(get_current_user))
     if current_user.role in ADMIN_ROLES:
         inspections = await Inspection.find_all().sort("-created_at").to_list()
     else:
-        inspections = await Inspection.find(Inspection.uploaded_by == str(current_user.id)).sort("-created_at").to_list()
+        inspections = (
+            await Inspection.find(Inspection.uploaded_by == str(current_user.id)).sort("-created_at").to_list()
+        )
 
     output = StringIO()
     writer = csv.writer(output)

@@ -3,7 +3,14 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app.dependencies import get_current_user
 from app.models.user_model import User
-from app.schemas.user_schema import PublicUserRegister, RegistrationResponse, TokenResponse, UserCreate, UserLogin, UserResponse
+from app.schemas.user_schema import (
+    PublicUserRegister,
+    RegistrationResponse,
+    TokenResponse,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
 from app.serializers import user_to_response
 from app.services.audit_service import record_audit_event
 from app.services.auth_service import authenticate_user, build_token_for_user, create_user
