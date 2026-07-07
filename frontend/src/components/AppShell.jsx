@@ -12,6 +12,7 @@ export default function AppShell({ title, subtitle, children }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -25,6 +26,10 @@ export default function AppShell({ title, subtitle, children }) {
       .finally(() => setReady(true));
   }, [router]);
 
+  function handleSidebarToggle() {
+    setSidebarCollapsed((current) => !current);
+  }
+
   if (!ready) {
     return (
       <main className="loading-screen">
@@ -34,8 +39,8 @@ export default function AppShell({ title, subtitle, children }) {
   }
 
   return (
-    <div className="app-layout">
-      <Sidebar user={user} />
+    <div className={sidebarCollapsed ? "app-layout sidebar-collapsed" : "app-layout"}>
+      <Sidebar user={user} collapsed={sidebarCollapsed} onToggleCollapse={handleSidebarToggle} />
       <div className="app-main">
         <Navbar title={title} subtitle={subtitle} user={user} />
         <main className="page-content">{children}</main>

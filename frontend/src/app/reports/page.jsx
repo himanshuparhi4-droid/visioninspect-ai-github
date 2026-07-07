@@ -29,6 +29,13 @@ export default function ReportsPage() {
         </button>
         {message ? <span className="inline-error">{message}</span> : null}
       </div>
+      <section className="command-strip report-strip">
+        <div>
+          <span className="eyebrow">Quality Records</span>
+          <h2>{reports.length} generated reports</h2>
+          <p>Open inspection PDFs for audit review, customer sharing, or production quality documentation.</p>
+        </div>
+      </section>
       <section className="tool-panel">
         <div className="panel-heading">
           <div>

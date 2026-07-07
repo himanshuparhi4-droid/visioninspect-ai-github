@@ -9,6 +9,19 @@ export function formatMetric(value) {
 }
 
 export function ArtifactsPanel({ artifacts = {} }) {
+  function artifactLabel(name) {
+    if (name === "padim_checkpoint") return "PaDiM checkpoint";
+    if (name === "defect_classifier") return "Defect classifier";
+    if (name === "baseline_reference") return "Baseline reference";
+    return name.replaceAll("_", " ");
+  }
+
+  function artifactStatus(name, available) {
+    if (available) return { className: "good-text", label: "Available" };
+    if (name === "padim_checkpoint") return { className: "severity-pending", label: "External" };
+    return { className: "severity-pending", label: "Not loaded" };
+  }
+
   return (
     <section className="tool-panel">
       <div className="panel-heading">
@@ -19,12 +32,15 @@ export function ArtifactsPanel({ artifacts = {} }) {
         <Cpu size={22} />
       </div>
       <div className="artifact-list">
-        {Object.entries(artifacts).map(([name, available]) => (
-          <div key={name} className="artifact-row">
-            <span>{name.replaceAll("_", " ")}</span>
-            <strong className={available ? "good-text" : "fail-text"}>{available ? "Available" : "Missing"}</strong>
-          </div>
-        ))}
+        {Object.entries(artifacts).map(([name, available]) => {
+          const status = artifactStatus(name, available);
+          return (
+            <div key={name} className="artifact-row">
+              <span>{artifactLabel(name)}</span>
+              <strong className={status.className}>{status.label}</strong>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

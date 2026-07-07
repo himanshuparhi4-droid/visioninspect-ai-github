@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, RefreshCw, TimerReset } from "lucide-react";
 
 import AppShell from "../../components/AppShell";
 import ReworkTicketCard, {
@@ -19,6 +19,14 @@ export default function ReworkPage() {
   const [users, setUsers] = useState([]);
   const [status, setStatus] = useState("");
   const [message, setMessage] = useState("");
+  const queueStats = useMemo(
+    () => ({
+      open: tickets.filter((ticket) => ticket.status === "open").length,
+      progress: tickets.filter((ticket) => ticket.status === "in_progress").length,
+      completed: tickets.filter((ticket) => ["completed", "closed"].includes(ticket.status)).length,
+    }),
+    [tickets]
+  );
 
   async function loadTickets() {
     setMessage("");
@@ -102,6 +110,30 @@ export default function ReworkPage() {
           </span>
         ) : null}
       </div>
+
+      <section className="queue-strip">
+        <div className="pulse-card">
+          <AlertTriangle size={20} />
+          <span>
+            <strong>{queueStats.open}</strong>
+            <small>Open tickets</small>
+          </span>
+        </div>
+        <div className="pulse-card">
+          <TimerReset size={20} />
+          <span>
+            <strong>{queueStats.progress}</strong>
+            <small>In progress</small>
+          </span>
+        </div>
+        <div className="pulse-card">
+          <CheckCircle2 size={20} />
+          <span>
+            <strong>{queueStats.completed}</strong>
+            <small>Completed/closed</small>
+          </span>
+        </div>
+      </section>
 
       <section className="ticket-grid">
         {tickets.map((ticket) => (

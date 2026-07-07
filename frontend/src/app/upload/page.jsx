@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
+import { CheckCircle2, FileText, ScanSearch } from "lucide-react";
 
 import AppShell from "../../components/AppShell";
 import BatchInspectionResults from "../../components/BatchInspectionResults";
@@ -105,22 +105,59 @@ export default function UploadPage() {
 
   return (
     <AppShell title="Image Inspection" subtitle="Upload a product image and run AI defect detection.">
-      <div className="inspection-layout">
-        <ImageUpload file={file} onFileChange={setFile} onInspect={handleInspect} loading={loading} />
-        <InspectionResult result={result} />
-      </div>
-
-      <section className="tool-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Production Metadata</h2>
-            <p>Attach manufacturing context to this inspection.</p>
-          </div>
-        </div>
-        <ProductionMetadataForm value={metadata} catalog={catalog} onChange={setMetadata} />
+      <section className="workflow-banner">
+        {["Upload", "Metadata", "Inspect", "Review"].map((step, index) => {
+          const active =
+            (index === 0 && file) ||
+            (index === 1 && metadata.product_id) ||
+            (index === 2 && loading) ||
+            (index === 3 && result);
+          return (
+            <span key={step} className={active ? "workflow-step active" : "workflow-step"}>
+              <strong>{index + 1}</strong>
+              {step}
+            </span>
+          );
+        })}
       </section>
 
-      <div className="inspection-layout">
+      <div className="workflow-grid">
+        <div className="stack">
+          <ImageUpload file={file} onFileChange={setFile} onInspect={handleInspect} loading={loading} />
+          <section className="tool-panel">
+            <div className="panel-heading">
+              <div>
+                <h2>Production Metadata</h2>
+                <p>Attach manufacturing context before inspection.</p>
+              </div>
+              <CheckCircle2 size={22} />
+            </div>
+            <ProductionMetadataForm value={metadata} catalog={catalog} onChange={setMetadata} />
+          </section>
+        </div>
+
+        <div className="stack">
+          <InspectionResult result={result} />
+          <section className="tool-panel run-summary-panel">
+            <div className="panel-heading">
+              <div>
+                <h2>Inspection Actions</h2>
+                <p>Generate reports after a successful result.</p>
+              </div>
+              <ScanSearch size={22} />
+            </div>
+            <div className="page-actions compact">
+              <button className="ghost-button" type="button" onClick={handleReport} disabled={!result?.id}>
+                <FileText size={16} />
+                Generate PDF report
+              </button>
+              {message ? <span className="inline-success">{message}</span> : null}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div className="media-grid">
         <section className="tool-panel">
           <div className="panel-heading">
             <div>
@@ -139,13 +176,6 @@ export default function UploadPage() {
         <DefectHeatmap imageUrl={result?.heatmap_url} />
       </div>
 
-      <div className="page-actions">
-        <button className="ghost-button" type="button" onClick={handleReport} disabled={!result?.id}>
-          <FileText size={16} />
-          Generate PDF report
-        </button>
-        {message ? <span className="inline-success">{message}</span> : null}
-      </div>
       {failure ? (
         <section className="error-panel">
           <strong>{failure.title}</strong>
@@ -157,7 +187,7 @@ export default function UploadPage() {
         </section>
       ) : null}
 
-      <section className="tool-panel">
+      <section className="tool-panel batch-panel">
         <div className="panel-heading">
           <div>
             <h2>Batch Image Processing</h2>

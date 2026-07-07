@@ -108,7 +108,7 @@ export default function CameraPage() {
         {message ? <span className="inline-error">{message}</span> : null}
       </div>
 
-      <section className="tool-panel">
+      <section className={running ? "tool-panel camera-source-panel live" : "tool-panel camera-source-panel"}>
         <div className="panel-heading">
           <div>
             <h2>Camera Source</h2>
@@ -156,7 +156,7 @@ export default function CameraPage() {
         </div>
       </section>
 
-      <div className="inspection-layout">
+      <div className="media-grid">
         <InspectionResult result={selected} />
         <DefectHeatmap imageUrl={selected?.heatmap_url} />
       </div>

@@ -47,65 +47,82 @@ export default function LoginPage() {
 
   return (
     <main className="auth-screen">
-      <section className="auth-panel">
-        <div className="auth-brand">
-          <span className="brand-mark">
-            <Factory size={24} />
-          </span>
-          <div>
-            <h1>VisionInspect AI</h1>
-            <p>Manufacturing defect detection console</p>
+      <div className="auth-shell">
+        <section className="auth-copy-panel">
+          <span className="eyebrow">AI Quality Inspection</span>
+          <h1>Detect defects, review quality, and track production decisions.</h1>
+          <p>
+            VisionInspect AI combines anomaly detection, severity scoring, rework tracking, reports, and analytics in
+            one manufacturing inspection console.
+          </p>
+          <div className="auth-feature-grid">
+            <span>PaDiM anomaly detection</span>
+            <span>MongoDB traceability</span>
+            <span>Heatmap reports</span>
+            <span>Role-based review</span>
           </div>
-        </div>
+        </section>
 
-        <div className="segmented-control" role="tablist" aria-label="Authentication mode">
-          <button className={mode === "login" ? "active" : ""} type="button" onClick={() => setMode("login")}>
-            <LockKeyhole size={16} />
-            Login
-          </button>
-          <button className={mode === "register" ? "active" : ""} type="button" onClick={() => setMode("register")}>
-            <UserPlus size={16} />
-            Register
-          </button>
-        </div>
+        <section className="auth-panel">
+          <div className="auth-brand">
+            <span className="brand-mark">
+              <Factory size={24} />
+            </span>
+            <div>
+              <h1>VisionInspect AI</h1>
+              <p>Manufacturing defect detection console</p>
+            </div>
+          </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          {mode === "register" ? (
-            <>
-              <label>
-                Name
-                <input value={form.name} onChange={(event) => updateField("name", event.target.value)} />
-              </label>
-              <label>
-                Requested Role
-                <select value={form.role} onChange={(event) => updateField("role", event.target.value)}>
-                  <option value="quality_engineer">Quality engineer</option>
-                  <option value="factory_supervisor">Factory supervisor</option>
-                  <option value="quality_manager">Quality manager</option>
-                </select>
-              </label>
-            </>
-          ) : null}
-          <label>
-            Email
-            <input type="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              value={form.password}
-              onChange={(event) => updateField("password", event.target.value)}
-            />
-          </label>
-          {error ? <p className="form-error">{error}</p> : null}
-          {success ? <p className="form-success">{success}</p> : null}
-          <button className="primary-button" type="submit" disabled={loading}>
-            {mode === "login" ? <LockKeyhole size={18} /> : <UserPlus size={18} />}
-            <span>{loading ? "Please wait" : mode === "login" ? "Login" : "Request Account"}</span>
-          </button>
-        </form>
-      </section>
+          <div className="segmented-control" role="tablist" aria-label="Authentication mode">
+            <button className={mode === "login" ? "active" : ""} type="button" onClick={() => setMode("login")}>
+              <LockKeyhole size={16} />
+              Login
+            </button>
+            <button className={mode === "register" ? "active" : ""} type="button" onClick={() => setMode("register")}>
+              <UserPlus size={16} />
+              Register
+            </button>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit}>
+            {mode === "register" ? (
+              <>
+                <label>
+                  Name
+                  <input value={form.name} onChange={(event) => updateField("name", event.target.value)} />
+                </label>
+                <label>
+                  Requested Role
+                  <select value={form.role} onChange={(event) => updateField("role", event.target.value)}>
+                    <option value="quality_engineer">Quality engineer</option>
+                    <option value="factory_supervisor">Factory supervisor</option>
+                    <option value="quality_manager">Quality manager</option>
+                  </select>
+                </label>
+              </>
+            ) : null}
+            <label>
+              Email
+              <input type="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} />
+            </label>
+            <label>
+              Password
+              <input
+                type="password"
+                value={form.password}
+                onChange={(event) => updateField("password", event.target.value)}
+              />
+            </label>
+            {error ? <p className="form-error">{error}</p> : null}
+            {success ? <p className="form-success">{success}</p> : null}
+            <button className="primary-button" type="submit" disabled={loading}>
+              {mode === "login" ? <LockKeyhole size={18} /> : <UserPlus size={18} />}
+              <span>{loading ? "Please wait" : mode === "login" ? "Login" : "Request Account"}</span>
+            </button>
+          </form>
+        </section>
+      </div>
     </main>
   );
 }

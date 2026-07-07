@@ -29,6 +29,7 @@ export default function InspectionPage() {
   const [reworkTicket, setReworkTicket] = useState(null);
   const [catalog, setCatalog] = useState(EMPTY_CATALOG);
   const [metadataForm, setMetadataForm] = useState(EMPTY_METADATA);
+  const [detailTab, setDetailTab] = useState("result");
 
   async function loadInspections() {
     const payload = await listInspections({ limit: 50, ...filters });
@@ -112,7 +113,13 @@ export default function InspectionPage() {
         {message ? <span className="inline-success">{message}</span> : null}
       </div>
 
-      <section className="tool-panel">
+      <section className="tool-panel filter-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Inspection Filters</h2>
+            <p>Narrow records by product, line, or review workflow state.</p>
+          </div>
+        </div>
         <div className="metadata-grid">
           <label>
             Product ID
@@ -162,7 +169,7 @@ export default function InspectionPage() {
         </div>
       </section>
 
-      <div className="history-layout">
+      <div className="history-layout history-workspace">
         <section className="tool-panel">
           <div className="panel-heading">
             <div>
@@ -193,86 +200,121 @@ export default function InspectionPage() {
         </section>
 
         <div className="stack inspection-detail-stack">
-          <InspectionResult result={selected} />
-          <section className="tool-panel">
+          <section className="tool-panel compact-detail-panel">
             <div className="panel-heading">
               <div>
-                <h2>Manual Review</h2>
-                <p>{formatReviewStatus(selected?.review_status) || "No inspection selected"}</p>
+                <h2>Inspection Workspace</h2>
+                <p>
+                  {selected ? selected.product_id || selected.source_label || selected.id : "No inspection selected"}
+                </p>
               </div>
             </div>
-            <label className="notes-field">
-              Reviewer notes
-              <textarea
-                value={reviewNotes}
-                onChange={(event) => setReviewNotes(event.target.value)}
-                placeholder={selected?.review_notes || "Add approval, rejection, or rework notes"}
+            <div className="tab-strip" role="tablist" aria-label="Inspection details">
+              {[
+                ["result", "Result"],
+                ["review", "Review"],
+                ["metadata", "Metadata"],
+                ["heatmap", "Heatmap"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  className={detailTab === value ? "tab-button active" : "tab-button"}
+                  type="button"
+                  onClick={() => setDetailTab(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {detailTab === "result" ? <InspectionResult result={selected} /> : null}
+
+          {detailTab === "review" ? (
+            <section className="tool-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Manual Review</h2>
+                  <p>{formatReviewStatus(selected?.review_status) || "No inspection selected"}</p>
+                </div>
+              </div>
+              <label className="notes-field">
+                Reviewer notes
+                <textarea
+                  value={reviewNotes}
+                  onChange={(event) => setReviewNotes(event.target.value)}
+                  placeholder={selected?.review_notes || "Add approval, rejection, or rework notes"}
+                />
+              </label>
+              {reworkTicket?.id ? (
+                <div className="rework-callout">
+                  <span>
+                    <Wrench size={16} />
+                    <strong>{reworkTicket.ticket_number || "Rework ticket"}</strong>
+                    <small>{reworkTicket.status ? formatReviewStatus(reworkTicket.status) : "Open"}</small>
+                  </span>
+                  <Link className="primary-link" href="/rework">
+                    Open queue
+                  </Link>
+                </div>
+              ) : null}
+              {REVIEW_ROLES.has(currentUser?.role) ? (
+                <div className="page-actions compact review-actions">
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => handleReviewStatus("approved")}
+                    disabled={!selected}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => handleReviewStatus("rejected")}
+                    disabled={!selected}
+                  >
+                    Reject
+                  </button>
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => handleReviewStatus("sent_for_rework")}
+                    disabled={!selected}
+                  >
+                    Rework
+                  </button>
+                </div>
+              ) : (
+                <p className="form-success">Review actions are available to supervisors and quality managers.</p>
+              )}
+            </section>
+          ) : null}
+
+          {detailTab === "metadata" ? (
+            <section className="tool-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Production Metadata</h2>
+                  <p>Assign traceability details for audits and reports.</p>
+                </div>
+              </div>
+              <ProductionMetadataForm
+                value={metadataForm}
+                catalog={catalog}
+                onChange={setMetadataForm}
+                disabled={!selected}
+                placeholders={{ batch: "Unassigned", product: "Unassigned", line: "Unassigned" }}
               />
-            </label>
-            {reworkTicket?.id ? (
-              <div className="rework-callout">
-                <span>
-                  <Wrench size={16} />
-                  <strong>{reworkTicket.ticket_number || "Rework ticket"}</strong>
-                  <small>{reworkTicket.status ? formatReviewStatus(reworkTicket.status) : "Open"}</small>
-                </span>
-                <Link className="primary-link" href="/rework">
-                  Open queue
-                </Link>
-              </div>
-            ) : null}
-            {REVIEW_ROLES.has(currentUser?.role) ? (
-              <div className="page-actions compact review-actions">
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => handleReviewStatus("approved")}
-                  disabled={!selected}
-                >
-                  Approve
-                </button>
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => handleReviewStatus("rejected")}
-                  disabled={!selected}
-                >
-                  Reject
-                </button>
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => handleReviewStatus("sent_for_rework")}
-                  disabled={!selected}
-                >
-                  Rework
+              <div className="page-actions compact">
+                <button className="primary-button" type="button" onClick={handleMetadataSave} disabled={!selected}>
+                  Save metadata
                 </button>
               </div>
-            ) : (
-              <p className="form-success">Review actions are available to supervisors and quality managers.</p>
-            )}
-          </section>
-          <section className="tool-panel">
-            <div className="panel-heading">
-              <div>
-                <h2>Production Metadata</h2>
-                <p>Assign traceability details for audits and reports.</p>
-              </div>
-            </div>
-            <ProductionMetadataForm
-              value={metadataForm}
-              catalog={catalog}
-              onChange={setMetadataForm}
-              disabled={!selected}
-              placeholders={{ batch: "Unassigned", product: "Unassigned", line: "Unassigned" }}
-            />
-            <div className="page-actions compact">
-              <button className="primary-button" type="button" onClick={handleMetadataSave} disabled={!selected}>
-                Save metadata
-              </button>
-            </div>
-          </section>
-          <DefectHeatmap imageUrl={selected?.heatmap_url} />
+            </section>
+          ) : null}
+
+          {detailTab === "heatmap" ? <DefectHeatmap imageUrl={selected?.heatmap_url} /> : null}
         </div>
       </div>
     </AppShell>
