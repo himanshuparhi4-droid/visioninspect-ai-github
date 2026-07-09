@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import io
+import logging
+import warnings
+from contextlib import redirect_stderr, redirect_stdout
 from functools import lru_cache
 from pathlib import Path
 
@@ -10,6 +14,18 @@ from app.config import settings
 
 class PadimInferenceError(RuntimeError):
     pass
+
+
+def run_quietly(function, *args, **kwargs):
+    """Suppress noisy third-party inference logs while preserving exceptions."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        logging.disable(logging.CRITICAL)
+        try:
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                return function(*args, **kwargs)
+        finally:
+            logging.disable(logging.NOTSET)
 
 
 def choose_accelerator() -> str:
@@ -32,19 +48,25 @@ def load_padim_runtime(checkpoint_path: str) -> tuple[object, object]:
         raise PadimInferenceError(f"PaDiM checkpoint not found: {path}")
 
     try:
-        from anomalib.engine import Engine
-        from anomalib.models import Padim
-    except Exception as exc:
-        raise PadimInferenceError("Anomalib is not available for PaDiM inference") from exc
+        def build_runtime():
+            import torch
+            from anomalib.engine import Engine
+            from anomalib.models import Padim
 
-    try:
-        model = Padim.load_from_checkpoint(path)
-        engine = Engine(
-            accelerator=choose_accelerator(),
-            devices=1,
-            logger=False,
-            enable_progress_bar=False,
-        )
+            if hasattr(torch, "set_float32_matmul_precision"):
+                torch.set_float32_matmul_precision("high")
+
+            return (
+                Padim.load_from_checkpoint(path),
+                Engine(
+                    accelerator=choose_accelerator(),
+                    devices=1,
+                    logger=False,
+                    enable_progress_bar=False,
+                ),
+            )
+
+        model, engine = run_quietly(build_runtime)
     except Exception as exc:
         raise PadimInferenceError("Could not load PaDiM checkpoint") from exc
 
@@ -72,7 +94,8 @@ def predict_with_padim(image_path: str | Path, checkpoint_path: str | Path) -> d
     model, engine = load_padim_runtime(str(checkpoint_path))
 
     try:
-        predictions = engine.predict(
+        predictions = run_quietly(
+            engine.predict,
             model=model,
             data_path=Path(image_path),
             return_predictions=True,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -56,7 +57,24 @@ def inspect_image(image_path: str | Path | None = None) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run VisionInspect AI inference on one image.")
     parser.add_argument("--image", type=str, default=None, help="Path to an input product image.")
+    parser.add_argument(
+        "--use-padim",
+        action="store_true",
+        help="Force PaDiM checkpoint inference for this run.",
+    )
+    parser.add_argument(
+        "--use-baseline",
+        action="store_true",
+        help="Force OpenCV baseline inference for this run.",
+    )
     args = parser.parse_args()
+
+    if args.use_padim and args.use_baseline:
+        raise SystemExit("Choose only one: --use-padim or --use-baseline.")
+    if args.use_padim:
+        os.environ["USE_PADIM_INFERENCE"] = "true"
+    if args.use_baseline:
+        os.environ["USE_PADIM_INFERENCE"] = "false"
 
     print(json.dumps(inspect_image(args.image), indent=2))
 

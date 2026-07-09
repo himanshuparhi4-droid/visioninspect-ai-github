@@ -126,6 +126,30 @@ data/raw/mvtec_anomaly_detection/bottle/
 
 The dataset is not committed to GitHub because it is large and has separate licensing terms. Camera simulation also includes bundled synthetic demo samples so the feature works without the full dataset.
 
+## Local PaDiM Inference
+
+The trained PaDiM checkpoint can be used locally without changing global system environment variables.
+
+Run one image from the command line:
+
+```powershell
+python ml\predict.py --use-padim --image data\raw\mvtec_anomaly_detection\bottle\test\contamination\000.png
+```
+
+Start the backend with PaDiM enabled:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run_backend_padim_local.ps1
+```
+
+Then check the backend health endpoint:
+
+```text
+http://127.0.0.1:8000/health
+```
+
+The response should show `padim_enabled: true` and `padim_checkpoint: true`.
+
 ## Model Deployment
 
 The project currently supports:
