@@ -7,6 +7,18 @@ from ml.config import RAW_DATA_DIR
 
 DEFECT_LABELS = ["broken_large", "broken_small", "contamination"]
 ALL_LABELS = ["good", *DEFECT_LABELS]
+DATASET_COLUMNS = [
+    "split",
+    "label",
+    "target",
+    "target_name",
+    "is_defective",
+    "image_path",
+    "mask_path",
+    "width",
+    "height",
+    "channels",
+]
 
 
 def read_image_shape(image_path: Path) -> tuple[int | None, int | None, int | None]:
@@ -73,4 +85,4 @@ def collect_bottle_images(root: Path = RAW_DATA_DIR) -> list[dict]:
 
 
 def load_bottle_dataframe(root: Path = RAW_DATA_DIR) -> pd.DataFrame:
-    return pd.DataFrame(collect_bottle_images(root))
+    return pd.DataFrame(collect_bottle_images(root), columns=DATASET_COLUMNS)

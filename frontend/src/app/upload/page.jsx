@@ -105,18 +105,26 @@ export default function UploadPage() {
 
   return (
     <AppShell title="Image Inspection" subtitle="Upload a product image and run AI defect detection.">
-      <section className="workflow-banner">
-        {["Upload", "Metadata", "Inspect", "Review"].map((step, index) => {
+      <section className="workflow-banner" aria-label="Inspection workflow">
+        {[
+          ["Upload", file ? "Image selected" : "Choose image"],
+          ["Metadata", metadata.product_id ? "Context added" : "Add details"],
+          ["Inspect", loading ? "Running AI" : result ? "Completed" : "Run model"],
+          ["Review", result ? "Ready" : "View result"],
+        ].map(([step, description], index) => {
           const active =
             (index === 0 && file) ||
             (index === 1 && metadata.product_id) ||
             (index === 2 && loading) ||
             (index === 3 && result);
           return (
-            <span key={step} className={active ? "workflow-step active" : "workflow-step"}>
+            <div key={step} className={active ? "workflow-step active" : "workflow-step"}>
               <strong>{index + 1}</strong>
-              {step}
-            </span>
+              <span>
+                <b>{step}</b>
+                <small>{description}</small>
+              </span>
+            </div>
           );
         })}
       </section>

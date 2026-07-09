@@ -1680,10 +1680,10 @@ tbody tr:hover {
 }
 
 .workflow-banner {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 14px 18px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #ffffff;
@@ -1691,36 +1691,75 @@ tbody tr:hover {
 }
 
 .workflow-step {
-  min-height: 54px;
+  min-height: 58px;
+  flex: 1;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 14px;
-  border-radius: 10px;
+  padding: 0 18px 0 0;
   color: var(--muted);
-  font-weight: 800;
-  background: #f7f9fc;
+}
+
+.workflow-step:not(:last-child)::after {
+  content: "";
+  height: 2px;
+  position: absolute;
+  left: 44px;
+  right: 18px;
+  top: 50%;
+  z-index: 0;
+  background: #dbe5f1;
 }
 
 .workflow-step strong {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
+  z-index: 1;
+  flex: 0 0 auto;
   display: inline-grid;
   place-items: center;
   border-radius: 50%;
   color: #ffffff;
   background: #9ca8ba;
   font-size: 13px;
+  box-shadow: 0 0 0 6px #ffffff;
+}
+
+.workflow-step span {
+  z-index: 1;
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 0 8px;
+  background: #ffffff;
+}
+
+.workflow-step b {
+  color: #263244;
+  font-size: 14px;
+}
+
+.workflow-step small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .workflow-step.active {
   color: var(--blue);
-  background: linear-gradient(135deg, #edf4ff, #f8fcff);
-  box-shadow: inset 0 0 0 1px rgba(35, 88, 215, 0.14);
+}
+
+.workflow-step.active::after {
+  background: linear-gradient(90deg, var(--blue), #bad4ff);
 }
 
 .workflow-step.active strong {
   background: linear-gradient(135deg, var(--blue), var(--sky));
+}
+
+.workflow-step.active b {
+  color: var(--blue);
 }
 
 .workflow-grid,

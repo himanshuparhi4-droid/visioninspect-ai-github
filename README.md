@@ -30,17 +30,17 @@ VisionInspect AI is a full-stack manufacturing defect detection and quality insp
 
 ```text
 visioninspect-ai/
-├── backend/        FastAPI app, routes, services, schemas, database models
-├── frontend/       Next.js dashboard and UI components
-├── ml/             image processing, classifier, severity, metrics, validation
-├── models/         lightweight model artifacts and metadata
-├── notebooks/      learning, dataset exploration, preprocessing, model experiments
-├── scripts/        seed and admin setup helpers
-├── tests/          backend, ML, and workflow tests
-├── deployment/     Render/Vercel deployment notes and config
-├── .env.example    environment variable template
-├── pyproject.toml  Python formatting and test config
-└── README.md
+|-- backend/        FastAPI app, routes, services, schemas, database models
+|-- frontend/       Next.js dashboard and UI components
+|-- ml/             image processing, classifier, severity, metrics, validation
+|-- models/         model artifacts and metadata
+|-- notebooks/      learning, dataset exploration, preprocessing, model experiments
+|-- scripts/        seed and admin setup helpers
+|-- tests/          backend, ML, and workflow tests
+|-- deployment/     Render/Vercel deployment notes and config
+|-- .env.example    environment variable template
+|-- pyproject.toml  Python formatting and test config
+`-- README.md
 ```
 
 ## Local Setup
