@@ -40,4 +40,5 @@ settings = Settings()
 def allowed_cors_origins() -> list[str]:
     origins = {origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()}
     origins.add(settings.frontend_url)
+    origins.add("https://visioninspect-ai-github.vercel.app")
     return sorted(origins)
