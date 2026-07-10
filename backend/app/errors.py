@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.config import settings
+from app.config import allowed_cors_origins, settings
 
 logger = logging.getLogger("visioninspect.errors")
 
@@ -27,7 +27,13 @@ def error_response(
     }
     if details is not None:
         payload["error"]["details"] = details
-    return JSONResponse(status_code=status_code, content=payload)
+    response = JSONResponse(status_code=status_code, content=payload)
+    origin = request.headers.get("origin")
+    if origin and origin in allowed_cors_origins():
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Vary"] = "Origin"
+    return response
 
 
 def register_exception_handlers(app: FastAPI) -> None:
