@@ -32,11 +32,27 @@ def default_demo_image() -> Path:
 
 
 def inspect_image(image_path: str | Path | None = None) -> dict:
-    """Run the same backend-ready inspection pipeline used by the app."""
-    from app.services.prediction_service import inspect_image_file
+    """Run the backend-compatible AI pipeline without creating external output files."""
+    from app.config import settings
+    from app.services.model_settings_service import load_runtime_settings
+    from app.services.prediction_service import resolve_backend_path
+    from ml.inference import InferenceConfig, inspect_image as inspect_image_runtime
 
     selected_image = Path(image_path) if image_path else default_demo_image()
-    result = inspect_image_file(selected_image)
+    runtime_settings = load_runtime_settings()
+    config = InferenceConfig(
+        use_padim_inference=settings.use_padim_inference,
+        padim_inference_accelerator=settings.padim_inference_accelerator,
+        model_checkpoint_path=resolve_backend_path(settings.model_checkpoint_path),
+        classifier_model_path=resolve_backend_path(settings.classifier_model_path),
+        model_metadata_path=resolve_backend_path(settings.model_metadata_path),
+        baseline_reference_path=resolve_backend_path(settings.baseline_reference_path),
+        baseline_threshold=runtime_settings.baseline_threshold,
+        padim_score_threshold=runtime_settings.padim_score_threshold,
+        review_severity_threshold=runtime_settings.review_severity_threshold,
+        fail_severity_threshold=runtime_settings.fail_severity_threshold,
+    )
+    result = inspect_image_runtime(selected_image, config)
     return {
         "input_image": str(selected_image),
         "prediction": result["prediction"],
@@ -44,13 +60,16 @@ def inspect_image(image_path: str | Path | None = None) -> dict:
         "confidence": result["confidence"],
         "anomaly_score": result["anomaly_score"],
         "defect_area_ratio": result["defect_area_ratio"],
-        "heatmap_path": result["heatmap_path"],
-        "processed_image_path": result["processed_image_path"],
+        "heatmap_path": "inline:not_saved_by_cli",
+        "processed_image_path": "inline:not_saved_by_cli",
         "severity_score": result["severity_score"],
         "severity_level": result["severity_level"],
         "pass_fail": result["pass_fail"],
         "recommended_action": result["recommended_action"],
-        "model_used": result["model_version"],
+        "model_used": result["model_used"],
+        "active_inference_engine": result["active_inference_engine"],
+        "fallback_used": result["fallback_used"],
+        "fallback_reason": result["fallback_reason"],
     }
 
 

@@ -32,7 +32,7 @@ VisionInspect AI is a full-stack manufacturing defect detection and quality insp
 visioninspect-ai/
 |-- backend/        FastAPI app, routes, services, schemas, database models
 |-- frontend/       Next.js dashboard and UI components
-|-- ml/             image processing, classifier, severity, metrics, validation
+|-- ml/             AI runtime, image processing, classifier, severity, validation
 |-- models/         model artifacts and metadata
 |-- notebooks/      learning, dataset exploration, preprocessing, model experiments
 |-- scripts/        seed and admin setup helpers
@@ -124,7 +124,57 @@ The project supports the MVTec AD bottle dataset locally:
 data/raw/mvtec_anomaly_detection/bottle/
 ```
 
-The dataset is not committed to GitHub because it is large and has separate licensing terms. Camera simulation also includes bundled synthetic demo samples so the feature works without the full dataset.
+The dataset is not committed to GitHub because it is large and has separate licensing terms. Camera simulation includes bundled sample images so the website can be presented without the full dataset.
+
+## AI/ML Runtime Contract
+
+The application runtime uses one AI entry point:
+
+```text
+ml/inference.py
+```
+
+Input:
+
+```text
+image_path
+```
+
+Output:
+
+```text
+prediction
+defect_type
+confidence
+anomaly_score
+defect_area_ratio
+severity_score
+severity_level
+pass_fail
+recommended_action
+model_used
+active_inference_engine
+fallback_used
+fallback_reason
+```
+
+The AI module handles:
+
+- OpenCV baseline anomaly detection.
+- PaDiM anomaly detection when enabled and the checkpoint is available.
+- Defect type classification.
+- Heatmap and processed-image arrays.
+- Severity scoring and quality decision.
+
+The backend handles:
+
+- Upload validation.
+- Saving processed images and heatmaps.
+- Cloudinary/local storage URLs.
+- MongoDB records.
+- API responses.
+
+This keeps model logic separate from web/storage logic.
 
 ## Local PaDiM Inference
 
@@ -149,6 +199,8 @@ http://127.0.0.1:8000/health
 ```
 
 The response should show `padim_enabled: true` and `padim_checkpoint: true`.
+
+If the checkpoint is missing or PaDiM is disabled, the website still works through the OpenCV baseline fallback. The response includes the active inference engine so the running mode is clear during demos.
 
 ## Model Deployment
 

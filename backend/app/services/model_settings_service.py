@@ -16,14 +16,15 @@ def resolve_backend_path(value: str | Path) -> Path:
     return (BACKEND_DIR / path).resolve()
 
 
-def uploads_path(*parts: str) -> Path:
+def uploads_path(*parts: str, create: bool = True) -> Path:
     path = resolve_backend_path(settings.upload_dir).joinpath(*parts)
-    path.mkdir(parents=True, exist_ok=True)
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def runtime_settings_path() -> Path:
-    return uploads_path("config").joinpath("model_runtime_settings.json")
+def runtime_settings_path(*, create_parent: bool = False) -> Path:
+    return uploads_path("config", create=create_parent).joinpath("model_runtime_settings.json")
 
 
 def load_runtime_settings() -> RuntimeModelSettings:
@@ -40,7 +41,7 @@ def load_runtime_settings() -> RuntimeModelSettings:
 
 
 def save_runtime_settings(payload: RuntimeModelSettings) -> RuntimeModelSettings:
-    path = runtime_settings_path()
+    path = runtime_settings_path(create_parent=True)
     path.write_text(payload.model_dump_json(indent=2), encoding="utf-8")
     return payload
 

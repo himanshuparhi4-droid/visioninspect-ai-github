@@ -1,130 +1,47 @@
 from __future__ import annotations
 
-import io
-import logging
-import warnings
-from contextlib import redirect_stderr, redirect_stdout
-from functools import lru_cache
+import sys
 from pathlib import Path
 
-import numpy as np
-
 from app.config import settings
+from app.services.model_settings_service import load_runtime_settings
 
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = BACKEND_DIR.parent
 
-class PadimInferenceError(RuntimeError):
-    pass
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-
-def run_quietly(function, *args, **kwargs):
-    """Suppress noisy third-party inference logs while preserving exceptions."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        logging.disable(logging.CRITICAL)
-        try:
-            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                return function(*args, **kwargs)
-        finally:
-            logging.disable(logging.NOTSET)
+from ml.padim_detector import PadimInferenceError
+from ml.padim_detector import choose_accelerator as _choose_accelerator
+from ml.padim_detector import load_padim_runtime as _load_padim_runtime
+from ml.padim_detector import predict_with_padim as _predict_with_padim
+from ml.padim_detector import run_quietly, tensor_to_numpy
 
 
 def choose_accelerator() -> str:
-    configured = settings.padim_inference_accelerator.lower()
-    if configured != "auto":
-        return configured
-
-    try:
-        import torch
-
-        return "gpu" if torch.cuda.is_available() else "cpu"
-    except Exception:
-        return "cpu"
+    return _choose_accelerator(settings.padim_inference_accelerator)
 
 
-@lru_cache(maxsize=1)
 def load_padim_runtime(checkpoint_path: str) -> tuple[object, object]:
-    path = Path(checkpoint_path)
-    if not path.exists():
-        raise PadimInferenceError(f"PaDiM checkpoint not found: {path}")
-
-    try:
-        def build_runtime():
-            import torch
-            from anomalib.engine import Engine
-            from anomalib.models import Padim
-
-            if hasattr(torch, "set_float32_matmul_precision"):
-                torch.set_float32_matmul_precision("high")
-
-            return (
-                Padim.load_from_checkpoint(path),
-                Engine(
-                    accelerator=choose_accelerator(),
-                    devices=1,
-                    logger=False,
-                    enable_progress_bar=False,
-                ),
-            )
-
-        model, engine = run_quietly(build_runtime)
-    except Exception as exc:
-        raise PadimInferenceError("Could not load PaDiM checkpoint") from exc
-
-    return model, engine
-
-
-def tensor_to_numpy(value: object) -> np.ndarray:
-    if hasattr(value, "detach"):
-        value = value.detach().cpu().numpy()
-    return np.asarray(value)
-
-
-def padim_detection_confidence(score: float, is_defective: bool) -> float:
-    from app.services.model_settings_service import load_runtime_settings
-
-    threshold = load_runtime_settings().padim_score_threshold
-    margin = abs(score - threshold)
-    confidence = 0.58 + min(0.40, margin * 2.0)
-    if is_defective and score >= 0.80:
-        confidence = max(confidence, 0.90)
-    return round(float(max(0.55, min(0.99, confidence))), 4)
+    return _load_padim_runtime(checkpoint_path, settings.padim_inference_accelerator)
 
 
 def predict_with_padim(image_path: str | Path, checkpoint_path: str | Path) -> dict:
-    model, engine = load_padim_runtime(str(checkpoint_path))
+    runtime_settings = load_runtime_settings()
+    return _predict_with_padim(
+        image_path,
+        checkpoint_path,
+        score_threshold=runtime_settings.padim_score_threshold,
+        accelerator=settings.padim_inference_accelerator,
+    )
 
-    try:
-        predictions = run_quietly(
-            engine.predict,
-            model=model,
-            data_path=Path(image_path),
-            return_predictions=True,
-        )
-    except Exception as exc:
-        raise PadimInferenceError("PaDiM prediction failed") from exc
 
-    if not predictions:
-        raise PadimInferenceError("PaDiM returned no predictions")
-
-    prediction = predictions[0]
-    score = float(tensor_to_numpy(prediction.pred_score).reshape(-1)[0])
-    from app.services.model_settings_service import load_runtime_settings
-
-    threshold = load_runtime_settings().padim_score_threshold
-    is_defective = score > threshold
-    anomaly_map = tensor_to_numpy(prediction.anomaly_map).squeeze().astype(np.float32)
-
-    if hasattr(prediction, "pred_mask") and prediction.pred_mask is not None:
-        pred_mask = tensor_to_numpy(prediction.pred_mask).squeeze().astype(bool)
-    else:
-        pred_mask = anomaly_map > 0.5
-
-    return {
-        "engine": "padim",
-        "anomaly_score": round(score, 4),
-        "decision_threshold": threshold,
-        "is_defective": is_defective,
-        "detection_confidence": padim_detection_confidence(score, is_defective),
-        "anomaly_map": anomaly_map,
-        "pred_mask": pred_mask,
-    }
+__all__ = [
+    "PadimInferenceError",
+    "choose_accelerator",
+    "load_padim_runtime",
+    "predict_with_padim",
+    "run_quietly",
+    "tensor_to_numpy",
+]

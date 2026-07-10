@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from sklearn.model_selection import StratifiedKFold
 
 from ml.classifier import LABEL_ORDER, build_resnet18_feature_extractor, create_classifier, extract_features
-from ml.config import OUTPUTS_DIR, RAW_DATA_DIR
+from ml.config import RAW_DATA_DIR
 from ml.dataset_loader import load_bottle_dataframe
 
 
@@ -38,7 +38,7 @@ def run_stratified_kfold(
     folds: int = 5,
     batch_size: int = 16,
     max_images_per_class: int | None = None,
-    output_dir: Path = OUTPUTS_DIR / "metrics",
+    output_dir: Path | None = None,
 ) -> dict:
     data = prepare_classifier_dataframe(root, max_images_per_class=max_images_per_class)
     labels = [label for label in LABEL_ORDER if label in sorted(data["label"].unique())]
@@ -115,10 +115,11 @@ def run_stratified_kfold(
         ),
     }
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "kfold_classifier_validation.json"
-    output_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    summary["output_path"] = str(output_path)
+    if output_dir is not None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / "kfold_classifier_validation.json"
+        output_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        summary["output_path"] = str(output_path)
     return summary
 
 
@@ -128,7 +129,7 @@ def main() -> None:
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--max-images-per-class", type=int, default=None)
-    parser.add_argument("--output-dir", type=Path, default=OUTPUTS_DIR / "metrics")
+    parser.add_argument("--output-dir", type=Path, default=None, help="Optional directory for JSON export.")
     args = parser.parse_args()
 
     summary = run_stratified_kfold(
@@ -147,7 +148,7 @@ def main() -> None:
                 "class_counts": summary["class_counts"],
                 "mean_accuracy": summary["mean_accuracy"],
                 "std_accuracy": summary["std_accuracy"],
-                "output_path": summary["output_path"],
+                "output_path": summary.get("output_path"),
             },
             indent=2,
         )

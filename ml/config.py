@@ -5,7 +5,6 @@ DATA_ROOT = PROJECT_ROOT / "data"
 RAW_DATA_DIR = DATA_ROOT / "raw" / "mvtec_anomaly_detection" / "bottle"
 PROCESSED_DATA_DIR = DATA_ROOT / "processed"
 MODELS_DIR = PROJECT_ROOT / "models"
-OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 MODEL_CHECKPOINT_PATH = MODELS_DIR / "checkpoints" / "padim_mvtec_bottle_v1.ckpt"
 MODEL_METADATA_PATH = MODELS_DIR / "model_metadata.json"
 
