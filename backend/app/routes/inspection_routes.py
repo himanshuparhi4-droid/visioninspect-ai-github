@@ -20,7 +20,7 @@ from app.schemas.inspection_schema import (
 )
 from app.serializers import inspection_to_response
 from app.services.audit_service import record_audit_event
-from app.services.cloudinary_service import upload_image_or_local_url
+from app.services.cloudinary_service import CloudStorageError, upload_image_or_local_url
 from app.services.prediction_service import PredictionError, inspect_image_file, uploads_path
 from app.services.rework_service import create_or_update_rework_ticket
 from app.time_utils import utc_now
@@ -77,6 +77,30 @@ def optional_text(value: str | None) -> str | None:
 def metadata_fields(metadata: dict | None) -> dict:
     metadata = metadata or {}
     return {field: optional_text(metadata.get(field)) for field in METADATA_FIELDS}
+
+
+def automatic_metadata(metadata: dict | None, current_user: User, source_label: str | None = None) -> dict:
+    values = metadata_fields(metadata)
+    now = utc_now()
+    source = values["source_label"] or optional_text(source_label) or "uploaded-image"
+    stem = "".join(character if character.isalnum() else "-" for character in Path(source).stem).strip("-")
+    product_suffix = (stem or uuid4().hex[:8]).upper()[:32]
+    return {
+        **values,
+        "batch_number": values["batch_number"] or f"AUTO-{now:%Y%m%d}",
+        "product_id": values["product_id"] or f"BOTTLE-{product_suffix}",
+        "production_line": values["production_line"] or "Line-Manual-01",
+        "shift": values["shift"] or "Auto Shift",
+        "operator_name": values["operator_name"] or current_user.name,
+        "source_label": source,
+    }
+
+
+async def store_image(path: Path, folder: str) -> str:
+    try:
+        return await run_in_threadpool(upload_image_or_local_url, path, folder)
+    except CloudStorageError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 def prediction_fields(prediction: dict) -> dict:
@@ -198,11 +222,13 @@ async def create_inspection_from_path(
     metadata: dict | None = None,
     source_type: str = "manual_upload",
 ) -> Inspection:
-    metadata = metadata or {}
-    original_url = await run_in_threadpool(upload_image_or_local_url, image_path, "original")
+    metadata = automatic_metadata(metadata, current_user)
+    original_url = await store_image(image_path, "original")
 
     try:
         prediction = await run_in_threadpool(inspect_image_file, image_path)
+    except CloudStorageError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except PredictionError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -236,8 +262,7 @@ async def create_inspection_from_path(
 
 
 async def create_inspection_from_file(file: UploadFile, current_user: User, metadata: dict | None = None) -> Inspection:
-    metadata = {**(metadata or {})}
-    metadata["source_label"] = metadata.get("source_label") or file.filename
+    metadata = automatic_metadata(metadata, current_user, file.filename)
     image_path = await save_upload(file)
     return await create_inspection_from_path(image_path, current_user, metadata, source_type="manual_upload")
 
@@ -262,10 +287,9 @@ async def upload_image(
     metadata: dict = Depends(inspection_metadata),
     current_user: User = Depends(get_current_user),
 ) -> InspectionResponse:
-    metadata = {**metadata}
-    metadata["source_label"] = metadata.get("source_label") or file.filename
+    metadata = automatic_metadata(metadata, current_user, file.filename)
     image_path = await save_upload(file)
-    original_url = await run_in_threadpool(upload_image_or_local_url, image_path, "original")
+    original_url = await store_image(image_path, "original")
     inspection = Inspection(
         **inspection_base_fields(
             image_path=image_path,

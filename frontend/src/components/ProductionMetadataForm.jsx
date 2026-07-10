@@ -35,6 +35,10 @@ export default function ProductionMetadataForm({
     shift: "Unassigned",
     ...placeholders,
   };
+  const hasBatch = batches.some((item) => item.batch_number === metadata.batch_number);
+  const hasProduct = products.some((item) => item.product_id === metadata.product_id);
+  const hasLine = lines.some((item) => item.line_id === metadata.production_line);
+  const hasShift = shifts.includes(metadata.shift);
 
   function update(field, nextValue) {
     onChange({ ...metadata, [field]: nextValue });
@@ -57,6 +61,9 @@ export default function ProductionMetadataForm({
         Batch number
         <select value={metadata.batch_number} onChange={(event) => selectBatch(event.target.value)} disabled={disabled}>
           <option value="">{labels.batch}</option>
+          {metadata.batch_number && !hasBatch ? (
+            <option value={metadata.batch_number}>{metadata.batch_number}</option>
+          ) : null}
           {batches.map((batch) => (
             <option key={batch.batch_number} value={batch.batch_number}>
               {batch.batch_number}
@@ -72,6 +79,9 @@ export default function ProductionMetadataForm({
           disabled={disabled}
         >
           <option value="">{labels.product}</option>
+          {metadata.product_id && !hasProduct ? (
+            <option value={metadata.product_id}>{metadata.product_id}</option>
+          ) : null}
           {products.map((product) => (
             <option key={product.product_id} value={product.product_id}>
               {product.product_id} - {product.name}
@@ -87,6 +97,9 @@ export default function ProductionMetadataForm({
           disabled={disabled}
         >
           <option value="">{labels.line}</option>
+          {metadata.production_line && !hasLine ? (
+            <option value={metadata.production_line}>{metadata.production_line}</option>
+          ) : null}
           {lines.map((line) => (
             <option key={line.line_id} value={line.line_id}>
               {line.name}
@@ -98,6 +111,7 @@ export default function ProductionMetadataForm({
         Shift
         <select value={metadata.shift} onChange={(event) => update("shift", event.target.value)} disabled={disabled}>
           <option value="">{labels.shift}</option>
+          {metadata.shift && !hasShift ? <option value={metadata.shift}>{metadata.shift}</option> : null}
           {shifts.map((shift) => (
             <option key={shift} value={shift}>
               {shift}

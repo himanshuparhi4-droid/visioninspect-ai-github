@@ -8,6 +8,10 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+class CloudStorageError(RuntimeError):
+    pass
+
 cloudinary.config(
     cloud_name=settings.cloudinary_cloud_name,
     api_key=settings.cloudinary_api_key,
@@ -48,6 +52,9 @@ def upload_image_or_local_url(path: str | Path, folder: str) -> str:
         return str(result["secure_url"])
     except Exception as exc:
         if settings.environment.lower() == "production":
-            raise RuntimeError("Cloudinary upload failed in production") from exc
+            raise CloudStorageError(
+                f"Online image storage did not respond within {settings.cloudinary_timeout_seconds} seconds. "
+                "Please retry the inspection."
+            ) from exc
         logger.warning("Cloudinary upload failed; using local file URL in development", exc_info=True)
         return local_upload_url(path)

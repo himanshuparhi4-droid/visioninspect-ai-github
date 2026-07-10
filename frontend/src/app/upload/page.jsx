@@ -9,9 +9,30 @@ import DefectHeatmap from "../../components/DefectHeatmap";
 import ImageUpload from "../../components/ImageUpload";
 import InspectionResult from "../../components/InspectionResult";
 import ProductionMetadataForm, { EMPTY_CATALOG, EMPTY_METADATA } from "../../components/ProductionMetadataForm";
+import { getCurrentUser } from "../../services/authApi";
 import { createInspectionReport } from "../../services/reportApi";
 import { inspectBatch, inspectImage } from "../../services/inspectionApi";
 import { getProductionCatalog } from "../../services/productionApi";
+
+function automaticMetadata(file, catalog, current) {
+  if (!file) return current;
+  const batch = catalog.batches?.find((item) => item.status === "active") || catalog.batches?.[0];
+  const stem = file.name
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  return {
+    ...current,
+    batch_number: current.batch_number || batch?.batch_number || `AUTO-${date}`,
+    product_id:
+      current.product_id || batch?.product_id || catalog.products?.[0]?.product_id || `BOTTLE-${stem.toUpperCase()}`,
+    production_line:
+      current.production_line || batch?.production_line || catalog.production_lines?.[0]?.line_id || "Line-Manual-01",
+    shift: current.shift || batch?.shift || catalog.shifts?.[0] || "Auto Shift",
+    source_label: current.source_label || file.name,
+  };
+}
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
@@ -25,6 +46,7 @@ export default function UploadPage() {
   const [batchLoading, setBatchLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [failure, setFailure] = useState(null);
+  const [slowMessage, setSlowMessage] = useState("");
   const [catalog, setCatalog] = useState(EMPTY_CATALOG);
 
   useEffect(() => {
@@ -38,16 +60,43 @@ export default function UploadPage() {
   }, [file]);
 
   useEffect(() => {
+    setMetadata((current) => automaticMetadata(file, catalog, current));
+  }, [file, catalog]);
+
+  useEffect(() => {
     getProductionCatalog()
       .then(setCatalog)
       .catch(() => setCatalog(EMPTY_CATALOG));
+    getCurrentUser()
+      .then((user) => setMetadata((current) => ({ ...current, operator_name: current.operator_name || user.name })))
+      .catch(() => undefined);
   }, []);
+
+  function handleFileChange(nextFile) {
+    setFile(nextFile);
+    if (nextFile) {
+      setMetadata((current) => ({ ...automaticMetadata(nextFile, catalog, current), source_label: nextFile.name }));
+    }
+  }
+
+  function handleBatchFiles(nextFiles) {
+    const selected = Array.from(nextFiles || []).slice(0, 20);
+    setBatchFiles(selected);
+    if (selected[0]) {
+      setMetadata((current) => ({ ...automaticMetadata(selected[0], catalog, current), source_label: "" }));
+    }
+  }
 
   async function handleInspect() {
     if (!file) return;
     setLoading(true);
     setMessage("");
     setFailure(null);
+    setSlowMessage("");
+    const slowTimer = window.setTimeout(
+      () => setSlowMessage("Inspection is taking longer than expected. The request is still processing."),
+      20000
+    );
     try {
       const inspection = await inspectImage(file, metadata);
       setResult(inspection);
@@ -60,6 +109,8 @@ export default function UploadPage() {
         requestId: err.requestId,
       });
     } finally {
+      window.clearTimeout(slowTimer);
+      setSlowMessage("");
       setLoading(false);
     }
   }
@@ -69,6 +120,11 @@ export default function UploadPage() {
     setBatchLoading(true);
     setMessage("");
     setFailure(null);
+    setSlowMessage("");
+    const slowTimer = window.setTimeout(
+      () => setSlowMessage("Batch inspection is taking longer than expected. The request is still processing."),
+      20000
+    );
     try {
       const payload = await inspectBatch(batchFiles, metadata);
       setBatchResults(payload.items || []);
@@ -83,6 +139,8 @@ export default function UploadPage() {
         requestId: err.requestId,
       });
     } finally {
+      window.clearTimeout(slowTimer);
+      setSlowMessage("");
       setBatchLoading(false);
     }
   }
@@ -129,9 +187,32 @@ export default function UploadPage() {
         })}
       </section>
 
+      {failure ? (
+        <section className="error-panel" role="alert">
+          <strong>{failure.title}</strong>
+          <p>{failure.message}</p>
+          <small>
+            {failure.status ? `Status ${failure.status}` : "Request failed"}
+            {failure.requestId ? ` | Request ID ${failure.requestId}` : ""}
+          </small>
+        </section>
+      ) : null}
+
+      {slowMessage ? (
+        <section className="processing-warning" role="status">
+          <strong>Inspection delayed</strong>
+          <p>{slowMessage}</p>
+        </section>
+      ) : null}
+
       <div className="workflow-grid">
         <div className="stack">
-          <ImageUpload file={file} onFileChange={setFile} onInspect={handleInspect} loading={loading} />
+          <ImageUpload
+            file={file}
+            onFileChange={handleFileChange}
+            onInspect={handleInspect}
+            loading={loading || batchLoading}
+          />
           <section className="tool-panel">
             <div className="panel-heading">
               <div>
@@ -140,7 +221,12 @@ export default function UploadPage() {
               </div>
               <CheckCircle2 size={22} />
             </div>
-            <ProductionMetadataForm value={metadata} catalog={catalog} onChange={setMetadata} />
+            <ProductionMetadataForm
+              value={metadata}
+              catalog={catalog}
+              onChange={setMetadata}
+              disabled={loading || batchLoading}
+            />
           </section>
         </div>
 
@@ -184,17 +270,6 @@ export default function UploadPage() {
         <DefectHeatmap imageUrl={result?.heatmap_url} />
       </div>
 
-      {failure ? (
-        <section className="error-panel">
-          <strong>{failure.title}</strong>
-          <p>{failure.message}</p>
-          <small>
-            {failure.status ? `Status ${failure.status}` : "Request failed"}
-            {failure.requestId ? ` | Request ID ${failure.requestId}` : ""}
-          </small>
-        </section>
-      ) : null}
-
       <section className="tool-panel batch-panel">
         <div className="panel-heading">
           <div>
@@ -209,7 +284,7 @@ export default function UploadPage() {
               type="file"
               accept="image/png,image/jpeg,image/jpg,image/bmp,image/tiff,image/webp"
               multiple
-              onChange={(event) => setBatchFiles(Array.from(event.target.files || []).slice(0, 20))}
+              onChange={(event) => handleBatchFiles(event.target.files)}
             />
             <span>{batchFiles.length ? `${batchFiles.length} files selected` : "Select batch images"}</span>
           </label>
@@ -217,7 +292,7 @@ export default function UploadPage() {
             className="primary-button"
             type="button"
             onClick={handleBatchInspect}
-            disabled={!batchFiles.length || batchLoading}
+            disabled={!batchFiles.length || batchLoading || loading}
           >
             {batchLoading ? "Processing" : "Run Batch"}
           </button>

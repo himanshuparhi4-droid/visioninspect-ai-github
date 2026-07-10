@@ -544,6 +544,21 @@ button:disabled {
   color: var(--muted);
 }
 
+.processing-warning {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #edc56b;
+  border-radius: 8px;
+  color: #8a5200;
+  background: #fff8e7;
+}
+
+.processing-warning p {
+  margin: 0;
+  color: var(--text);
+}
+
 .explainability-box {
   margin-top: 12px;
   padding: 12px;

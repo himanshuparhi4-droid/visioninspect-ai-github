@@ -97,7 +97,11 @@ export async function apiRequest(path, options = {}) {
         code: "REQUEST_TIMEOUT",
       });
     }
-    throw error;
+    throw new ApiError("The inspection server could not be reached. Please try again shortly.", {
+      status: 0,
+      code: "NETWORK_ERROR",
+      details: error.message,
+    });
   } finally {
     window.clearTimeout(timeoutId);
   }
