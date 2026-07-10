@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     cloudinary_cloud_name: str = ""
     cloudinary_api_key: str = ""
     cloudinary_api_secret: str = ""
+    cloudinary_timeout_seconds: int = 20
     use_padim_inference: bool = True
     padim_inference_accelerator: str = "auto"
     model_checkpoint_path: str = "../models/checkpoints/padim_mvtec_bottle_v1.ckpt"

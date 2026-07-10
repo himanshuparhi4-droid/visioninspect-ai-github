@@ -28,11 +28,11 @@ export function uploadInspection(file, metadata = {}) {
 }
 
 export function inspectImage(file, metadata = {}) {
-  return apiPost("/inspections/inspect", imageFormData(file, metadata));
+  return apiPost("/inspections/inspect", imageFormData(file, metadata), { timeoutMs: 120000 });
 }
 
 export function inspectBatch(files, metadata = {}) {
-  return apiPost("/inspections/batch-inspect", batchFormData(files, metadata));
+  return apiPost("/inspections/batch-inspect", batchFormData(files, metadata), { timeoutMs: 300000 });
 }
 
 export function listInspections({ skip = 0, limit = 50, productId = "", productionLine = "", reviewStatus = "" } = {}) {
@@ -65,5 +65,5 @@ export function getCameraSamples() {
 export function simulateCameraInspection({ frameIndex = 0, label = "" } = {}) {
   const params = new URLSearchParams({ frame_index: String(frameIndex) });
   if (label) params.set("label", label);
-  return apiPost(`/inspections/camera-simulate?${params.toString()}`, {});
+  return apiPost(`/inspections/camera-simulate?${params.toString()}`, {}, { timeoutMs: 120000 });
 }

@@ -199,7 +199,7 @@ async def create_inspection_from_path(
     source_type: str = "manual_upload",
 ) -> Inspection:
     metadata = metadata or {}
-    original_url = upload_image_or_local_url(image_path, "original")
+    original_url = await run_in_threadpool(upload_image_or_local_url, image_path, "original")
 
     try:
         prediction = await run_in_threadpool(inspect_image_file, image_path)
@@ -265,7 +265,7 @@ async def upload_image(
     metadata = {**metadata}
     metadata["source_label"] = metadata.get("source_label") or file.filename
     image_path = await save_upload(file)
-    original_url = upload_image_or_local_url(image_path, "original")
+    original_url = await run_in_threadpool(upload_image_or_local_url, image_path, "original")
     inspection = Inspection(
         **inspection_base_fields(
             image_path=image_path,

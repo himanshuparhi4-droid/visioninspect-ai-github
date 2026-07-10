@@ -43,6 +43,7 @@ def upload_image_or_local_url(path: str | Path, folder: str) -> str:
             str(path),
             folder=f"visioninspect-ai/{folder}",
             resource_type="auto",
+            timeout=settings.cloudinary_timeout_seconds,
         )
         return str(result["secure_url"])
     except Exception as exc:
