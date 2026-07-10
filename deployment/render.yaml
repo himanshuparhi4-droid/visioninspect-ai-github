@@ -27,6 +27,10 @@ services:
         value: ../models/inference/normal_reference.png
       - key: BASELINE_THRESHOLD
         value: "61.99"
+      - key: USE_PADIM_INFERENCE
+        value: "false"
+      - key: PADIM_INFERENCE_ACCELERATOR
+        value: cpu
       - key: UPLOAD_DIR
         value: app/uploads
       - key: SECRET_KEY

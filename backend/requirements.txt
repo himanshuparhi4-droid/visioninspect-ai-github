@@ -17,5 +17,4 @@ pandas
 scikit-learn
 torch
 torchvision
-anomalib
 reportlab
