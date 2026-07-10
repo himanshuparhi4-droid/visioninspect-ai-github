@@ -13,6 +13,7 @@ from sklearn.preprocessing import StandardScaler
 from torchvision import models
 
 LABEL_ORDER = ["good", "broken_large", "broken_small", "contamination"]
+DEFAULT_RESNET_WEIGHTS_PATH = Path(__file__).resolve().parents[1] / "models" / "inference" / "resnet18-f37072fd.pth"
 
 
 def get_device() -> torch.device:
@@ -23,7 +24,12 @@ def build_resnet18_feature_extractor(device: torch.device | None = None):
     """Build a frozen ImageNet ResNet18 feature extractor."""
     device = device or get_device()
     weights = models.ResNet18_Weights.DEFAULT
-    model = models.resnet18(weights=weights)
+    if DEFAULT_RESNET_WEIGHTS_PATH.exists():
+        model = models.resnet18(weights=None)
+        state_dict = torch.load(DEFAULT_RESNET_WEIGHTS_PATH, map_location="cpu", weights_only=True)
+        model.load_state_dict(state_dict)
+    else:
+        model = models.resnet18(weights=weights)
     feature_extractor = torch.nn.Sequential(*list(model.children())[:-1])
     feature_extractor.eval().to(device)
     preprocess = weights.transforms()
