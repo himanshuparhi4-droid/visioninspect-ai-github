@@ -78,6 +78,8 @@ USE_PADIM_INFERENCE=false
 CLASSIFIER_MODEL_PATH=../models/defect_classifier.pkl
 MODEL_METADATA_PATH=../models/model_metadata.json
 BASELINE_REFERENCE_PATH=../models/inference/normal_reference.png
+BASELINE_PROFILE_PATH=../models/inference/normal_profile.npz
+BASELINE_THRESHOLD=1.45
 UPLOAD_DIR=app/uploads
 ```
 
@@ -206,7 +208,7 @@ If the checkpoint is missing or PaDiM is disabled, the website still works throu
 
 The project currently supports:
 
-- A lightweight live inference path using OpenCV baseline detection and the saved classifier artifact.
+- A lightweight live inference path using a normal-profile OpenCV baseline and the saved classifier artifact.
 - PaDiM/Anomalib experiment support from the ML training workflow.
 - Production PaDiM serving through a separate compute or model server when GPU-backed deployment is required.
 

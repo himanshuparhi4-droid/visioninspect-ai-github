@@ -8,7 +8,15 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from ml.baseline_detector import anomaly_map, anomaly_score, heatmap_overlay, preprocess_gray
+from ml.baseline_detector import (
+    anomaly_map,
+    anomaly_mask,
+    anomaly_score,
+    heatmap_overlay,
+    load_reference_profile,
+    normalized_anomaly_map,
+    preprocess_gray,
+)
 from ml.padim_detector import PadimInferenceError, predict_with_padim
 
 
@@ -24,6 +32,7 @@ class InferenceConfig:
     classifier_model_path: Path
     model_metadata_path: Path
     baseline_reference_path: Path
+    baseline_profile_path: Path
     baseline_threshold: float
     padim_score_threshold: float
     review_severity_threshold: float
@@ -53,6 +62,14 @@ def load_reference_image(path_value: str) -> np.ndarray:
     if reference is None:
         raise InferenceError(f"Baseline reference image not found: {path}")
     return reference.astype(np.float32)
+
+
+@lru_cache(maxsize=4)
+def load_normal_profile(path_value: str) -> dict:
+    try:
+        return load_reference_profile(path_value)
+    except FileNotFoundError as exc:
+        raise InferenceError(str(exc)) from exc
 
 
 def baseline_fallback_classification(score: float, baseline_threshold: float) -> dict:
@@ -88,10 +105,16 @@ def compute_defect_geometry(binary_mask: np.ndarray, predicted_defect_type: str)
 
 
 def baseline_anomaly_prediction(image_bgr: np.ndarray, config: InferenceConfig) -> dict:
-    reference = load_reference_image(str(config.baseline_reference_path))
-    diff_map = anomaly_map(image_bgr, reference)
-    score = round(float(anomaly_score(diff_map)), 4)
-    binary_mask = diff_map > config.baseline_threshold
+    if config.baseline_profile_path.exists():
+        profile = load_normal_profile(str(config.baseline_profile_path))
+        diff_map = normalized_anomaly_map(image_bgr, profile)
+        score = round(float(anomaly_score(diff_map, mask=profile["foreground_mask"])), 4)
+    else:
+        reference = load_reference_image(str(config.baseline_reference_path))
+        diff_map = anomaly_map(image_bgr, reference)
+        score = round(float(anomaly_score(diff_map)), 4)
+
+    binary_mask = anomaly_mask(diff_map, config.baseline_threshold)
     classification = baseline_fallback_classification(score, config.baseline_threshold)
 
     return {
@@ -125,7 +148,9 @@ def live_anomaly_prediction(image_path: Path, image_bgr: np.ndarray, config: Inf
     return baseline_anomaly_prediction(image_bgr, config)
 
 
-def classify_prediction(image_path: Path, score: float, detection_confidence: float, is_defective: bool, config: InferenceConfig) -> dict:
+def classify_prediction(
+    image_path: Path, score: float, detection_confidence: float, is_defective: bool, config: InferenceConfig
+) -> dict:
     if not is_defective:
         return {
             "defect_type": "good",

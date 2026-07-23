@@ -13,6 +13,7 @@ export function ArtifactsPanel({ artifacts = {} }) {
     if (name === "padim_checkpoint") return "PaDiM checkpoint";
     if (name === "defect_classifier") return "Defect classifier";
     if (name === "baseline_reference") return "Baseline reference";
+    if (name === "baseline_profile") return "Baseline normal profile";
     return name.replaceAll("_", " ");
   }
 
@@ -68,11 +69,11 @@ export function ThresholdSettingsPanel({ settings, message, onChange, onSave }) 
             onChange={onChange}
           />
           <ThresholdInput
-            label="OpenCV baseline threshold"
+            label="OpenCV normalized-residual threshold"
             field="baseline_threshold"
-            step="0.1"
+            step="0.01"
             min="0"
-            max="255"
+            max="10"
             settings={settings}
             onChange={onChange}
           />

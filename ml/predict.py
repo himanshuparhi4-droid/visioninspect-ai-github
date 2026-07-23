@@ -47,6 +47,7 @@ def inspect_image(image_path: str | Path | None = None) -> dict:
         classifier_model_path=resolve_backend_path(settings.classifier_model_path),
         model_metadata_path=resolve_backend_path(settings.model_metadata_path),
         baseline_reference_path=resolve_backend_path(settings.baseline_reference_path),
+        baseline_profile_path=resolve_backend_path(settings.baseline_profile_path),
         baseline_threshold=runtime_settings.baseline_threshold,
         padim_score_threshold=runtime_settings.padim_score_threshold,
         review_severity_threshold=runtime_settings.review_severity_threshold,

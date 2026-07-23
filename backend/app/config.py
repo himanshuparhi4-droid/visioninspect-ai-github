@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,11 +23,21 @@ class Settings(BaseSettings):
     classifier_model_path: str = "../models/defect_classifier.pkl"
     model_metadata_path: str = "../models/model_metadata.json"
     baseline_reference_path: str = "../models/inference/normal_reference.png"
-    baseline_threshold: float = 61.99
+    baseline_profile_path: str = "../models/inference/normal_profile.npz"
+    baseline_threshold: float = 1.45
     upload_dir: str = "app/uploads"
     max_upload_size_mb: int = 10
     request_logging_enabled: bool = True
     security_headers_enabled: bool = True
+
+    @field_validator("baseline_threshold", mode="before")
+    @classmethod
+    def migrate_legacy_baseline_threshold(cls, value: object) -> object:
+        """Translate the old raw-pixel threshold when upgrading local installs."""
+        try:
+            return 1.45 if float(value) > 10 else value
+        except (TypeError, ValueError):
+            return value
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),

@@ -15,6 +15,7 @@ async def health_check(request: Request) -> dict:
     checkpoint_path = resolve_backend_path(settings.model_checkpoint_path)
     classifier_path = resolve_backend_path(settings.classifier_model_path)
     reference_path = resolve_backend_path(settings.baseline_reference_path)
+    profile_path = resolve_backend_path(settings.baseline_profile_path)
     active_engine = "padim" if settings.use_padim_inference and checkpoint_path.exists() else "baseline"
 
     return {
@@ -29,6 +30,7 @@ async def health_check(request: Request) -> dict:
             "padim_checkpoint": checkpoint_path.exists(),
             "defect_classifier": classifier_path.exists(),
             "baseline_reference": reference_path.exists(),
+            "baseline_profile": profile_path.exists(),
         },
         "storage": {
             "backend": storage_backend(),

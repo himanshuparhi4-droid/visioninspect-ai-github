@@ -31,7 +31,11 @@ def load_runtime_settings() -> RuntimeModelSettings:
     path = runtime_settings_path()
     if path.exists():
         try:
-            return RuntimeModelSettings(**json.loads(path.read_text(encoding="utf-8")))
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            # Older versions used raw grayscale differences on a 0-255 scale.
+            if float(payload.get("baseline_threshold", 0)) > 10:
+                payload["baseline_threshold"] = settings.baseline_threshold
+            return RuntimeModelSettings(**payload)
         except Exception:
             pass
     return RuntimeModelSettings(
