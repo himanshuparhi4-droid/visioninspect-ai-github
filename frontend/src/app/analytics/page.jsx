@@ -8,7 +8,6 @@ import {
   ClipboardList,
   Crosshair,
   Download,
-  FileText,
   Filter,
   HelpCircle,
   RefreshCw,
@@ -107,8 +106,15 @@ function TrendChart({ rows = [] }) {
 }
 
 function DefectTypeBars({ values = {}, trend = [] }) {
-  const labels = Object.keys(values).length ? Object.keys(values) : ["good", "broken_large", "contamination"];
+  const labelSet = new Set(Object.keys(values).filter((label) => label !== "good"));
+  trend.forEach((row) => {
+    Object.keys(row.defect_types || {})
+      .filter((label) => label !== "good")
+      .forEach((label) => labelSet.add(label));
+  });
+  const labels = Array.from(labelSet);
   const colors = ["#ef4444", "#f59e0b", "#8b5cf6", "#2563eb", "#94a3b8"];
+  const chartRows = trend.length ? trend.slice(-8) : [];
 
   return (
     <section className="tool-panel analytics-panel">
@@ -119,19 +125,25 @@ function DefectTypeBars({ values = {}, trend = [] }) {
         </div>
       </div>
       <div className="stacked-bars">
-        {(trend.length ? trend.slice(-8) : Array.from({ length: 8 }, (_, index) => ({ date: `D${index + 1}` }))).map(
-          (row, rowIndex) => (
-            <div key={row.date || rowIndex} className="stacked-day">
-              <div className="stacked-bar">
-                {labels.slice(0, 5).map((label, index) => {
-                  const base = values[label] || 1;
-                  const height = Math.max(10, ((base + rowIndex + index) % 7) * 11 + 16);
-                  return <span key={label} style={{ height: `${height}%`, background: colors[index] }} />;
-                })}
+        {chartRows.length ? (
+          chartRows.map((row, rowIndex) => {
+            const dayValues = row.defect_types || {};
+            const total = labels.reduce((sum, label) => sum + (dayValues[label] || 0), 0);
+            return (
+              <div key={row.date || rowIndex} className="stacked-day">
+                <div className="stacked-bar">
+                  {labels.slice(0, 5).map((label, index) => {
+                    const count = dayValues[label] || 0;
+                    const height = total > 0 ? Math.min(100, Math.max(6, Math.round((count / total) * 100))) : 0;
+                    return <span key={label} style={{ height: `${height}%`, background: colors[index] }} />;
+                  })}
+                </div>
+                <small>{shortDate(row.date)}</small>
               </div>
-              <small>{shortDate(row.date)}</small>
-            </div>
-          )
+            );
+          })
+        ) : (
+          <p className="empty-chart-copy">No defect type data yet.</p>
         )}
       </div>
       <div className="chart-legend">
@@ -185,23 +197,14 @@ function SeverityDonut({ values = {}, total = 0 }) {
 }
 
 function LinePerformance({ summary }) {
-  const lineTotals = summary?.production_line_distribution || {};
-  const byLine = summary?.defect_type_by_line || {};
-  const rows = Object.entries(lineTotals).map(([line, total]) => {
-    const defects = byLine[line] || {};
-    const defectCount = Object.entries(defects)
-      .filter(([label]) => label !== "good")
-      .reduce((sum, [, value]) => sum + value, 0);
-    const failPercent = total ? (defectCount / total) * 100 : 0;
-    return {
-      line,
-      total,
-      passPercent: Math.max(0, 100 - failPercent),
-      failPercent,
-      reviewPercent: Math.min(12, Math.max(2, failPercent / 4)),
-      avgSeverity: 40 + Math.min(35, failPercent / 2),
-    };
-  });
+  const rows = (summary?.line_performance || []).map((row) => ({
+    line: row.line,
+    total: row.total,
+    passPercent: (row.pass_rate || 0) * 100,
+    failPercent: (row.fail_rate || 0) * 100,
+    reviewPercent: (row.review_rate || 0) * 100,
+    avgSeverity: row.average_severity_score || 0,
+  }));
 
   return (
     <section className="tool-panel analytics-panel wide-panel">
@@ -251,9 +254,6 @@ function LinePerformance({ summary }) {
           </tbody>
         </table>
       </div>
-      <a className="text-link" href="/analytics">
-        View all lines <ArrowUpRight size={14} />
-      </a>
     </section>
   );
 }
@@ -327,7 +327,6 @@ export default function AnalyticsPage() {
   const [catalog, setCatalog] = useState({ products: [], production_lines: [] });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [view, setView] = useState("analytics");
 
   async function loadPageData() {
     setLoading(true);
@@ -351,7 +350,7 @@ export default function AnalyticsPage() {
   async function handleCsvExport() {
     setMessage("");
     try {
-      await downloadAnalyticsCsv();
+      await downloadAnalyticsCsv(filters);
     } catch (err) {
       setMessage(err.message || "CSV export failed");
     }
@@ -398,7 +397,7 @@ export default function AnalyticsPage() {
       {
         icon: Crosshair,
         label: "Avg Severity Score",
-        value: (summary?.average_severity_score || summary?.average_severity || 47.3).toFixed?.(1) || "47.3",
+        value: (summary?.average_severity_score || summary?.average_severity || 0).toFixed?.(1) || "0.0",
         detail: "Scale 0-100",
         tone: "purple",
       },
@@ -407,16 +406,7 @@ export default function AnalyticsPage() {
   );
 
   return (
-    <AppShell title="Analytics & Reports" subtitle="">
-      <div className="analytics-tabs">
-        <button className={view === "analytics" ? "active" : ""} type="button" onClick={() => setView("analytics")}>
-          Analytics
-        </button>
-        <button className={view === "reports" ? "active" : ""} type="button" onClick={() => setView("reports")}>
-          Reports
-        </button>
-      </div>
-
+    <AppShell title="Analytics" subtitle="">
       <section className="tool-panel analytics-filter-bar">
         <label>
           Date Range
@@ -426,6 +416,12 @@ export default function AnalyticsPage() {
               type="date"
               value={filters.dateFrom}
               onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))}
+            />
+            <span style={{ fontSize: "12px", color: "var(--text-muted, #888)" }}>to</span>
+            <input
+              type="date"
+              value={filters.dateTo}
+              onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))}
             />
           </span>
         </label>
@@ -489,50 +485,37 @@ export default function AnalyticsPage() {
         {message ? <span className="inline-error">{message}</span> : null}
       </div>
 
-      {view === "analytics" ? (
-        <>
-          <section className="analytics-kpi-grid">
-            {kpis.map((kpi) => (
-              <KpiCard key={kpi.label} {...kpi} />
-            ))}
-          </section>
+      <>
+        <section className="analytics-kpi-grid">
+          {kpis.map((kpi) => (
+            <KpiCard key={kpi.label} {...kpi} />
+          ))}
+        </section>
 
-          <div className="analytics-chart-grid">
-            <TrendChart rows={summary?.trend_by_day || []} />
-            <DefectTypeBars values={summary?.defect_type_distribution} trend={summary?.trend_by_day || []} />
-            <SeverityDonut values={summary?.severity_distribution} total={total} />
-          </div>
+        <div className="analytics-chart-grid">
+          <TrendChart rows={summary?.trend_by_day || []} />
+          <DefectTypeBars values={summary?.defect_type_distribution} trend={summary?.trend_by_day || []} />
+          <SeverityDonut values={summary?.severity_distribution} total={total} />
+        </div>
 
-          <div className="analytics-table-grid">
-            <LinePerformance summary={summary} />
-            <ReworkAging tickets={tickets} />
-          </div>
+        <div className="analytics-table-grid">
+          <LinePerformance summary={summary} />
+          <ReworkAging tickets={tickets} />
+        </div>
 
-          <section className="tool-panel analytics-panel">
-            <div className="panel-heading">
-              <div>
-                <h2>Reports</h2>
-                <p>Latest generated inspection reports.</p>
-              </div>
-              <a className="text-link" href="/reports">
-                View all reports <ArrowUpRight size={14} />
-              </a>
-            </div>
-            <ReportTable reports={reports.slice(0, 5)} onError={setMessage} />
-          </section>
-        </>
-      ) : (
         <section className="tool-panel analytics-panel">
           <div className="panel-heading">
             <div>
-              <h2>Report Library</h2>
-              <p>{reports.length} generated quality reports.</p>
+              <h2>Reports</h2>
+              <p>Latest generated inspection reports.</p>
             </div>
-            <FileText size={22} />
+            <a className="text-link" href="/reports">
+              View all reports <ArrowUpRight size={14} />
+            </a>
           </div>
-          <ReportTable reports={reports} onError={setMessage} />
+          <ReportTable reports={reports.slice(0, 5)} onError={setMessage} />
         </section>
-      )}
+      </>
     </AppShell>
   );
 }

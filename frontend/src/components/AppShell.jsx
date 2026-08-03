@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
-import { getAuthToken } from "../services/api";
+import { getAuthToken, setAuthToken } from "../services/api";
 import { getCurrentUser } from "../services/authApi";
 import Navbar from "./Navbar";
-import Sidebar from "./Sidebar";
+import Sidebar, { navItems } from "./Sidebar";
 
 export default function AppShell({ title, subtitle, children }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -21,10 +22,20 @@ export default function AppShell({ title, subtitle, children }) {
     }
 
     getCurrentUser()
-      .then(setUser)
-      .catch(() => router.replace("/login"))
-      .finally(() => setReady(true));
-  }, [router]);
+      .then((authenticatedUser) => {
+        const page = navItems.find((item) => item.href === pathname);
+        if (page && !page.roles.includes(authenticatedUser.role)) {
+          router.replace("/dashboard");
+          return;
+        }
+        setUser(authenticatedUser);
+        setReady(true);
+      })
+      .catch(() => {
+        setAuthToken(null);
+        router.replace("/login");
+      });
+  }, [pathname, router]);
 
   function handleSidebarToggle() {
     setSidebarCollapsed((current) => !current);

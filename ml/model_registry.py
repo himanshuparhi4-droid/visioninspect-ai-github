@@ -1,0 +1,199 @@
+"""Category-specific model locations for the multi-product inspection system."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+
+from ml.config import MODELS_DIR
+
+SUPPORTED_CATEGORIES = (
+    "bottle",
+    "cable",
+    "capsule",
+    "carpet",
+    "grid",
+    "hazelnut",
+    "leather",
+    "metal_nut",
+    "pill",
+    "screw",
+    "tile",
+    "toothbrush",
+    "transistor",
+    "wood",
+    "zipper",
+)
+
+
+def is_valid_checkpoint(path: Path) -> bool:
+    return path.exists() and path.stat().st_size > 1_000_000
+
+
+@lru_cache(maxsize=128)
+def _artifact_descriptor(path_value: str, size: int, modified_ns: int) -> dict:
+    path = Path(path_value)
+    digest = hashlib.sha256()
+    with path.open("rb") as artifact:
+        for chunk in iter(lambda: artifact.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return {
+        "file": path.name,
+        "size_bytes": size,
+        "sha256": digest.hexdigest(),
+    }
+
+
+def artifact_descriptor(path: Path) -> dict | None:
+    """Return stable integrity metadata without exposing local absolute paths."""
+    if not path.exists() or not path.is_file():
+        return None
+    stat = path.stat()
+    return _artifact_descriptor(str(path), stat.st_size, stat.st_mtime_ns)
+
+
+class CategoryModelError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class CategoryModelSpec:
+    category: str
+    model_kind: str
+    checkpoint_path: Path
+    classifier_path: Path
+    baseline_profile_path: Path
+    metadata_path: Path
+    openvino_path: Path | None = None
+    padim_score_threshold: float = 0.5
+    baseline_score_threshold: float = 1.34
+    baseline_residual_threshold: float = 1.34
+
+    @property
+    def has_advanced_model(self) -> bool:
+        checkpoint_ready = is_valid_checkpoint(self.checkpoint_path)
+        openvino_ready = False
+        if self.openvino_path is not None and self.openvino_path.exists():
+            openvino_ready = self.openvino_path.with_suffix(".bin").exists()
+        return checkpoint_ready or openvino_ready
+
+    @property
+    def is_runnable(self) -> bool:
+        return self.baseline_profile_path.exists() and self.metadata_path.exists()
+
+    @property
+    def is_fully_ready(self) -> bool:
+        return self.is_runnable and self.classifier_path.exists()
+
+    @property
+    def is_trained(self) -> bool:
+        """Backward-compatible name for an available advanced anomaly model."""
+        return self.has_advanced_model
+
+
+def normalize_category(value: str | None) -> str:
+    normalized = (value or "bottle").strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized not in SUPPORTED_CATEGORIES:
+        supported = ", ".join(SUPPORTED_CATEGORIES)
+        raise CategoryModelError(f"Unsupported product category '{value}'. Supported categories: {supported}.")
+    return normalized
+
+
+def registry_file() -> Path:
+    return MODELS_DIR / "category_model_registry.json"
+
+
+def _default_spec(category: str) -> CategoryModelSpec:
+    if category == "bottle":
+        return CategoryModelSpec(
+            category="bottle",
+            model_kind="padim",
+            checkpoint_path=MODELS_DIR / "local_checkpoints" / "padim_mvtec_bottle_v1.ckpt",
+            classifier_path=MODELS_DIR / "defect_classifier.pkl",
+            baseline_profile_path=MODELS_DIR / "inference" / "normal_profile.npz",
+            metadata_path=MODELS_DIR / "model_metadata.json",
+            openvino_path=MODELS_DIR / "exported" / "bottle" / "weights" / "openvino" / "model.xml",
+        )
+
+    category_dir = MODELS_DIR / "categories" / category
+    return CategoryModelSpec(
+        category=category,
+        model_kind="padim",
+        checkpoint_path=category_dir / "padim_v1.ckpt",
+        classifier_path=category_dir / "defect_classifier.pkl",
+        baseline_profile_path=category_dir / "normal_profile.npz",
+        metadata_path=category_dir / "model_metadata.json",
+        openvino_path=MODELS_DIR / "exported" / category / "weights" / "openvino" / "model.xml",
+    )
+
+
+@lru_cache(maxsize=4)
+def _read_registry(path_value: str, modified_ns: int) -> dict:
+    path = Path(path_value)
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _registry_overrides() -> dict:
+    path = registry_file()
+    modified_ns = path.stat().st_mtime_ns if path.exists() else 0
+    return _read_registry(str(path), modified_ns)
+
+
+def category_model_spec(category: str | None) -> CategoryModelSpec:
+    normalized = normalize_category(category)
+    default = _default_spec(normalized)
+    override = _registry_overrides().get(normalized, {})
+    if not isinstance(override, dict):
+        override = {}
+
+    def path_value(name: str, fallback: Path) -> Path:
+        value = override.get(name)
+        return MODELS_DIR.parent / value if value else fallback
+
+    return CategoryModelSpec(
+        category=normalized,
+        model_kind=str(override.get("model_kind", default.model_kind)).lower(),
+        checkpoint_path=path_value("checkpoint_path", default.checkpoint_path),
+        classifier_path=path_value("classifier_path", default.classifier_path),
+        baseline_profile_path=path_value("baseline_profile_path", default.baseline_profile_path),
+        metadata_path=path_value("metadata_path", default.metadata_path),
+        openvino_path=path_value("openvino_path", default.openvino_path),
+        padim_score_threshold=float(override.get("padim_score_threshold", default.padim_score_threshold)),
+        baseline_score_threshold=float(override.get("baseline_score_threshold", default.baseline_score_threshold)),
+        baseline_residual_threshold=float(
+            override.get("baseline_residual_threshold", default.baseline_residual_threshold)
+        ),
+    )
+
+
+def category_model_statuses(advanced_enabled: bool = False) -> list[dict]:
+    return [
+        {
+            "category": category,
+            "available": (spec := category_model_spec(category)).is_runnable,
+            "runnable": spec.is_runnable,
+            "fully_ready": spec.is_fully_ready,
+            "trained": spec.has_advanced_model,
+            "advanced_model_available": spec.has_advanced_model,
+            "classification_trained": spec.classifier_path.exists(),
+            "model_kind": spec.model_kind,
+            "active_engine": spec.model_kind if advanced_enabled and spec.has_advanced_model else "opencv-baseline",
+            "decision_threshold": spec.padim_score_threshold,
+            "baseline_score_threshold": spec.baseline_score_threshold,
+            "artifacts": {
+                "profile": artifact_descriptor(spec.baseline_profile_path),
+                "classifier": artifact_descriptor(spec.classifier_path),
+                "metadata": artifact_descriptor(spec.metadata_path),
+            },
+        }
+        for category in SUPPORTED_CATEGORIES
+    ]

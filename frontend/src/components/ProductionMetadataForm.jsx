@@ -7,6 +7,7 @@ export const EMPTY_METADATA = {
   shift: "",
   operator_name: "",
   source_label: "",
+  category: "",
 };
 
 export const EMPTY_CATALOG = {
@@ -22,6 +23,7 @@ export default function ProductionMetadataForm({
   onChange,
   disabled = false,
   placeholders = {},
+  modelCategories = [],
 }) {
   const metadata = { ...EMPTY_METADATA, ...value };
   const products = catalog.products || [];
@@ -41,6 +43,10 @@ export default function ProductionMetadataForm({
   const hasShift = shifts.includes(metadata.shift);
 
   function update(field, nextValue) {
+    if (field === "category") {
+      onChange({ ...metadata, category: nextValue, product_id: "", batch_number: "" });
+      return;
+    }
     onChange({ ...metadata, [field]: nextValue });
   }
 
@@ -57,6 +63,25 @@ export default function ProductionMetadataForm({
 
   return (
     <div className="metadata-grid">
+      <label>
+        Inspection category
+        <select
+          value={metadata.category}
+          onChange={(event) => update("category", event.target.value)}
+          disabled={disabled}
+        >
+          <option value="">Select a category...</option>
+          {modelCategories
+            .filter((item) => item.available || item.runnable || item.trained || item.is_trained)
+            .map((item) => (
+              <option key={item.category} value={item.category}>
+                {item.category.replaceAll("_", " ")}
+                {item.classification_trained ? "" : " (anomaly detection)"}
+              </option>
+            ))}
+          {!modelCategories.length ? <option value="">Loading categories...</option> : null}
+        </select>
+      </label>
       <label>
         Batch number
         <select value={metadata.batch_number} onChange={(event) => selectBatch(event.target.value)} disabled={disabled}>

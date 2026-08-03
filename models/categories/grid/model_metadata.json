@@ -1,0 +1,236 @@
+{
+  "project": "VisionInspect AI",
+  "model_name": "padim",
+  "model_version": "v1",
+  "category": "grid",
+  "dataset": "MVTec AD",
+  "image_size": [
+    256,
+    256
+  ],
+  "padim_features": 256,
+  "train_good_images": 264,
+  "accelerator": "gpu",
+  "checkpoint_path": "models\\categories\\grid\\padim_v1.ckpt",
+  "baseline_profile_path": "models\\categories\\grid\\normal_profile.npz",
+  "trained_at": "2026-07-23T20:10:18.837282+00:00",
+  "metrics": [
+    {
+      "image_AUROC": 0.9523809552192688,
+      "image_F1Score": 0.9298245906829834,
+      "pixel_AUROC": 0.9698955416679382,
+      "pixel_F1Score": 0.4018961191177368
+    }
+  ],
+  "benchmark_comparison": {
+    "baseline": {
+      "name": "padim_current",
+      "image_auroc": 0.8863826394081116,
+      "image_f1": 0.8999999761581421,
+      "pixel_auroc": 0.9582744240760803,
+      "pixel_f1": 0.3315877318382263,
+      "roi_scale": 1.0
+    },
+    "padim_center_roi": {
+      "name": "padim",
+      "image_auroc": 0.9607352018356323,
+      "image_f1": 0.9380530714988708,
+      "pixel_auroc": 0.9676473140716553,
+      "pixel_f1": 0.370993435382843,
+      "roi_scale": 1.15
+    },
+    "patchcore": {
+      "name": "patchcore",
+      "image_auroc": 0.9147868752479553,
+      "image_f1": 0.9056603908538818,
+      "pixel_auroc": 0.9608414769172668,
+      "pixel_f1": 0.3545391857624054,
+      "roi_scale": 1.0
+    }
+  },
+  "roi_scale": 1.15,
+  "selected_from_benchmark": true,
+  "threshold_calibration": {
+    "model_kind": "padim",
+    "threshold": 0.487125,
+    "protocol": "30% stratified development calibration; 70% stratified holdout evaluation from MVTec labelled test folders",
+    "calibration_samples": 23,
+    "holdout_samples": 55,
+    "holdout_accuracy": 0.8909,
+    "holdout_precision": 0.8864,
+    "holdout_recall": 0.975,
+    "holdout_f1": 0.9286,
+    "holdout_auroc": 0.955
+  },
+  "defect_classifier": {
+    "accuracy": 0.7719,
+    "macro_f1": 0.7742,
+    "classification_report": {
+      "bent": {
+        "precision": 0.6363636363636364,
+        "recall": 0.5833333333333334,
+        "f1-score": 0.6086956521739131,
+        "support": 12.0
+      },
+      "broken": {
+        "precision": 0.6428571428571429,
+        "recall": 0.75,
+        "f1-score": 0.6923076923076923,
+        "support": 12.0
+      },
+      "glue": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 11.0
+      },
+      "metal_contamination": {
+        "precision": 0.7692307692307693,
+        "recall": 0.9090909090909091,
+        "f1-score": 0.8333333333333334,
+        "support": 11.0
+      },
+      "thread": {
+        "precision": 0.875,
+        "recall": 0.6363636363636364,
+        "f1-score": 0.7368421052631579,
+        "support": 11.0
+      },
+      "accuracy": 0.7719298245614035,
+      "macro avg": {
+        "precision": 0.7846903096903096,
+        "recall": 0.7757575757575758,
+        "f1-score": 0.7742357566156194,
+        "support": 57.0
+      },
+      "weighted avg": {
+        "precision": 0.7795997861787336,
+        "recall": 0.7719298245614035,
+        "f1-score": 0.7698942097954504,
+        "support": 57.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        7,
+        4,
+        0,
+        0,
+        1
+      ],
+      [
+        3,
+        9,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        11,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        0,
+        10,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        3,
+        7
+      ]
+    ],
+    "labels": [
+      "bent",
+      "broken",
+      "glue",
+      "metal_contamination",
+      "thread"
+    ],
+    "train_size": 57,
+    "eval_size": 57,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_mask_shape_pixels",
+    "feature_mode": "global_roi_pixel_texture",
+    "defect_only": true,
+    "evaluation": {
+      "protocol": "stratified cross-validation for model selection; production classifier fitted on all labelled defect images",
+      "selected_classifier": "random_forest",
+      "folds": 5,
+      "candidate_scores": {
+        "sgd_log_alpha0.0001": {
+          "mean_accuracy": 0.7333,
+          "std_accuracy": 0.1027,
+          "mean_macro_f1": 0.7187,
+          "std_macro_f1": 0.1046
+        },
+        "sgd_log_alpha0.001": {
+          "mean_accuracy": 0.7318,
+          "std_accuracy": 0.1329,
+          "mean_macro_f1": 0.708,
+          "std_macro_f1": 0.1564
+        },
+        "pca_logistic_c0.1": {
+          "mean_accuracy": 0.6985,
+          "std_accuracy": 0.0989,
+          "mean_macro_f1": 0.6827,
+          "std_macro_f1": 0.1152
+        },
+        "pca_svc_rbf_c5": {
+          "mean_accuracy": 0.4939,
+          "std_accuracy": 0.0822,
+          "mean_macro_f1": 0.4236,
+          "std_macro_f1": 0.0864
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.7333,
+          "std_accuracy": 0.1052,
+          "mean_macro_f1": 0.7095,
+          "std_macro_f1": 0.1293
+        },
+        "random_forest": {
+          "mean_accuracy": 0.7697,
+          "std_accuracy": 0.0775,
+          "mean_macro_f1": 0.7373,
+          "std_macro_f1": 0.0966
+        }
+      }
+    },
+    "dataset_context": {
+      "source": "MVTec AD labelled test folders",
+      "protocol": "defect-only subtype classification with stratified cross-validation; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "grid"
+    }
+  },
+  "portable_detector": "resnet18_normal_memory_with_opencv_localization",
+  "portable_train_good_images": 264,
+  "baseline_threshold_calibration": {
+    "threshold": 0.016833,
+    "protocol": "5-fold stratified balanced-threshold validation on labelled MVTec test images; production threshold maximizes sensitivity plus specificity on all labelled images",
+    "folds": 5,
+    "fold_thresholds": [
+      0.016833,
+      0.016833,
+      0.016833,
+      0.020997,
+      0.016833
+    ],
+    "samples": 78,
+    "cv_accuracy": 0.5769,
+    "cv_precision": 0.8,
+    "cv_recall": 0.5614,
+    "cv_specificity": 0.619,
+    "cv_balanced_accuracy": 0.5902,
+    "cv_f1": 0.6598,
+    "auroc": 0.594,
+    "detector": "resnet18_normal_memory",
+    "localization": "opencv_normalized_residual",
+    "residual_threshold": 1.079766
+  }
+}

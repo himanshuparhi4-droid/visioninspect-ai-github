@@ -1,0 +1,268 @@
+{
+  "project": "VisionInspect AI",
+  "model_name": "padim",
+  "model_version": "v1",
+  "category": "pill",
+  "dataset": "MVTec AD",
+  "image_size": [
+    256,
+    256
+  ],
+  "padim_features": 256,
+  "train_good_images": 267,
+  "accelerator": "gpu",
+  "checkpoint_path": "models\\categories\\pill\\padim_v1.ckpt",
+  "baseline_profile_path": "models\\categories\\pill\\normal_profile.npz",
+  "trained_at": "2026-07-23T17:51:53.392003+00:00",
+  "metrics": [
+    {
+      "image_AUROC": 0.8881615400314331,
+      "image_F1Score": 0.9459459185600281,
+      "pixel_AUROC": 0.9587603807449341,
+      "pixel_F1Score": 0.5451322793960571
+    }
+  ],
+  "threshold_calibration": {
+    "model_kind": "padim",
+    "threshold": 0.523497,
+    "protocol": "30% stratified development calibration; 70% stratified holdout evaluation from MVTec labelled test folders",
+    "calibration_samples": 50,
+    "holdout_samples": 117,
+    "holdout_accuracy": 0.8718,
+    "holdout_precision": 0.9118,
+    "holdout_recall": 0.9394,
+    "holdout_f1": 0.9254,
+    "holdout_auroc": 0.8535
+  },
+  "defect_classifier": {
+    "accuracy": 0.8723,
+    "macro_f1": 0.8828,
+    "classification_report": {
+      "color": {
+        "precision": 1.0,
+        "recall": 0.88,
+        "f1-score": 0.9361702127659575,
+        "support": 25.0
+      },
+      "combined": {
+        "precision": 1.0,
+        "recall": 0.8235294117647058,
+        "f1-score": 0.9032258064516129,
+        "support": 17.0
+      },
+      "contamination": {
+        "precision": 0.9375,
+        "recall": 0.7142857142857143,
+        "f1-score": 0.8108108108108109,
+        "support": 21.0
+      },
+      "crack": {
+        "precision": 0.7931034482758621,
+        "recall": 0.8846153846153846,
+        "f1-score": 0.8363636363636363,
+        "support": 26.0
+      },
+      "faulty_imprint": {
+        "precision": 0.8,
+        "recall": 0.8421052631578947,
+        "f1-score": 0.8205128205128205,
+        "support": 19.0
+      },
+      "pill_type": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 9.0
+      },
+      "scratch": {
+        "precision": 0.7741935483870968,
+        "recall": 1.0,
+        "f1-score": 0.8727272727272727,
+        "support": 24.0
+      },
+      "accuracy": 0.8723404255319149,
+      "macro avg": {
+        "precision": 0.9006852852375655,
+        "recall": 0.8777908248319571,
+        "f1-score": 0.8828300799474444,
+        "support": 141.0
+      },
+      "weighted avg": {
+        "precision": 0.8871548568543457,
+        "recall": 0.8723404255319149,
+        "f1-score": 0.8728139981312487,
+        "support": 141.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        22,
+        0,
+        0,
+        2,
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        14,
+        0,
+        1,
+        1,
+        0,
+        1
+      ],
+      [
+        0,
+        0,
+        15,
+        3,
+        3,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        23,
+        0,
+        0,
+        2
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        16,
+        0,
+        3
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        9,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        24
+      ]
+    ],
+    "labels": [
+      "color",
+      "combined",
+      "contamination",
+      "crack",
+      "faulty_imprint",
+      "pill_type",
+      "scratch"
+    ],
+    "train_size": 141,
+    "eval_size": 141,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
+    "feature_mode": "global_roi_texture",
+    "defect_only": true,
+    "evaluation": {
+      "protocol": "stratified cross-validation for model selection; production classifier fitted on all labelled defect images",
+      "selected_classifier": "lda_shrinkage",
+      "folds": 5,
+      "candidate_scores": {
+        "logistic_c0.01": {
+          "mean_accuracy": 0.8374,
+          "std_accuracy": 0.0679,
+          "mean_macro_f1": 0.8464,
+          "std_macro_f1": 0.0651
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.8446,
+          "std_accuracy": 0.0677,
+          "mean_macro_f1": 0.8526,
+          "std_macro_f1": 0.0655
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.8446,
+          "std_accuracy": 0.0553,
+          "mean_macro_f1": 0.8535,
+          "std_macro_f1": 0.0527
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.8091,
+          "std_accuracy": 0.0674,
+          "mean_macro_f1": 0.8064,
+          "std_macro_f1": 0.0694
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.7596,
+          "std_accuracy": 0.0726,
+          "mean_macro_f1": 0.7578,
+          "std_macro_f1": 0.0603
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.781,
+          "std_accuracy": 0.0787,
+          "mean_macro_f1": 0.7735,
+          "std_macro_f1": 0.0733
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.781,
+          "std_accuracy": 0.0787,
+          "mean_macro_f1": 0.7735,
+          "std_macro_f1": 0.0733
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.8729,
+          "std_accuracy": 0.0644,
+          "mean_macro_f1": 0.878,
+          "std_macro_f1": 0.0621
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.8239,
+          "std_accuracy": 0.0884,
+          "mean_macro_f1": 0.828,
+          "std_macro_f1": 0.077
+        }
+      }
+    },
+    "dataset_context": {
+      "source": "MVTec AD labelled test folders",
+      "protocol": "defect-only subtype classification with stratified cross-validation; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "pill"
+    }
+  },
+  "portable_detector": "resnet18_normal_memory_with_opencv_localization",
+  "portable_train_good_images": 267,
+  "baseline_threshold_calibration": {
+    "threshold": 0.026076,
+    "protocol": "5-fold stratified balanced-threshold validation on labelled MVTec test images; production threshold maximizes sensitivity plus specificity on all labelled images",
+    "folds": 5,
+    "fold_thresholds": [
+      0.02255,
+      0.021309,
+      0.022555,
+      0.025031,
+      0.026076
+    ],
+    "samples": 167,
+    "cv_accuracy": 0.5808,
+    "cv_precision": 0.8901,
+    "cv_recall": 0.5745,
+    "cv_specificity": 0.6154,
+    "cv_balanced_accuracy": 0.5949,
+    "cv_f1": 0.6983,
+    "auroc": 0.7444,
+    "detector": "resnet18_normal_memory",
+    "localization": "opencv_normalized_residual",
+    "residual_threshold": 0.266804
+  }
+}

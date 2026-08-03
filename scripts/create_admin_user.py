@@ -29,6 +29,8 @@ async def main() -> None:
             email=email,
             hashed_password=hash_password(password),
             role="admin",
+            requested_role="admin",
+            approval_status="approved",
             is_active=True,
         )
         await user.insert()
@@ -36,6 +38,8 @@ async def main() -> None:
     else:
         user.name = name
         user.role = "admin"
+        user.requested_role = "admin"
+        user.approval_status = "approved"
         user.is_active = True
         await user.save()
         print(f"Admin user already exists; updated role/status: {email}")

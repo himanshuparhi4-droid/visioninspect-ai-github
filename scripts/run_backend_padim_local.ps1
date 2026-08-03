@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $BackendRoot = Join-Path $ProjectRoot "backend"
-$CheckpointPath = Join-Path $ProjectRoot "models\checkpoints\padim_mvtec_bottle_v1.ckpt"
+$CheckpointPath = Join-Path $ProjectRoot "models\local_checkpoints\padim_mvtec_bottle_v1.ckpt"
 
 if (-not (Test-Path -LiteralPath $CheckpointPath)) {
     throw "PaDiM checkpoint not found: $CheckpointPath"

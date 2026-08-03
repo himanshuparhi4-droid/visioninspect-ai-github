@@ -1,4 +1,3 @@
-from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_current_user, require_roles
@@ -9,6 +8,7 @@ from app.serializers import user_to_response
 from app.services.audit_service import record_audit_event
 from app.services.auth_service import create_user
 from app.time_utils import utc_now
+from app.utils import parse_document_id
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -19,15 +19,8 @@ CREATABLE_ROLES = {
 }
 
 
-def parse_user_id(value: str) -> PydanticObjectId:
-    try:
-        return PydanticObjectId(value)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid user id") from exc
-
-
 async def get_managed_user(user_id: str) -> User:
-    user = await User.get(parse_user_id(user_id))
+    user = await User.get(parse_document_id(user_id, "user"))
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user

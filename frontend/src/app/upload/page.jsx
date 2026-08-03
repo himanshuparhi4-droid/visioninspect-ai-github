@@ -11,22 +11,44 @@ import InspectionResult from "../../components/InspectionResult";
 import ProductionMetadataForm, { EMPTY_CATALOG, EMPTY_METADATA } from "../../components/ProductionMetadataForm";
 import { getCurrentUser } from "../../services/authApi";
 import { createInspectionReport } from "../../services/reportApi";
-import { inspectBatch, inspectImage } from "../../services/inspectionApi";
+import { getModelCategories, inspectBatch, inspectImage } from "../../services/inspectionApi";
 import { getProductionCatalog } from "../../services/productionApi";
 
 function automaticMetadata(file, catalog, current) {
   if (!file) return current;
-  const batch = catalog.batches?.find((item) => item.status === "active") || catalog.batches?.[0];
+  const category = current.category || "";
+
+  // Try to find an active batch matching the category if one is set
+  let batch = null;
+  if (category && catalog.batches) {
+    const categoryProductIds = new Set(
+      (catalog.products || []).filter((product) => product.category === category).map((product) => product.product_id)
+    );
+    batch =
+      catalog.batches.find((item) => item.status === "active" && categoryProductIds.has(item.product_id)) ||
+      catalog.batches.find((item) => categoryProductIds.has(item.product_id));
+  }
+
   const stem = file.name
     .replace(/\.[^.]+$/, "")
     .replace(/[^a-zA-Z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+
+  // Find a product that matches the category
+  let defaultProduct = null;
+  if (category && catalog.products) {
+    defaultProduct = catalog.products.find((p) => p.category === category)?.product_id;
+  }
+
   return {
     ...current,
     batch_number: current.batch_number || batch?.batch_number || `AUTO-${date}`,
     product_id:
-      current.product_id || batch?.product_id || catalog.products?.[0]?.product_id || `BOTTLE-${stem.toUpperCase()}`,
+      current.product_id ||
+      batch?.product_id ||
+      defaultProduct ||
+      `${(category || "ITEM").toUpperCase()}-${stem.toUpperCase()}`,
     production_line:
       current.production_line || batch?.production_line || catalog.production_lines?.[0]?.line_id || "Line-Manual-01",
     shift: current.shift || batch?.shift || catalog.shifts?.[0] || "Auto Shift",
@@ -42,12 +64,15 @@ export default function UploadPage() {
   const [result, setResult] = useState(null);
   const [batchResults, setBatchResults] = useState([]);
   const [batchSummary, setBatchSummary] = useState(null);
+  const [batchFailures, setBatchFailures] = useState([]);
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [failure, setFailure] = useState(null);
   const [slowMessage, setSlowMessage] = useState("");
   const [catalog, setCatalog] = useState(EMPTY_CATALOG);
+  const [modelCategories, setModelCategories] = useState([]);
 
   useEffect(() => {
     if (!file) {
@@ -67,6 +92,21 @@ export default function UploadPage() {
     getProductionCatalog()
       .then(setCatalog)
       .catch(() => setCatalog(EMPTY_CATALOG));
+    getModelCategories()
+      .then((payload) => {
+        const categories = payload.items || [];
+        const firstAvailable = categories.find(
+          (item) => item.available || item.runnable || item.trained || item.is_trained
+        );
+        setModelCategories(categories);
+        if (firstAvailable) {
+          setMetadata((current) => ({
+            ...current,
+            category: current.category || firstAvailable.category,
+          }));
+        }
+      })
+      .catch(() => setModelCategories([]));
     getCurrentUser()
       .then((user) => setMetadata((current) => ({ ...current, operator_name: current.operator_name || user.name })))
       .catch(() => undefined);
@@ -121,6 +161,9 @@ export default function UploadPage() {
     setMessage("");
     setFailure(null);
     setSlowMessage("");
+    setBatchResults([]);
+    setBatchSummary(null);
+    setBatchFailures([]);
     const slowTimer = window.setTimeout(
       () => setSlowMessage("Batch inspection is taking longer than expected. The request is still processing."),
       20000
@@ -129,9 +172,15 @@ export default function UploadPage() {
       const payload = await inspectBatch(batchFiles, metadata);
       setBatchResults(payload.items || []);
       setBatchSummary(payload.summary || null);
+      setBatchFailures(payload.failures || []);
       setResult(payload.items?.[0] || null);
-      setMessage(`Batch complete: ${payload.total} images inspected`);
+      setMessage(
+        `Batch complete: ${payload.summary?.succeeded ?? payload.total} inspected, ${payload.summary?.failed ?? 0} failed`
+      );
     } catch (err) {
+      setBatchResults([]);
+      setBatchSummary(null);
+      setBatchFailures([]);
       setFailure({
         title: "Batch inspection failed",
         message: err.message || "The selected images could not be inspected.",
@@ -146,8 +195,9 @@ export default function UploadPage() {
   }
 
   async function handleReport() {
-    if (!result?.id) return;
+    if (!result?.id || reportLoading) return;
     setFailure(null);
+    setReportLoading(true);
     try {
       const report = await createInspectionReport(result.id);
       setMessage(`Report generated: ${report.id}`);
@@ -158,6 +208,8 @@ export default function UploadPage() {
         status: err.status,
         requestId: err.requestId,
       });
+    } finally {
+      setReportLoading(false);
     }
   }
 
@@ -224,6 +276,7 @@ export default function UploadPage() {
             <ProductionMetadataForm
               value={metadata}
               catalog={catalog}
+              modelCategories={modelCategories}
               onChange={setMetadata}
               disabled={loading || batchLoading}
             />
@@ -241,9 +294,14 @@ export default function UploadPage() {
               <ScanSearch size={22} />
             </div>
             <div className="page-actions compact">
-              <button className="ghost-button" type="button" onClick={handleReport} disabled={!result?.id}>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={handleReport}
+                disabled={!result?.id || reportLoading}
+              >
                 <FileText size={16} />
-                Generate PDF report
+                {reportLoading ? "Generating report" : "Generate PDF report"}
               </button>
               {message ? <span className="inline-success">{message}</span> : null}
             </div>
@@ -298,7 +356,7 @@ export default function UploadPage() {
           </button>
         </div>
 
-        <BatchInspectionResults results={batchResults} summary={batchSummary} />
+        <BatchInspectionResults results={batchResults} summary={batchSummary} failures={batchFailures} />
       </section>
     </AppShell>
   );

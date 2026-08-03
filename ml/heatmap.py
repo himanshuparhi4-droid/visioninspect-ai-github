@@ -22,6 +22,8 @@ def normalize_anomaly_map(anomaly_map: np.ndarray) -> np.ndarray:
 def colorize_anomaly_map(anomaly_map: np.ndarray, colormap: int = cv2.COLORMAP_JET) -> np.ndarray:
     """Convert a single-channel anomaly map into an RGB heatmap."""
     normalized = normalize_anomaly_map(anomaly_map)
+    if int(normalized.max()) == 0:
+        return np.zeros((*normalized.shape, 3), dtype=np.uint8)
     heatmap_bgr = cv2.applyColorMap(normalized, colormap)
     return cv2.cvtColor(heatmap_bgr, cv2.COLOR_BGR2RGB)
 
@@ -35,6 +37,8 @@ def overlay_heatmap(image_rgb: np.ndarray, anomaly_map: np.ndarray, alpha: float
 
     heatmap_rgb = colorize_anomaly_map(anomaly_map)
     image_resized = cv2.resize(image_rgb, (heatmap_rgb.shape[1], heatmap_rgb.shape[0]), interpolation=cv2.INTER_AREA)
+    if not np.any(heatmap_rgb):
+        return image_resized
     return cv2.addWeighted(image_resized, 1 - alpha, heatmap_rgb, alpha, 0)
 
 

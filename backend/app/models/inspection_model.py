@@ -17,6 +17,8 @@ class Inspection(Document):
     prediction: str | None = None
     defect_type: str | None = None
     confidence: float | None = None
+    detection_confidence: float | None = None
+    classification_confidence: float | None = None
     anomaly_score: float | None = None
     defect_area_ratio: float | None = None
     class_probabilities: dict = Field(default_factory=dict)
@@ -31,6 +33,9 @@ class Inspection(Document):
     review_notes: str | None = None
     reviewed_by: str | None = None
     reviewed_at: datetime | None = None
+    rework_ticket_id: str | None = None
+    rework_ticket_number: str | None = None
+    rework_ticket_status: str | None = None
     batch_number: str | None = None
     product_id: str | None = None
     production_line: str | None = None
@@ -38,8 +43,15 @@ class Inspection(Document):
     operator_name: str | None = None
     source_type: str = "manual_upload"
     source_label: str | None = None
+    category: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
     class Settings:
         name = "inspections"
+        indexes = [
+            "created_at",
+            "batch_number",
+            "review_status",
+            "category",
+        ]

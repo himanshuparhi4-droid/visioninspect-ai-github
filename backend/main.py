@@ -1,6 +1,12 @@
+import logging
+import sys
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.config import allowed_cors_origins, settings
 from app.db.init_beanie import init_database
@@ -19,9 +25,12 @@ from app.routes import (
     rework_routes,
     user_routes,
 )
+from app.services.auth_service import ensure_bootstrap_admin
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -31,9 +40,11 @@ async def lifespan(app: FastAPI):
     try:
         await ping_database()
         await init_database()
+        await ensure_bootstrap_admin()
         app.state.database_ready = True
     except Exception as exc:
-        app.state.database_error = str(exc)
+        logger.warning("Database initialization failed: %s", exc)
+        app.state.database_error = "Database connection unavailable"
     yield
     await close_database()
 

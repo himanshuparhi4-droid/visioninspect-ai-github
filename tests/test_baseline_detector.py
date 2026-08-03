@@ -9,6 +9,7 @@ from ml.baseline_detector import (
     predict_from_score,
     threshold_from_scores,
 )
+from ml.inference import has_localized_baseline_defect
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,6 +39,15 @@ def test_anomaly_mask_filters_tiny_residual_noise():
 
     assert not mask[0, 0]
     assert int(mask.sum()) == 9
+
+
+def test_baseline_requires_a_localized_defect_mask_for_a_fail_decision():
+    empty_mask = np.zeros((8, 8), dtype=bool)
+    localized_mask = empty_mask.copy()
+    localized_mask[3:5, 3:5] = True
+
+    assert not has_localized_baseline_defect(1.46, 1.45, empty_mask)
+    assert has_localized_baseline_defect(1.46, 1.45, localized_mask)
 
 
 def test_saved_normal_profile_has_runtime_arrays():

@@ -21,7 +21,7 @@ import {
 
 import { logout } from "../services/authApi";
 
-const navItems = [
+export const navItems = [
   {
     href: "/dashboard",
     label: "Dashboard",

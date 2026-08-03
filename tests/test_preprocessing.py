@@ -1,5 +1,6 @@
 import numpy as np
 
+from ml.object_preprocessing import crop_to_mask, prepare_classifier_view
 from ml.preprocessing import denoise_image, detect_edges, enhance_contrast, resize_image, to_grayscale
 
 
@@ -30,3 +31,18 @@ def test_to_grayscale_keeps_existing_grayscale_image():
 
     assert result.shape == gray.shape
     assert np.array_equal(result, gray)
+
+
+def test_object_preprocessing_uses_defect_mask_crop():
+    image = np.full((120, 160, 3), 245, dtype=np.uint8)
+    image[25:100, 45:120] = [70, 120, 180]
+    mask = np.zeros((120, 160), dtype=bool)
+    mask[55:70, 80:95] = True
+
+    cropped = crop_to_mask(image, mask, padding_ratio=0.2)
+    prepared = prepare_classifier_view(image, mask, image_size=96, align_object=False)
+
+    assert cropped.shape[0] < image.shape[0]
+    assert cropped.shape[1] < image.shape[1]
+    assert prepared.shape == (96, 96, 3)
+    assert prepared.dtype == np.uint8

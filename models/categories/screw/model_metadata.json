@@ -1,0 +1,254 @@
+{
+  "project": "VisionInspect AI",
+  "model_name": "patchcore",
+  "model_version": "v1",
+  "category": "screw",
+  "dataset": "MVTec AD",
+  "image_size": [
+    256,
+    256
+  ],
+  "padim_features": 256,
+  "train_good_images": 320,
+  "accelerator": "gpu",
+  "checkpoint_path": "models\\categories\\screw\\patchcore_v1.ckpt",
+  "baseline_profile_path": "models\\categories\\screw\\normal_profile.npz",
+  "trained_at": "2026-07-23T20:17:20.075064+00:00",
+  "metrics": [
+    {
+      "image_AUROC": 0.9649518132209778,
+      "image_F1Score": 0.9406779408454895,
+      "pixel_AUROC": 0.9918057322502136,
+      "pixel_F1Score": 0.3716922402381897
+    }
+  ],
+  "benchmark_comparison": {
+    "baseline": {
+      "name": "padim_current",
+      "image_auroc": 0.8307030200958252,
+      "image_f1": 0.8844621777534485,
+      "pixel_auroc": 0.9840542078018188,
+      "pixel_f1": 0.264094740152359,
+      "roi_scale": 1.0
+    },
+    "padim_center_roi": {
+      "name": "padim",
+      "image_auroc": 0.8764091730117798,
+      "image_f1": 0.892307698726654,
+      "pixel_auroc": 0.9813104867935181,
+      "pixel_f1": 0.3066249191761017,
+      "roi_scale": 1.15
+    },
+    "patchcore": {
+      "name": "patchcore",
+      "image_auroc": 0.966386616230011,
+      "image_f1": 0.9495798349380493,
+      "pixel_auroc": 0.9917559027671814,
+      "pixel_f1": 0.36485812067985535,
+      "roi_scale": 1.0
+    }
+  },
+  "roi_scale": 1.0,
+  "selected_from_benchmark": true,
+  "threshold_calibration": {
+    "model_kind": "patchcore",
+    "threshold": 0.416284,
+    "protocol": "30% stratified development calibration; 70% stratified holdout evaluation from MVTec labelled test folders",
+    "calibration_samples": 48,
+    "holdout_samples": 112,
+    "holdout_accuracy": 0.9018,
+    "holdout_precision": 0.9,
+    "holdout_recall": 0.9759,
+    "holdout_f1": 0.9364,
+    "holdout_auroc": 0.9713
+  },
+  "defect_classifier": {
+    "accuracy": 0.9244,
+    "macro_f1": 0.9233,
+    "classification_report": {
+      "manipulated_front": {
+        "precision": 0.96,
+        "recall": 1.0,
+        "f1-score": 0.9795918367346939,
+        "support": 24.0
+      },
+      "scratch_head": {
+        "precision": 0.8571428571428571,
+        "recall": 1.0,
+        "f1-score": 0.9230769230769231,
+        "support": 24.0
+      },
+      "scratch_neck": {
+        "precision": 1.0,
+        "recall": 0.88,
+        "f1-score": 0.9361702127659575,
+        "support": 25.0
+      },
+      "thread_side": {
+        "precision": 0.9545454545454546,
+        "recall": 0.9130434782608695,
+        "f1-score": 0.9333333333333333,
+        "support": 23.0
+      },
+      "thread_top": {
+        "precision": 0.8636363636363636,
+        "recall": 0.8260869565217391,
+        "f1-score": 0.8444444444444444,
+        "support": 23.0
+      },
+      "accuracy": 0.9243697478991597,
+      "macro avg": {
+        "precision": 0.927064935064935,
+        "recall": 0.9238260869565217,
+        "f1-score": 0.9233233500710704,
+        "support": 119.0
+      },
+      "weighted avg": {
+        "precision": 0.9279799192404234,
+        "recall": 0.9243697478991597,
+        "f1-score": 0.9240100373404758,
+        "support": 119.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        24,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        24,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        2,
+        22,
+        0,
+        1
+      ],
+      [
+        0,
+        0,
+        0,
+        21,
+        2
+      ],
+      [
+        1,
+        2,
+        0,
+        1,
+        19
+      ]
+    ],
+    "labels": [
+      "manipulated_front",
+      "scratch_head",
+      "scratch_neck",
+      "thread_side",
+      "thread_top"
+    ],
+    "train_size": 119,
+    "eval_size": 119,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
+    "feature_mode": "global_roi_texture",
+    "defect_only": true,
+    "evaluation": {
+      "protocol": "stratified cross-validation for model selection; production classifier fitted on all labelled defect images",
+      "selected_classifier": "extra_trees",
+      "folds": 5,
+      "candidate_scores": {
+        "logistic_c0.01": {
+          "mean_accuracy": 0.8399,
+          "std_accuracy": 0.0628,
+          "mean_macro_f1": 0.8379,
+          "std_macro_f1": 0.0652
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.8482,
+          "std_accuracy": 0.0742,
+          "mean_macro_f1": 0.8467,
+          "std_macro_f1": 0.077
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.8395,
+          "std_accuracy": 0.0833,
+          "mean_macro_f1": 0.839,
+          "std_macro_f1": 0.0844
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.8399,
+          "std_accuracy": 0.082,
+          "mean_macro_f1": 0.8355,
+          "std_macro_f1": 0.0871
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.7815,
+          "std_accuracy": 0.0309,
+          "mean_macro_f1": 0.7779,
+          "std_macro_f1": 0.0306
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.8228,
+          "std_accuracy": 0.0583,
+          "mean_macro_f1": 0.8222,
+          "std_macro_f1": 0.056
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.8228,
+          "std_accuracy": 0.0583,
+          "mean_macro_f1": 0.8222,
+          "std_macro_f1": 0.056
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.8652,
+          "std_accuracy": 0.0674,
+          "mean_macro_f1": 0.8652,
+          "std_macro_f1": 0.0675
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.9246,
+          "std_accuracy": 0.0308,
+          "mean_macro_f1": 0.9248,
+          "std_macro_f1": 0.0299
+        }
+      }
+    },
+    "dataset_context": {
+      "source": "MVTec AD labelled test folders",
+      "protocol": "defect-only subtype classification with stratified cross-validation; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "screw"
+    }
+  },
+  "portable_detector": "resnet18_normal_memory_with_opencv_localization",
+  "portable_train_good_images": 320,
+  "baseline_threshold_calibration": {
+    "threshold": 0.017529,
+    "protocol": "5-fold stratified balanced-threshold validation on labelled MVTec test images; production threshold maximizes sensitivity plus specificity on all labelled images",
+    "folds": 5,
+    "fold_thresholds": [
+      0.019585,
+      0.017575,
+      0.017529,
+      0.017529,
+      0.016311
+    ],
+    "samples": 160,
+    "cv_accuracy": 0.7375,
+    "cv_precision": 0.8889,
+    "cv_recall": 0.7395,
+    "cv_specificity": 0.7317,
+    "cv_balanced_accuracy": 0.7356,
+    "cv_f1": 0.8073,
+    "auroc": 0.835,
+    "detector": "resnet18_normal_memory",
+    "localization": "opencv_normalized_residual",
+    "residual_threshold": 2.178845
+  }
+}

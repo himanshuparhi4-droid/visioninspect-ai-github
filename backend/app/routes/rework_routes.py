@@ -1,4 +1,3 @@
-from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import get_current_user, require_roles
@@ -9,17 +8,19 @@ from app.schemas.rework_schema import ReworkTicketCreate, ReworkTicketResponse, 
 from app.services.audit_service import record_audit_event
 from app.services.rework_service import create_or_update_rework_ticket, rework_to_response
 from app.time_utils import utc_now
+from app.utils import parse_document_id
 
 router = APIRouter(prefix="/rework", tags=["rework"])
 
 ADMIN_ROLES = {"admin", "quality_manager", "factory_supervisor"}
 
 
-def parse_document_id(value: str) -> PydanticObjectId:
-    try:
-        return PydanticObjectId(value)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid document id") from exc
+def ensure_resolution_notes(status: str, resolution_notes: str | None) -> None:
+    if status in {"completed", "closed"} and not (resolution_notes or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Resolution notes are required before completing or closing a rework ticket",
+        )
 
 
 async def visible_ticket(ticket_id: str, current_user: User) -> ReworkTicket:
@@ -73,7 +74,7 @@ async def get_rework_ticket_for_inspection(
 @router.post("/tickets", response_model=ReworkTicketResponse, status_code=201)
 async def create_rework_ticket(
     payload: ReworkTicketCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("admin", "quality_manager", "factory_supervisor")),
 ) -> ReworkTicketResponse:
     inspection = await Inspection.get(parse_document_id(payload.inspection_id))
     if inspection is None:
@@ -96,6 +97,9 @@ async def create_rework_ticket(
     inspection.review_notes = payload.reason or inspection.review_notes or ticket.reason
     inspection.reviewed_by = str(current_user.id)
     inspection.reviewed_at = utc_now()
+    inspection.rework_ticket_id = str(ticket.id)
+    inspection.rework_ticket_number = ticket.ticket_number
+    inspection.rework_ticket_status = ticket.status
     inspection.updated_at = utc_now()
     await inspection.save()
     await record_audit_event(
@@ -116,6 +120,9 @@ async def update_rework_ticket(
 ) -> ReworkTicketResponse:
     ticket = await visible_ticket(ticket_id, current_user)
     previous_status = ticket.status
+    requested_status = payload.status or ticket.status
+    effective_resolution_notes = payload.resolution_notes or ticket.resolution_notes
+    ensure_resolution_notes(requested_status, effective_resolution_notes)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(ticket, field, value.strip() if isinstance(value, str) and value.strip() else value)
     if ticket.status == "in_progress" and ticket.started_at is None:
@@ -132,6 +139,9 @@ async def update_rework_ticket(
         elif ticket.status in {"completed", "closed"}:
             inspection.review_status = "manual_review"
             inspection.review_notes = ticket.resolution_notes or inspection.review_notes
+        inspection.rework_ticket_id = str(ticket.id)
+        inspection.rework_ticket_number = ticket.ticket_number
+        inspection.rework_ticket_status = ticket.status
         inspection.reviewed_by = str(current_user.id)
         inspection.reviewed_at = utc_now()
         inspection.updated_at = utc_now()

@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const TOKEN_KEY = "visioninspect_token";
 const DEFAULT_TIMEOUT_MS = 30000;
 
@@ -120,6 +120,55 @@ export async function apiRequest(path, options = {}) {
   }
 
   return payload;
+}
+
+export async function apiDownloadBlob(path, options = {}) {
+  const token = Object.prototype.hasOwnProperty.call(options, "token") ? options.token : getAuthToken();
+  const headers = new Headers(options.headers || {});
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "GET",
+      headers,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") || "";
+      const payload = contentType.includes("application/json") ? await response.json() : await response.text();
+      const normalized = normalizeErrorPayload(payload);
+      throw new ApiError(normalized.message, {
+        status: response.status,
+        code: normalized.code,
+        details: normalized.details,
+        requestId: normalized.requestId || response.headers.get("x-request-id"),
+      });
+    }
+
+    return response.blob();
+  } catch (error) {
+    if (error.name === "ApiError") {
+      throw error;
+    }
+    if (error.name === "AbortError") {
+      throw new ApiError("The server took too long to prepare the download. Please try again.", {
+        status: 408,
+        code: "REQUEST_TIMEOUT",
+      });
+    }
+    throw new ApiError("The download could not be started. Please try again shortly.", {
+      status: 0,
+      code: "NETWORK_ERROR",
+      details: error.message,
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 export function apiGet(path, options = {}) {

@@ -1,18 +1,21 @@
 import sys
 from pathlib import Path
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = PROJECT_ROOT / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
-from main import app  # noqa: E402
 from app.models.user_model import User  # noqa: E402
 from app.routes.inspection_routes import automatic_metadata  # noqa: E402
+from app.routes.rework_routes import ensure_resolution_notes  # noqa: E402
 from app.services import cloudinary_service  # noqa: E402
 from app.services.cloudinary_service import CloudStorageError  # noqa: E402
+from app.services.model_settings_service import build_model_metrics_payload  # noqa: E402
+from main import app  # noqa: E402
 
 
 def test_health_endpoint_reports_model_artifacts():
@@ -26,7 +29,8 @@ def test_health_endpoint_reports_model_artifacts():
     assert payload["status"] == "ok"
     assert payload["service"] == "VisionInspect AI"
     assert payload["artifacts"]["defect_classifier"] is True
-    assert payload["artifacts"]["baseline_reference"] is True
+    assert payload["artifacts"]["baseline_profile"] is True
+    assert payload["artifacts"]["portable_categories"] == 15
 
 
 def test_health_live_and_ready_endpoints_are_exposed():
@@ -72,8 +76,42 @@ def test_openapi_exposes_core_platform_routes():
     assert "/health/ready" in paths
 
 
+def test_model_metrics_include_every_category_baseline():
+    payload = build_model_metrics_payload()
+    rows = payload["baseline_metrics"]
+    category_rows = payload["category_models"]
+
+    assert len(rows) == 15
+    assert {row["category"] for row in rows} == {
+        "bottle",
+        "cable",
+        "capsule",
+        "carpet",
+        "grid",
+        "hazelnut",
+        "leather",
+        "metal_nut",
+        "pill",
+        "screw",
+        "tile",
+        "toothbrush",
+        "transistor",
+        "wood",
+        "zipper",
+    }
+    for row in rows:
+        assert row["samples"]
+        assert row["threshold"] is not None
+        assert row["balanced_accuracy"] is not None
+        assert row["f1"] is not None
+        assert row["auroc"] is not None
+
+    assert len(category_rows) == 15
+    assert all(row["image_f1"] is not None for row in category_rows)
+
+
 def test_automatic_metadata_fills_blanks_without_overwriting_values():
-    user = User(name="Quality Engineer", email="engineer@example.com", hashed_password="hashed")
+    user = User.model_construct(name="Quality Engineer", email="engineer@example.com", hashed_password="hashed")
 
     generated = automatic_metadata({"product_id": "BOTTLE-CUSTOM"}, user, "line-image.png")
 
@@ -98,3 +136,11 @@ def test_cloud_storage_failure_has_actionable_message(monkeypatch, tmp_path):
 
     with pytest.raises(CloudStorageError, match="20 seconds"):
         cloudinary_service.upload_image_or_local_url(image_path, "original")
+
+
+def test_rework_completion_requires_resolution_notes():
+    with pytest.raises(HTTPException) as exc_info:
+        ensure_resolution_notes("completed", " ")
+
+    assert getattr(exc_info.value, "status_code", None) == 422
+    ensure_resolution_notes("completed", "Replaced the damaged component and re-inspected the product.")

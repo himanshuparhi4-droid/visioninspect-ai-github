@@ -1,8 +1,10 @@
 import logging
 
+from beanie.exceptions import CollectionWasNotInitialized
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.config import allowed_cors_origins, settings
 
@@ -37,6 +39,30 @@ def error_response(
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    async def duplicate_key_handler(request: Request, exc: DuplicateKeyError) -> JSONResponse:
+        return error_response(
+            request=request,
+            status_code=409,
+            code="duplicate_record",
+            message="A record with this identifier already exists.",
+        )
+
+    async def database_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.warning(
+            "Database request failed",
+            extra={"request_id": getattr(request.state, "request_id", None)},
+        )
+        return error_response(
+            request=request,
+            status_code=503,
+            code="database_unavailable",
+            message="The database is unavailable. Start local MongoDB or check MONGODB_URI, then retry.",
+        )
+
+    app.add_exception_handler(DuplicateKeyError, duplicate_key_handler)
+    app.add_exception_handler(CollectionWasNotInitialized, database_exception_handler)
+    app.add_exception_handler(PyMongoError, database_exception_handler)
+
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
         detail = exc.detail

@@ -5,22 +5,7 @@ import joblib
 
 from app.config import settings
 from app.schemas.model_schema import RuntimeModelSettings
-
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-
-
-def resolve_backend_path(value: str | Path) -> Path:
-    path = Path(value)
-    if path.is_absolute():
-        return path
-    return (BACKEND_DIR / path).resolve()
-
-
-def uploads_path(*parts: str, create: bool = True) -> Path:
-    path = resolve_backend_path(settings.upload_dir).joinpath(*parts)
-    if create:
-        path.mkdir(parents=True, exist_ok=True)
-    return path
+from app.utils import resolve_backend_path, uploads_path
 
 
 def runtime_settings_path(*, create_parent: bool = False) -> Path:
@@ -33,7 +18,8 @@ def load_runtime_settings() -> RuntimeModelSettings:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             # Older versions used raw grayscale differences on a 0-255 scale.
-            if float(payload.get("baseline_threshold", 0)) > 10:
+            baseline_threshold = float(payload.get("baseline_threshold", 0))
+            if baseline_threshold > 10 or abs(baseline_threshold - 1.45) < 1e-9:
                 payload["baseline_threshold"] = settings.baseline_threshold
             return RuntimeModelSettings(**payload)
         except Exception:
@@ -62,12 +48,16 @@ def load_classifier_metrics() -> dict:
 
 
 def build_model_metrics_payload() -> dict:
-    from app.services.prediction_service import load_model_metadata
+    from ml.inference import load_model_metadata
+    from ml.model_registry import category_model_spec, category_model_statuses
 
-    metadata = load_model_metadata()
+    metadata = load_model_metadata(str(resolve_backend_path(settings.model_metadata_path)))
     classifier_metrics = load_classifier_metrics()
     padim_metrics = metadata.get("metrics", {})
+    if isinstance(padim_metrics, list):
+        padim_metrics = padim_metrics[0] if padim_metrics else {}
     classifier_report = classifier_metrics.get("classification_report", {})
+    baseline_calibration = metadata.get("baseline_threshold_calibration", {})
     labels = classifier_metrics.get("labels") or metadata.get("defect_classifier", {}).get("labels", [])
     confusion_matrix = classifier_metrics.get("confusion_matrix", [])
     runtime_settings = load_runtime_settings()
@@ -104,19 +94,19 @@ def build_model_metrics_payload() -> dict:
 
     model_comparison = [
         {
-            "name": "PaDiM anomaly detector",
+            "name": "Advanced category anomaly detector",
             "task": "Good vs defective anomaly detection and heatmap localization",
-            "framework": "PyTorch / Anomalib",
+            "framework": "PyTorch / Anomalib (PaDiM or PatchCore)",
             "primary_metric": "Image AUROC",
             "score": padim_metrics.get("image_AUROC"),
             "secondary_metric": "Pixel AUROC",
             "secondary_score": padim_metrics.get("pixel_AUROC"),
-            "status": "production-serving",
+            "status": "optional-advanced-runtime",
         },
         {
-            "name": "ResNet18 feature classifier",
+            "name": "ResNet18 + texture classifier",
             "task": "Defect type classification",
-            "framework": "PyTorch features / scikit-learn",
+            "framework": "PyTorch features / OpenCV descriptors / scikit-learn",
             "primary_metric": "Accuracy",
             "score": classifier_metrics.get("accuracy") or metadata.get("defect_classifier", {}).get("accuracy"),
             "secondary_metric": "Macro F1",
@@ -124,16 +114,73 @@ def build_model_metrics_payload() -> dict:
             "status": "type-classifier",
         },
         {
-            "name": "OpenCV baseline",
-            "task": "Fallback anomaly scoring and visual heatmap",
-            "framework": "OpenCV / NumPy",
-            "primary_metric": "Threshold",
-            "score": runtime_settings.baseline_threshold,
-            "secondary_metric": "Purpose",
-            "secondary_score": "fallback",
-            "status": "backup",
+            "name": "Portable normal-memory baseline",
+            "task": "Good/defective screening and residual heatmap",
+            "framework": "ResNet18 normal memory / OpenCV localization",
+            "primary_metric": "CV balanced accuracy",
+            "score": baseline_calibration.get("cv_balanced_accuracy"),
+            "secondary_metric": "CV F1",
+            "secondary_score": baseline_calibration.get("cv_f1"),
+            "status": "default-runtime",
         },
     ]
+    category_models = []
+    baseline_metrics = []
+    for status in category_model_statuses(settings.use_padim_inference):
+        spec = category_model_spec(status["category"])
+        category_metadata = {}
+        if spec.metadata_path.exists():
+            try:
+                category_metadata = json.loads(spec.metadata_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                category_metadata = {}
+        category_metrics = category_metadata.get("metrics") or {}
+        if isinstance(category_metrics, list):
+            category_metrics = category_metrics[0] if category_metrics else {}
+        portable_metrics = category_metadata.get("baseline_threshold_calibration") or {}
+        threshold_metrics = category_metadata.get("threshold_calibration") or {}
+        baseline_metrics.append(
+            {
+                "category": status["category"],
+                "available": status["available"],
+                "detector": portable_metrics.get("detector", "portable-baseline"),
+                "localization": portable_metrics.get("localization", "opencv_normalized_residual"),
+                "protocol": portable_metrics.get("protocol"),
+                "folds": portable_metrics.get("folds"),
+                "samples": portable_metrics.get("samples"),
+                "threshold": portable_metrics.get("threshold"),
+                "residual_threshold": portable_metrics.get("residual_threshold"),
+                "accuracy": portable_metrics.get("cv_accuracy"),
+                "precision": portable_metrics.get("cv_precision"),
+                "recall": portable_metrics.get("cv_recall"),
+                "specificity": portable_metrics.get("cv_specificity"),
+                "balanced_accuracy": portable_metrics.get("cv_balanced_accuracy"),
+                "f1": portable_metrics.get("cv_f1"),
+                "auroc": portable_metrics.get("auroc"),
+            }
+        )
+        category_models.append(
+            {
+                "category": status["category"],
+                "available": status["available"],
+                "trained": status["trained"],
+                "active_engine": status["active_engine"],
+                "classification_trained": status["classification_trained"],
+                "model_kind": status["model_kind"],
+                "decision_threshold": status["decision_threshold"],
+                "advanced_decision_threshold": status["decision_threshold"],
+                "portable_decision_threshold": portable_metrics.get("threshold"),
+                "image_auroc": category_metrics.get("image_AUROC"),
+                "image_f1": category_metrics.get("image_F1Score") or threshold_metrics.get("holdout_f1"),
+                "pixel_auroc": category_metrics.get("pixel_AUROC"),
+                "calibration_holdout_f1": threshold_metrics.get("holdout_f1"),
+                "portable_cv_f1": portable_metrics.get("cv_f1"),
+                "portable_cv_balanced_accuracy": portable_metrics.get("cv_balanced_accuracy"),
+                "classifier_macro_f1": category_metadata.get("defect_classifier", {}).get("macro_f1"),
+                "classifier_accuracy": category_metadata.get("defect_classifier", {}).get("accuracy"),
+                "trained_at": category_metadata.get("trained_at"),
+            }
+        )
 
     return {
         "metadata": metadata,
@@ -146,4 +193,6 @@ def build_model_metrics_payload() -> dict:
             "description": "Rows are actual labels; columns are predicted labels.",
         },
         "threshold_calibration": threshold_calibration,
+        "baseline_metrics": baseline_metrics,
+        "category_models": category_models,
     }

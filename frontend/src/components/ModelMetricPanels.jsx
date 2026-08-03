@@ -8,16 +8,105 @@ export function formatMetric(value) {
   return value;
 }
 
+function formatPercentMetric(value) {
+  if (value == null) return "Pending";
+  return `${(Number(value) * 100).toFixed(1)}%`;
+}
+
+function baselineAssessment(row) {
+  const balancedAccuracy = Number(row.balanced_accuracy || 0);
+  const f1 = Number(row.f1 || 0);
+  if (!row.available) return { label: "Unavailable", className: "metric-status-pending" };
+  if (balancedAccuracy >= 0.85 && f1 >= 0.85) return { label: "Strong", className: "metric-status-strong" };
+  if (balancedAccuracy >= 0.75 && f1 >= 0.75) return { label: "Acceptable", className: "metric-status-acceptable" };
+  return { label: "Needs tuning", className: "metric-status-tuning" };
+}
+
+export function BaselineMetricsTable({ rows = [] }) {
+  return (
+    <section className="tool-panel">
+      <div className="panel-heading">
+        <div>
+          <h2>Baseline Prediction Metrics</h2>
+          <p>Cross-validated portable detector performance for every supported product category.</p>
+        </div>
+        <ScanSearch size={22} />
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Validation</th>
+              <th>Samples</th>
+              <th>Threshold</th>
+              <th>Accuracy</th>
+              <th>Precision</th>
+              <th>Recall</th>
+              <th>Specificity</th>
+              <th>Balanced accuracy</th>
+              <th>F1</th>
+              <th>AUROC</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length ? (
+              rows.map((row) => {
+                const assessment = baselineAssessment(row);
+                return (
+                  <tr key={row.category}>
+                    <td>{row.category.replaceAll("_", " ")}</td>
+                    <td>
+                      <strong className={`metric-status ${assessment.className}`}>{assessment.label}</strong>
+                    </td>
+                    <td>{row.samples ?? "Pending"}</td>
+                    <td>{formatMetric(row.threshold)}</td>
+                    <td>{formatPercentMetric(row.accuracy)}</td>
+                    <td>{formatPercentMetric(row.precision)}</td>
+                    <td>{formatPercentMetric(row.recall)}</td>
+                    <td>{formatPercentMetric(row.specificity)}</td>
+                    <td>{formatPercentMetric(row.balanced_accuracy)}</td>
+                    <td>{formatPercentMetric(row.f1)}</td>
+                    <td>{formatPercentMetric(row.auroc)}</td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={11}>No baseline validation metrics are available.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="explainability-box">
+        <strong>How to read this table</strong>
+        <p>
+          Accuracy measures all correct predictions, recall measures detected defects, specificity measures correctly
+          accepted good products, and AUROC measures class separation across thresholds.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export function ArtifactsPanel({ artifacts = {} }) {
   function artifactLabel(name) {
     if (name === "padim_checkpoint") return "PaDiM checkpoint";
     if (name === "defect_classifier") return "Defect classifier";
-    if (name === "baseline_reference") return "Baseline reference";
     if (name === "baseline_profile") return "Baseline normal profile";
+    if (name === "portable_categories") return "Portable categories";
+    if (name === "advanced_categories") return "Advanced categories";
     return name.replaceAll("_", " ");
   }
 
   function artifactStatus(name, available) {
+    if (typeof available === "number") {
+      return {
+        className: available ? "good-text" : "severity-pending",
+        label: `${available} ready`,
+      };
+    }
     if (available) return { className: "good-text", label: "Available" };
     if (name === "padim_checkpoint") return { className: "severity-pending", label: "External" };
     return { className: "severity-pending", label: "Not loaded" };
@@ -60,7 +149,7 @@ export function ThresholdSettingsPanel({ settings, message, onChange, onSave }) 
       {settings ? (
         <div className="compact-form">
           <ThresholdInput
-            label="PaDiM score threshold"
+            label="PaDiM global adjustment (0.50 = category calibration)"
             field="padim_score_threshold"
             step="0.01"
             min="0"
@@ -69,7 +158,7 @@ export function ThresholdSettingsPanel({ settings, message, onChange, onSave }) 
             onChange={onChange}
           />
           <ThresholdInput
-            label="OpenCV normalized-residual threshold"
+            label="Portable baseline sensitivity (1.34 = category calibration)"
             field="baseline_threshold"
             step="0.01"
             min="0"

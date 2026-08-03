@@ -1,0 +1,208 @@
+{
+  "project": "VisionInspect AI",
+  "model_name": "padim",
+  "model_version": "v1",
+  "category": "metal_nut",
+  "dataset": "MVTec AD",
+  "image_size": [
+    256,
+    256
+  ],
+  "padim_features": 256,
+  "train_good_images": 220,
+  "accelerator": "gpu",
+  "checkpoint_path": "models\\categories\\metal_nut\\padim_v1.ckpt",
+  "baseline_profile_path": "models\\categories\\metal_nut\\normal_profile.npz",
+  "trained_at": "2026-07-23T17:49:53.154869+00:00",
+  "metrics": [
+    {
+      "image_AUROC": 0.9838709831237793,
+      "image_F1Score": 0.9735449552536011,
+      "pixel_AUROC": 0.9679068326950073,
+      "pixel_F1Score": 0.7618869543075562
+    }
+  ],
+  "threshold_calibration": {
+    "model_kind": "padim",
+    "threshold": 0.500032,
+    "protocol": "30% stratified development calibration; 70% stratified holdout evaluation from MVTec labelled test folders",
+    "calibration_samples": 34,
+    "holdout_samples": 81,
+    "holdout_accuracy": 0.9506,
+    "holdout_precision": 0.9429,
+    "holdout_recall": 1.0,
+    "holdout_f1": 0.9706,
+    "holdout_auroc": 0.9758
+  },
+  "defect_classifier": {
+    "accuracy": 0.9355,
+    "macro_f1": 0.9357,
+    "classification_report": {
+      "bent": {
+        "precision": 0.9565217391304348,
+        "recall": 0.88,
+        "f1-score": 0.9166666666666666,
+        "support": 25.0
+      },
+      "color": {
+        "precision": 0.9166666666666666,
+        "recall": 1.0,
+        "f1-score": 0.9565217391304348,
+        "support": 22.0
+      },
+      "flip": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 23.0
+      },
+      "scratch": {
+        "precision": 0.8695652173913043,
+        "recall": 0.8695652173913043,
+        "f1-score": 0.8695652173913043,
+        "support": 23.0
+      },
+      "accuracy": 0.9354838709677419,
+      "macro avg": {
+        "precision": 0.9356884057971014,
+        "recall": 0.937391304347826,
+        "f1-score": 0.9356884057971014,
+        "support": 93.0
+      },
+      "weighted avg": {
+        "precision": 0.9363409693002961,
+        "recall": 0.9354838709677419,
+        "f1-score": 0.9350553218014649,
+        "support": 93.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        22,
+        0,
+        0,
+        3
+      ],
+      [
+        0,
+        22,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        23,
+        0
+      ],
+      [
+        1,
+        2,
+        0,
+        20
+      ]
+    ],
+    "labels": [
+      "bent",
+      "color",
+      "flip",
+      "scratch"
+    ],
+    "train_size": 93,
+    "eval_size": 93,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
+    "feature_mode": "global_roi_texture",
+    "defect_only": true,
+    "evaluation": {
+      "protocol": "stratified cross-validation for model selection; production classifier fitted on all labelled defect images",
+      "selected_classifier": "lda_shrinkage",
+      "folds": 5,
+      "candidate_scores": {
+        "logistic_c0.01": {
+          "mean_accuracy": 0.9251,
+          "std_accuracy": 0.0638,
+          "mean_macro_f1": 0.9249,
+          "std_macro_f1": 0.0634
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.9251,
+          "std_accuracy": 0.0638,
+          "mean_macro_f1": 0.9249,
+          "std_macro_f1": 0.0634
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.9251,
+          "std_accuracy": 0.0638,
+          "mean_macro_f1": 0.9249,
+          "std_macro_f1": 0.0634
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.9251,
+          "std_accuracy": 0.0638,
+          "mean_macro_f1": 0.9249,
+          "std_macro_f1": 0.0634
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.9251,
+          "std_accuracy": 0.0638,
+          "mean_macro_f1": 0.9249,
+          "std_macro_f1": 0.0634
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.9251,
+          "std_accuracy": 0.0638,
+          "mean_macro_f1": 0.9249,
+          "std_macro_f1": 0.0634
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.9251,
+          "std_accuracy": 0.0638,
+          "mean_macro_f1": 0.9249,
+          "std_macro_f1": 0.0634
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.9357,
+          "std_accuracy": 0.0526,
+          "mean_macro_f1": 0.934,
+          "std_macro_f1": 0.0541
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.9041,
+          "std_accuracy": 0.0844,
+          "mean_macro_f1": 0.9076,
+          "std_macro_f1": 0.0794
+        }
+      }
+    },
+    "dataset_context": {
+      "source": "MVTec AD labelled test folders",
+      "protocol": "defect-only subtype classification with stratified cross-validation; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "metal_nut"
+    }
+  },
+  "portable_detector": "resnet18_normal_memory_with_opencv_localization",
+  "portable_train_good_images": 220,
+  "baseline_threshold_calibration": {
+    "threshold": 0.028916,
+    "protocol": "5-fold stratified balanced-threshold validation on labelled MVTec test images; production threshold maximizes sensitivity plus specificity on all labelled images",
+    "folds": 5,
+    "fold_thresholds": [
+      0.028916,
+      0.028916,
+      0.028916,
+      0.028111,
+      0.029172
+    ],
+    "samples": 115,
+    "cv_accuracy": 0.6957,
+    "cv_precision": 0.9531,
+    "cv_recall": 0.6559,
+    "cv_specificity": 0.8636,
+    "cv_balanced_accuracy": 0.7598,
+    "cv_f1": 0.7771,
+    "auroc": 0.806,
+    "detector": "resnet18_normal_memory",
+    "localization": "opencv_normalized_residual",
+    "residual_threshold": 0.596241
+  }
+}

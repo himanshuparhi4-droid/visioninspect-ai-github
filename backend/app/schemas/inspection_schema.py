@@ -13,15 +13,7 @@ ReviewStatus = Literal[
     "sent_for_rework",
     "re_inspected",
 ]
-
-
-class InspectionResult(BaseModel):
-    prediction: str
-    defect_type: str | None = None
-    confidence: float
-    severity_score: float | None = None
-    severity_level: str | None = None
-    recommended_action: str | None = None
+ReviewAction = Literal["approved", "rejected", "sent_for_rework"]
 
 
 class InspectionResponse(BaseModel):
@@ -33,6 +25,8 @@ class InspectionResponse(BaseModel):
     prediction: str | None = None
     defect_type: str | None = None
     confidence: float | None = None
+    detection_confidence: float | None = None
+    classification_confidence: float | None = None
     anomaly_score: float | None = None
     defect_area_ratio: float | None = None
     class_probabilities: dict = Field(default_factory=dict)
@@ -57,6 +51,7 @@ class InspectionResponse(BaseModel):
     operator_name: str | None = None
     source_type: str
     source_label: str | None = None
+    category: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -65,10 +60,11 @@ class InspectionListResponse(BaseModel):
     total: int
     items: list[InspectionResponse]
     summary: dict = Field(default_factory=dict)
+    failures: list[dict] = Field(default_factory=list)
 
 
 class ReviewStatusUpdate(BaseModel):
-    review_status: ReviewStatus
+    review_status: ReviewAction
     review_notes: str | None = Field(default=None, max_length=2000)
 
 
@@ -79,3 +75,4 @@ class InspectionMetadataUpdate(BaseModel):
     shift: str | None = Field(default=None, max_length=120)
     operator_name: str | None = Field(default=None, max_length=160)
     source_label: str | None = Field(default=None, max_length=240)
+    category: str | None = Field(default=None, max_length=80)

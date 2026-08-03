@@ -23,10 +23,6 @@ function batchFormData(files, metadata) {
   return appendMetadata(formData, metadata);
 }
 
-export function uploadInspection(file, metadata = {}) {
-  return apiPost("/inspections/upload", imageFormData(file, metadata));
-}
-
 export function inspectImage(file, metadata = {}) {
   return apiPost("/inspections/inspect", imageFormData(file, metadata), { timeoutMs: 120000 });
 }
@@ -43,10 +39,6 @@ export function listInspections({ skip = 0, limit = 50, productId = "", producti
   return apiGet(`/inspections?${params.toString()}`);
 }
 
-export function getInspection(inspectionId) {
-  return apiGet(`/inspections/${inspectionId}`);
-}
-
 export function updateReviewStatus(inspectionId, reviewStatus, reviewNotes = "") {
   return apiPatch(`/inspections/${inspectionId}/review-status`, {
     review_status: reviewStatus,
@@ -58,12 +50,17 @@ export function updateInspectionMetadata(inspectionId, metadata = {}) {
   return apiPatch(`/inspections/${inspectionId}/metadata`, metadata);
 }
 
-export function getCameraSamples() {
-  return apiGet("/inspections/camera-samples");
+export function getCameraSamples(category = "") {
+  return apiGet(`/inspections/camera-samples${category ? `?category=${category}` : ""}`);
 }
 
-export function simulateCameraInspection({ frameIndex = 0, label = "" } = {}) {
+export function getModelCategories() {
+  return apiGet("/inspections/model-categories");
+}
+
+export function simulateCameraInspection({ frameIndex = 0, label = "", category = "" } = {}) {
   const params = new URLSearchParams({ frame_index: String(frameIndex) });
   if (label) params.set("label", label);
+  if (category) params.set("category", category);
   return apiPost(`/inspections/camera-simulate?${params.toString()}`, {}, { timeoutMs: 120000 });
 }

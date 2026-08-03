@@ -18,6 +18,8 @@ async def list_audit_logs(
         {
             "id": str(log.id),
             "actor_id": log.actor_id,
+            "actor_name": log.actor_name,
+            "actor_role": log.actor_role,
             "action": log.action,
             "entity_type": log.entity_type,
             "entity_id": log.entity_id,

@@ -8,14 +8,15 @@ function confidenceText(value) {
   return value != null ? `${(value * 100).toFixed(1)}%` : "Pending";
 }
 
-export default function BatchInspectionResults({ results = [], summary = null }) {
-  if (!results.length) return null;
+export default function BatchInspectionResults({ results = [], summary = null, failures = [] }) {
+  if (!results.length && !failures.length) return null;
 
   const cards = [
     ["Total", summary?.total ?? results.length],
     ["Good", summary?.good ?? countBy(results, "prediction", "Good")],
     ["Defective", summary?.defective ?? countBy(results, "prediction", "Defective")],
-    ["Failed", summary?.fail ?? countBy(results, "pass_fail", "Fail")],
+    ["QA Fail", summary?.fail ?? countBy(results, "pass_fail", "Fail")],
+    ["Processing Errors", summary?.failed ?? failures.length],
     ["Critical", summary?.critical ?? countBy(results, "severity_level", "Critical")],
     ["Avg Confidence", confidenceText(summary?.average_confidence)],
   ];
@@ -54,6 +55,16 @@ export default function BatchInspectionResults({ results = [], summary = null })
           </tbody>
         </table>
       </div>
+      {failures.length ? (
+        <section className="error-panel" role="status">
+          <strong>{failures.length} images could not be inspected</strong>
+          {failures.map((failure) => (
+            <p key={`${failure.file_name}-${failure.status}`}>
+              {failure.file_name}: {failure.message}
+            </p>
+          ))}
+        </section>
+      ) : null}
     </>
   );
 }

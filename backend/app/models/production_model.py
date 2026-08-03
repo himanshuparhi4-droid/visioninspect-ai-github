@@ -2,6 +2,7 @@ from datetime import datetime
 
 from beanie import Document
 from pydantic import Field
+from pymongo import ASCENDING, IndexModel
 
 from app.time_utils import utc_now
 
@@ -9,7 +10,7 @@ from app.time_utils import utc_now
 class Product(Document):
     product_id: str
     name: str
-    category: str = "Bottle"
+    category: str | None = None
     critical_zones: list[str] = Field(default_factory=list)
     is_active: bool = True
     created_at: datetime = Field(default_factory=utc_now)
@@ -17,6 +18,11 @@ class Product(Document):
 
     class Settings:
         name = "products"
+        indexes = [
+            IndexModel([("product_id", ASCENDING)], unique=True, name="product_id_1"),
+            "category",
+            "is_active",
+        ]
 
 
 class ProductionLine(Document):
@@ -29,6 +35,10 @@ class ProductionLine(Document):
 
     class Settings:
         name = "production_lines"
+        indexes = [
+            IndexModel([("line_id", ASCENDING)], unique=True, name="line_id_1"),
+            "is_active",
+        ]
 
 
 class BatchRecord(Document):
@@ -42,3 +52,8 @@ class BatchRecord(Document):
 
     class Settings:
         name = "batch_records"
+        indexes = [
+            IndexModel([("batch_number", ASCENDING)], unique=True, name="batch_number_1"),
+            "product_id",
+            "status",
+        ]

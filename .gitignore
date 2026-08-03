@@ -18,7 +18,12 @@ env/
 
 # Node / Next.js
 node_modules/
+frontend/node_modules/
 .next/
+frontend/.next/
+frontend/.next-stale/
+frontend/test-results/
+frontend/playwright-report/
 out/
 dist/
 npm-debug.log*
@@ -33,6 +38,11 @@ data/raw/
 data/processed/
 data/sample_images/
 models/checkpoints/
+models/local_checkpoints/
+models/categories/**/*.ckpt
+models/categories/**/training_runs/
+models/categories/**/benchmark_runs/
+models/categories/**/promotion_runs/
 models/exported/
 outputs/
 results/
@@ -40,7 +50,10 @@ tmp/
 backend/app/uploads_temp/
 backend/app/uploads/
 backend/results/
+openvino_cache/
 backend/*.log
+backend/kernel.errors.txt
+kernel.errors.txt
 frontend/*.log
 database/local-mongodb/
 tools/mongodb/

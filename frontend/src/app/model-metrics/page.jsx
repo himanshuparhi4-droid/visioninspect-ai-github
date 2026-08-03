@@ -6,6 +6,7 @@ import { Database, Gauge } from "lucide-react";
 import AppShell from "../../components/AppShell";
 import {
   ArtifactsPanel,
+  BaselineMetricsTable,
   ClassifierReportPanel,
   ConfusionMatrixPanel,
   ModelComparisonPanel,
@@ -76,6 +77,54 @@ export default function ModelMetricsPage() {
 
       <ModelComparisonPanel models={metrics?.model_comparison || []} />
       <ThresholdCalibrationPanel calibration={metrics?.threshold_calibration || {}} />
+      <BaselineMetricsTable rows={metrics?.baseline_metrics || []} />
+
+      <section className="tool-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Category Model Registry</h2>
+            <p>Portable and advanced model evidence for every supported product category.</p>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Runtime</th>
+                <th>Type classifier</th>
+                <th>Advanced threshold</th>
+                <th>Image AUROC</th>
+                <th>Image F1</th>
+                <th>Pixel AUROC</th>
+                <th>Classifier accuracy</th>
+                <th>Classifier macro F1</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(metrics?.category_models || []).map((model) => (
+                <tr key={model.category}>
+                  <td>{model.category.replaceAll("_", " ")}</td>
+                  <td>
+                    {model.trained
+                      ? `Portable + ${model.model_kind}`
+                      : model.available
+                        ? "Portable baseline"
+                        : "Unavailable"}
+                  </td>
+                  <td>{model.classification_trained ? "Ready" : "Pending"}</td>
+                  <td>{formatMetric(model.advanced_decision_threshold)}</td>
+                  <td>{formatMetric(model.image_auroc)}</td>
+                  <td>{formatMetric(model.image_f1)}</td>
+                  <td>{formatMetric(model.pixel_auroc)}</td>
+                  <td>{formatMetric(model.classifier_accuracy)}</td>
+                  <td>{formatMetric(model.classifier_macro_f1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <div className="inspection-layout">
         <ConfusionMatrixPanel

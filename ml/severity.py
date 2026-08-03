@@ -3,12 +3,57 @@ from __future__ import annotations
 DEFECT_TYPE_SCORES = {
     "good": 0,
     "contamination": 55,
+    "defective": 70,
+    "unknown_defect": 60,
     "broken_small": 75,
     "broken_large": 95,
+    "broken": 90,
+    "broken_teeth": 90,
     "crack": 95,
     "surface_crack": 95,
     "scratch": 35,
+    "scratch_head": 45,
+    "scratch_neck": 40,
     "missing_component": 95,
+    "missing_cable": 95,
+    "missing_wire": 95,
+    "bent_wire": 85,
+    "cable_swap": 90,
+    "cut_inner_insulation": 95,
+    "cut_outer_insulation": 90,
+    "cut_lead": 90,
+    "poke_insulation": 75,
+    "poke": 75,
+    "faulty_imprint": 60,
+    "squeeze": 65,
+    "color": 45,
+    "cut": 85,
+    "hole": 90,
+    "metal_contamination": 80,
+    "thread": 40,
+    "thread_side": 40,
+    "thread_top": 45,
+    "print": 50,
+    "bent": 80,
+    "bent_lead": 85,
+    "damaged_case": 90,
+    "misplaced": 85,
+    "flip": 75,
+    "pill_type": 95,
+    "combined": 95,
+    "liquid": 85,
+    "oil": 65,
+    "glue": 45,
+    "glue_strip": 45,
+    "fold": 55,
+    "manipulated_front": 80,
+    "fabric_border": 50,
+    "fabric_interior": 60,
+    "rough": 45,
+    "gray_stroke": 40,
+    "color_triple": 70,
+    "split_teeth": 90,
+    "squeezed_teeth": 85,
 }
 
 
@@ -25,17 +70,10 @@ def score_from_defect_area_ratio(area_ratio: float) -> float:
     return 90
 
 
-def score_from_location(is_critical_location: bool, defect_center_y_ratio: float | None = None) -> float:
-    """Score location risk.
-
-    If explicit critical-location information is unavailable, use a simple center-region heuristic.
-    """
+def score_from_location(is_critical_location: bool) -> float:
+    """Score location risk from product-specific critical-zone overlap."""
     if is_critical_location:
         return 90
-
-    if defect_center_y_ratio is not None and 0.25 <= defect_center_y_ratio <= 0.75:
-        return 65
-
     return 35
 
 
@@ -107,8 +145,27 @@ def calculate_severity_from_prediction(
     is_critical_location: bool = False,
     defect_center_y_ratio: float | None = None,
 ) -> dict:
+    if defect_type.lower() == "good":
+        return {
+            "severity_score": 0.0,
+            "severity_level": "Low",
+            "pass_fail": "Pass",
+            "recommended_action": "Product generally acceptable",
+            "components": {
+                "size_score": 0.0,
+                "location_score": 0.0,
+                "defect_type_score": 0.0,
+                "confidence_score": 0.0,
+            },
+            "defect_type": "good",
+            "confidence": round(float(confidence), 4),
+            "area_ratio": 0.0,
+            "is_critical_location": False,
+            "defect_center_y_ratio": None,
+        }
+
     size_score = score_from_defect_area_ratio(area_ratio)
-    location_score = score_from_location(is_critical_location, defect_center_y_ratio)
+    location_score = score_from_location(is_critical_location)
     defect_type_score = score_from_defect_type(defect_type)
     confidence_score = score_from_confidence(confidence)
 

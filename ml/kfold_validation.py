@@ -9,17 +9,25 @@ import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import StratifiedKFold
 
-from ml.classifier import LABEL_ORDER, build_resnet18_feature_extractor, create_classifier, extract_features
+from ml.classifier import (
+    build_resnet18_feature_extractor,
+    extract_global_texture_features,
+    select_classifier,
+)
 from ml.config import RAW_DATA_DIR
-from ml.dataset_loader import load_bottle_dataframe
+from ml.dataset_loader import load_mvtec_dataframe
 
 
-def prepare_classifier_dataframe(root: Path, max_images_per_class: int | None = None):
-    df = load_bottle_dataframe(root)
+def prepare_classifier_dataframe(
+    root: Path,
+    max_images_per_class: int | None = None,
+    category: str | None = None,
+):
+    df = load_mvtec_dataframe(root, category)
     if "label" not in df.columns:
         raise ValueError(f"No classifier images found under {root}")
 
-    data = df[df["label"].isin(LABEL_ORDER)].copy()
+    data = df[df["label"].ne("good")].copy()
     data = data[data["image_path"].notna()]
 
     if max_images_per_class:
@@ -39,9 +47,10 @@ def run_stratified_kfold(
     batch_size: int = 16,
     max_images_per_class: int | None = None,
     output_dir: Path | None = None,
+    category: str | None = None,
 ) -> dict:
-    data = prepare_classifier_dataframe(root, max_images_per_class=max_images_per_class)
-    labels = [label for label in LABEL_ORDER if label in sorted(data["label"].unique())]
+    data = prepare_classifier_dataframe(root, max_images_per_class=max_images_per_class, category=category)
+    labels = sorted(data["label"].unique())
     counts = data["label"].value_counts().to_dict()
     min_class_count = min(counts.values())
     effective_folds = min(folds, min_class_count)
@@ -50,7 +59,7 @@ def run_stratified_kfold(
         raise ValueError(f"K-fold validation needs at least 2 images per class. Counts: {counts}")
 
     feature_extractor, preprocess, device = build_resnet18_feature_extractor()
-    features = extract_features(
+    features = extract_global_texture_features(
         data["image_path"].tolist(),
         batch_size=batch_size,
         feature_extractor=feature_extractor,
@@ -66,7 +75,7 @@ def run_stratified_kfold(
     all_pred: list[str] = []
 
     for fold_index, (train_index, eval_index) in enumerate(splitter.split(features, y), start=1):
-        classifier = create_classifier()
+        _, classifier, _ = select_classifier(features[train_index], y[train_index])
         classifier.fit(features[train_index], y[train_index])
         predictions = classifier.predict(features[eval_index])
         truth = y[eval_index]
@@ -95,13 +104,14 @@ def run_stratified_kfold(
     summary = {
         "validation_type": "stratified_kfold_classifier_validation",
         "dataset": str(root),
+        "category": category or Path(root).name,
         "labels": labels,
         "class_counts": counts,
         "requested_folds": folds,
         "effective_folds": effective_folds,
         "total_images": int(len(data)),
-        "feature_extractor": "resnet18_imagenet1k_v1",
-        "classifier": "standard_scaler_logistic_regression_balanced",
+        "feature_extractor": "resnet18_imagenet1k_v1_plus_texture",
+        "classifier": "cross_validated_logistic_or_rbf_svm",
         "folds": fold_results,
         "mean_accuracy": round(float(np.mean(accuracies)), 4),
         "std_accuracy": round(float(np.std(accuracies)), 4),
@@ -126,6 +136,7 @@ def run_stratified_kfold(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run stratified K-fold validation for the defect classifier.")
     parser.add_argument("--data-root", type=Path, default=RAW_DATA_DIR)
+    parser.add_argument("--category", default=None)
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--max-images-per-class", type=int, default=None)
@@ -138,6 +149,7 @@ def main() -> None:
         batch_size=args.batch_size,
         max_images_per_class=args.max_images_per_class,
         output_dir=args.output_dir,
+        category=args.category,
     )
 
     print(

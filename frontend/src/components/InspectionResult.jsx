@@ -9,6 +9,11 @@ function DecisionIcon({ decision }) {
   return <TriangleAlert className="review-icon" size={22} />;
 }
 
+function formatScore(value) {
+  if (value == null) return "Pending";
+  return value < 0.1 ? value.toFixed(4) : value.toFixed(2);
+}
+
 export default function InspectionResult({ result }) {
   if (!result) {
     return (
@@ -53,7 +58,7 @@ export default function InspectionResult({ result }) {
         </div>
         <div className="metric-box">
           <small>Anomaly Score</small>
-          <strong>{result.anomaly_score != null ? result.anomaly_score.toFixed(2) : "Pending"}</strong>
+          <strong>{formatScore(result.anomaly_score)}</strong>
         </div>
       </div>
 
@@ -65,6 +70,9 @@ export default function InspectionResult({ result }) {
       <div className="metadata-summary">
         <span>
           <strong>Product:</strong> {result.product_id || "Unassigned"}
+        </span>
+        <span>
+          <strong>Category:</strong> {(result.category || "Unknown").replaceAll("_", " ")}
         </span>
         <span>
           <strong>Batch:</strong> {result.batch_number || "Unassigned"}
@@ -87,7 +95,19 @@ export default function InspectionResult({ result }) {
         <small>AI explainability</small>
         <div className="explainability-grid">
           <span>
-            <strong>Threshold:</strong> {result.explainability?.decision_threshold ?? "Pending"}
+            <strong>Threshold:</strong> {formatScore(result.explainability?.decision_threshold)}
+          </span>
+          <span>
+            <strong>Detection confidence:</strong>{" "}
+            {result.explainability?.detection_confidence != null
+              ? `${(result.explainability.detection_confidence * 100).toFixed(1)}%`
+              : "Pending"}
+          </span>
+          <span>
+            <strong>Subtype confidence:</strong>{" "}
+            {result.explainability?.classification_confidence != null
+              ? `${(result.explainability.classification_confidence * 100).toFixed(1)}%`
+              : "Not applicable"}
           </span>
           <span>
             <strong>Defect area:</strong>{" "}

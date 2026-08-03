@@ -7,8 +7,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
 from app.models.inspection_model import Inspection
-from app.services.cloudinary_service import upload_image_or_local_url
-from app.services.prediction_service import uploads_path
+from app.utils import uploads_path
 
 PAGE_WIDTH, PAGE_HEIGHT = A4
 MARGIN = 18 * mm
@@ -111,8 +110,12 @@ def generate_inspection_report_pdf(inspection: Inspection) -> Path:
     )
 
     y -= 22 * mm
-    confidence = f"{inspection.confidence * 100:.1f}%" if inspection.confidence is not None else "Pending"
-    draw_label_value(pdf, "Confidence", confidence, MARGIN, y, col_width)
+    detection_confidence = (
+        f"{inspection.detection_confidence * 100:.1f}%"
+        if inspection.detection_confidence is not None
+        else "Pending"
+    )
+    draw_label_value(pdf, "Detection Confidence", detection_confidence, MARGIN, y, col_width)
     draw_label_value(
         pdf, "Model Version", inspection.model_version or "Pending", MARGIN + col_width + 10 * mm, y, col_width
     )
@@ -179,13 +182,24 @@ def generate_inspection_report_pdf(inspection: Inspection) -> Path:
     pdf.drawString(MARGIN, y, "Severity Components")
     y -= 12 * mm
     components = inspection.severity_components or {}
-    for label, key in [
+    component_rows = [
         ("Defect size", "size_score"),
         ("Location risk", "location_score"),
         ("Defect type risk", "defect_type_score"),
         ("Confidence score", "confidence_score"),
-    ]:
-        draw_label_value(pdf, label, components.get(key, "Pending"), MARGIN, y, col_width)
+    ]
+    for index in range(0, len(component_rows), 2):
+        left_label, left_key = component_rows[index]
+        right_label, right_key = component_rows[index + 1]
+        draw_label_value(pdf, left_label, components.get(left_key, "Pending"), MARGIN, y, col_width)
+        draw_label_value(
+            pdf,
+            right_label,
+            components.get(right_key, "Pending"),
+            MARGIN + col_width + 10 * mm,
+            y,
+            col_width,
+        )
         y -= 15 * mm
 
     y -= 2 * mm
@@ -214,9 +228,44 @@ def generate_inspection_report_pdf(inspection: Inspection) -> Path:
         pdf, "Review Status", inspection.review_status or "Pending", MARGIN + col_width + 10 * mm, y, col_width
     )
     y -= 22 * mm
-    draw_label_value(pdf, "Anomaly Score", inspection.anomaly_score or "Pending", MARGIN, y, col_width)
     draw_label_value(
-        pdf, "Defect Area Ratio", inspection.defect_area_ratio or "Pending", MARGIN + col_width + 10 * mm, y, col_width
+        pdf,
+        "Anomaly Score",
+        inspection.anomaly_score if inspection.anomaly_score is not None else "Pending",
+        MARGIN,
+        y,
+        col_width,
+    )
+    draw_label_value(
+        pdf,
+        "Detection Confidence",
+        detection_confidence,
+        MARGIN + col_width + 10 * mm,
+        y,
+        col_width,
+    )
+
+    y -= 22 * mm
+    classification_confidence = (
+        f"{inspection.classification_confidence * 100:.1f}%"
+        if inspection.classification_confidence is not None
+        else "Not applicable"
+    )
+    draw_label_value(
+        pdf,
+        "Defect Area Ratio",
+        inspection.defect_area_ratio if inspection.defect_area_ratio is not None else "Pending",
+        MARGIN,
+        y,
+        col_width,
+    )
+    draw_label_value(
+        pdf,
+        "Classification Confidence",
+        classification_confidence,
+        MARGIN + col_width + 10 * mm,
+        y,
+        col_width,
     )
 
     y -= 22 * mm
@@ -272,8 +321,3 @@ def generate_inspection_report_pdf(inspection: Inspection) -> Path:
     pdf.save()
 
     return report_path
-
-
-def generate_inspection_report_file(inspection: Inspection) -> str:
-    report_path = generate_inspection_report_pdf(inspection)
-    return upload_image_or_local_url(report_path, "reports")

@@ -5,8 +5,6 @@ import pandas as pd
 
 from ml.config import RAW_DATA_DIR
 
-DEFECT_LABELS = ["broken_large", "broken_small", "contamination"]
-ALL_LABELS = ["good", *DEFECT_LABELS]
 DATASET_COLUMNS = [
     "split",
     "label",
@@ -37,8 +35,18 @@ def get_mask_path(root: Path, image_path: Path, label: str) -> Path | None:
     return mask_path if mask_path.exists() else None
 
 
-def collect_bottle_images(root: Path = RAW_DATA_DIR) -> list[dict]:
-    """Collect MVTec bottle image paths with labels and optional masks."""
+def resolve_category_root(root: Path, category: str | None = None) -> Path:
+    root = Path(root)
+    if (root / "train").exists() and (root / "test").exists():
+        return root
+    if category:
+        return root / category
+    return root
+
+
+def collect_mvtec_images(root: Path, category: str | None = None) -> list[dict]:
+    """Collect one MVTec category with dynamic defect labels and masks."""
+    root = resolve_category_root(root, category)
     records: list[dict] = []
 
     train_good = root / "train" / "good"
@@ -60,7 +68,10 @@ def collect_bottle_images(root: Path = RAW_DATA_DIR) -> list[dict]:
         )
 
     test_dir = root / "test"
-    for label in ALL_LABELS:
+    labels = sorted(path.name for path in test_dir.iterdir() if path.is_dir()) if test_dir.exists() else []
+    if "good" in labels:
+        labels = ["good", *[label for label in labels if label != "good"]]
+    for label in labels:
         label_dir = test_dir / label
         for image_path in sorted(label_dir.glob("*.png")) if label_dir.exists() else []:
             is_defective = label != "good"
@@ -84,5 +95,14 @@ def collect_bottle_images(root: Path = RAW_DATA_DIR) -> list[dict]:
     return records
 
 
+def load_mvtec_dataframe(root: Path, category: str | None = None) -> pd.DataFrame:
+    return pd.DataFrame(collect_mvtec_images(root, category), columns=DATASET_COLUMNS)
+
+
+def collect_bottle_images(root: Path = RAW_DATA_DIR) -> list[dict]:
+    """Backward-compatible bottle loader used by the teaching notebooks."""
+    return collect_mvtec_images(root)
+
+
 def load_bottle_dataframe(root: Path = RAW_DATA_DIR) -> pd.DataFrame:
-    return pd.DataFrame(collect_bottle_images(root), columns=DATASET_COLUMNS)
+    return load_mvtec_dataframe(root)

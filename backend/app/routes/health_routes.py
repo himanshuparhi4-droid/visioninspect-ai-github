@@ -5,18 +5,22 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.services.cloudinary_service import cloudinary_is_configured, storage_backend
-from app.services.prediction_service import resolve_backend_path, uploads_path
+from app.utils import resolve_backend_path
+from ml.model_registry import category_model_spec, category_model_statuses
 
 router = APIRouter(prefix="/health", tags=["health"])
 
 
 @router.get("")
 async def health_check(request: Request) -> dict:
-    checkpoint_path = resolve_backend_path(settings.model_checkpoint_path)
     classifier_path = resolve_backend_path(settings.classifier_model_path)
-    reference_path = resolve_backend_path(settings.baseline_reference_path)
     profile_path = resolve_backend_path(settings.baseline_profile_path)
-    active_engine = "padim" if settings.use_padim_inference and checkpoint_path.exists() else "baseline"
+    category_statuses = category_model_statuses(settings.use_padim_inference)
+    bottle_model = category_model_spec("bottle")
+    advanced_enabled = settings.use_padim_inference and any(
+        item["advanced_model_available"] for item in category_statuses
+    )
+    active_engine = "advanced-anomaly-models" if advanced_enabled else "opencv-baseline"
 
     return {
         "status": "ok",
@@ -27,21 +31,25 @@ async def health_check(request: Request) -> dict:
         "database_ready": getattr(request.app.state, "database_ready", False),
         "database_error": getattr(request.app.state, "database_error", None),
         "artifacts": {
-            "padim_checkpoint": checkpoint_path.exists(),
+            "padim_checkpoint": bottle_model.has_advanced_model,
             "defect_classifier": classifier_path.exists(),
-            "baseline_reference": reference_path.exists(),
             "baseline_profile": profile_path.exists(),
+            "portable_categories": sum(1 for item in category_statuses if item["available"]),
+            "advanced_categories": sum(1 for item in category_statuses if item["advanced_model_available"]),
         },
         "storage": {
             "backend": storage_backend(),
             "cloudinary_configured": cloudinary_is_configured(),
-            "local_upload_dir": str(uploads_path()),
+            "local_upload_route": "/uploads",
         },
         "inference": {
-            "padim_enabled": settings.use_padim_inference,
+            "padim_enabled": advanced_enabled,
+            "padim_requested": settings.use_padim_inference,
             "padim_accelerator": settings.padim_inference_accelerator,
+            "openvino_enabled": settings.use_openvino_inference,
+            "openvino_device": settings.openvino_inference_device,
             "active_engine": active_engine,
-            "fallback_engine": "baseline",
+            "portable_engine": "opencv-baseline",
         },
     }
 
@@ -57,12 +65,11 @@ async def liveness_check() -> dict:
 
 @router.get("/ready")
 async def readiness_check(request: Request) -> JSONResponse:
-    classifier_path = resolve_backend_path(settings.classifier_model_path)
-    reference_path = resolve_backend_path(settings.baseline_reference_path)
+    category_statuses = category_model_statuses(settings.use_padim_inference)
     checks = {
         "database_ready": getattr(request.app.state, "database_ready", False),
-        "defect_classifier": classifier_path.exists(),
-        "baseline_reference": reference_path.exists(),
+        "portable_detection_models": all(item["available"] for item in category_statuses),
+        "defect_classifiers": all(item["classification_trained"] for item in category_statuses),
     }
     ready = all(checks.values())
     return JSONResponse(

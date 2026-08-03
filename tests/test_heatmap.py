@@ -19,6 +19,18 @@ def test_heatmap_utilities_return_visualization_shapes():
     assert overlay.dtype == np.uint8
 
 
+def test_zero_anomaly_map_returns_untinted_overlay():
+    image = np.zeros((32, 48, 3), dtype=np.uint8)
+    image[:, :] = [20, 80, 140]
+    anomaly_map = np.zeros((16, 24), dtype=np.float32)
+
+    overlay = overlay_heatmap(image, anomaly_map)
+    expected = np.zeros((16, 24, 3), dtype=np.uint8)
+    expected[:, :] = [20, 80, 140]
+
+    assert np.array_equal(overlay, expected)
+
+
 def test_mask_overlay_and_localization_metrics():
     image = np.zeros((10, 10, 3), dtype=np.uint8)
     gt = np.zeros((10, 10), dtype=np.uint8)

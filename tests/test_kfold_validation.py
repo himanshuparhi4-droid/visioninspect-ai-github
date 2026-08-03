@@ -17,7 +17,8 @@ def test_prepare_classifier_dataframe_loads_mvtec_labels():
     data = prepare_classifier_dataframe(dataset_root, max_images_per_class=2)
 
     assert not data.empty
-    assert set(data["label"]).issubset({"good", "broken_large", "broken_small", "contamination"})
+    assert set(data["label"]).issubset({"broken_large", "broken_small", "contamination"})
+    assert "good" not in set(data["label"])
     assert data["image_path"].notna().all()
 
 

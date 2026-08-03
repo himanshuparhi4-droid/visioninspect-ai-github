@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class ProductCreate(BaseModel):
     product_id: str = Field(max_length=120)
     name: str = Field(max_length=160)
-    category: str = Field(default="Bottle", max_length=120)
+    category: str | None = Field(default=None, max_length=120)
     critical_zones: list[str] = Field(default_factory=list)
 
 

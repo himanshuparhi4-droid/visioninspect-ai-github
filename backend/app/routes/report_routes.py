@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
@@ -13,17 +12,11 @@ from app.schemas.report_schema import ReportResponse
 from app.serializers import report_to_response
 from app.services.audit_service import record_audit_event
 from app.services.report_service import generate_inspection_report_pdf, inspection_report_path
+from app.utils import parse_document_id
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 ADMIN_ROLES = {"admin", "quality_manager", "factory_supervisor"}
-
-
-def parse_document_id(value: str) -> PydanticObjectId:
-    try:
-        return PydanticObjectId(value)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid document id") from exc
 
 
 async def get_allowed_inspection(inspection_id: str, current_user: User) -> Inspection:

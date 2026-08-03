@@ -8,6 +8,8 @@ from app.time_utils import utc_now
 
 class AuditLog(Document):
     actor_id: str | None = None
+    actor_name: str | None = None
+    actor_role: str | None = None
     action: str
     entity_type: str
     entity_id: str | None = None

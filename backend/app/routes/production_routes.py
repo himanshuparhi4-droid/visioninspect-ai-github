@@ -33,7 +33,7 @@ async def create_product(
     payload: ProductCreate,
     current_user: User = Depends(require_roles("admin", "quality_manager", "factory_supervisor")),
 ) -> ProductResponse:
-    existing = await Product.find(Product.product_id == payload.product_id).first_or_none()
+    existing = await Product.find({"product_id": payload.product_id}).first_or_none()
     if existing:
         existing.name = payload.name
         existing.category = payload.category
@@ -59,7 +59,7 @@ async def create_production_line(
     payload: ProductionLineCreate,
     current_user: User = Depends(require_roles("admin", "quality_manager", "factory_supervisor")),
 ) -> ProductionLineResponse:
-    existing = await ProductionLine.find(ProductionLine.line_id == payload.line_id).first_or_none()
+    existing = await ProductionLine.find({"line_id": payload.line_id}).first_or_none()
     if existing:
         existing.name = payload.name
         existing.location = payload.location
@@ -84,7 +84,7 @@ async def create_batch_record(
     payload: BatchRecordCreate,
     current_user: User = Depends(require_roles("admin", "quality_manager", "factory_supervisor")),
 ) -> BatchRecordResponse:
-    existing = await BatchRecord.find(BatchRecord.batch_number == payload.batch_number).first_or_none()
+    existing = await BatchRecord.find({"batch_number": payload.batch_number}).first_or_none()
     if existing:
         for field, value in payload.model_dump().items():
             setattr(existing, field, value)

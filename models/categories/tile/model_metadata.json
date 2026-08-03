@@ -1,0 +1,226 @@
+{
+  "project": "VisionInspect AI",
+  "model_name": "padim",
+  "model_version": "v1",
+  "category": "tile",
+  "dataset": "MVTec AD",
+  "image_size": [
+    256,
+    256
+  ],
+  "padim_features": 256,
+  "train_good_images": 230,
+  "accelerator": "gpu",
+  "checkpoint_path": "models\\categories\\tile\\padim_v1.ckpt",
+  "baseline_profile_path": "models\\categories\\tile\\normal_profile.npz",
+  "trained_at": "2026-07-23T17:54:12.964970+00:00",
+  "metrics": [
+    {
+      "image_AUROC": 0.957431435585022,
+      "image_F1Score": 0.9212121367454529,
+      "pixel_AUROC": 0.9232475757598877,
+      "pixel_F1Score": 0.5252564549446106
+    }
+  ],
+  "threshold_calibration": {
+    "model_kind": "padim",
+    "threshold": 0.474012,
+    "protocol": "30% stratified development calibration; 70% stratified holdout evaluation from MVTec labelled test folders",
+    "calibration_samples": 35,
+    "holdout_samples": 82,
+    "holdout_accuracy": 0.8537,
+    "holdout_precision": 0.8615,
+    "holdout_recall": 0.9492,
+    "holdout_f1": 0.9032,
+    "holdout_auroc": 0.9528
+  },
+  "defect_classifier": {
+    "accuracy": 0.9881,
+    "macro_f1": 0.9875,
+    "classification_report": {
+      "crack": {
+        "precision": 1.0,
+        "recall": 0.9411764705882353,
+        "f1-score": 0.9696969696969697,
+        "support": 17.0
+      },
+      "glue_strip": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 18.0
+      },
+      "gray_stroke": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 16.0
+      },
+      "oil": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 18.0
+      },
+      "rough": {
+        "precision": 0.9375,
+        "recall": 1.0,
+        "f1-score": 0.967741935483871,
+        "support": 15.0
+      },
+      "accuracy": 0.9880952380952381,
+      "macro avg": {
+        "precision": 0.9875,
+        "recall": 0.9882352941176471,
+        "f1-score": 0.9874877810361682,
+        "support": 84.0
+      },
+      "weighted avg": {
+        "precision": 0.9888392857142857,
+        "recall": 0.9880952380952381,
+        "f1-score": 0.9881068752036494,
+        "support": 84.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        16,
+        0,
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        18,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        16,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        18,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        15
+      ]
+    ],
+    "labels": [
+      "crack",
+      "glue_strip",
+      "gray_stroke",
+      "oil",
+      "rough"
+    ],
+    "train_size": 84,
+    "eval_size": 84,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
+    "feature_mode": "global_roi_texture",
+    "defect_only": true,
+    "evaluation": {
+      "protocol": "stratified cross-validation for model selection; production classifier fitted on all labelled defect images",
+      "selected_classifier": "logistic_c0.01",
+      "folds": 5,
+      "candidate_scores": {
+        "logistic_c0.01": {
+          "mean_accuracy": 0.9875,
+          "std_accuracy": 0.025,
+          "mean_macro_f1": 0.9863,
+          "std_macro_f1": 0.0274
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.9875,
+          "std_accuracy": 0.025,
+          "mean_macro_f1": 0.9863,
+          "std_macro_f1": 0.0274
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.9875,
+          "std_accuracy": 0.025,
+          "mean_macro_f1": 0.9863,
+          "std_macro_f1": 0.0274
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.9875,
+          "std_accuracy": 0.025,
+          "mean_macro_f1": 0.9863,
+          "std_macro_f1": 0.0274
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.964,
+          "std_accuracy": 0.0294,
+          "mean_macro_f1": 0.9647,
+          "std_macro_f1": 0.0289
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.964,
+          "std_accuracy": 0.0294,
+          "mean_macro_f1": 0.9647,
+          "std_macro_f1": 0.0289
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.964,
+          "std_accuracy": 0.0294,
+          "mean_macro_f1": 0.9647,
+          "std_macro_f1": 0.0289
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.964,
+          "std_accuracy": 0.0474,
+          "mean_macro_f1": 0.9634,
+          "std_macro_f1": 0.0471
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.964,
+          "std_accuracy": 0.0294,
+          "mean_macro_f1": 0.9634,
+          "std_macro_f1": 0.0302
+        }
+      }
+    },
+    "dataset_context": {
+      "source": "MVTec AD labelled test folders",
+      "protocol": "defect-only subtype classification with stratified cross-validation; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "tile"
+    }
+  },
+  "portable_detector": "resnet18_normal_memory_with_opencv_localization",
+  "portable_train_good_images": 230,
+  "baseline_threshold_calibration": {
+    "threshold": 0.047957,
+    "protocol": "5-fold stratified balanced-threshold validation on labelled MVTec test images; production threshold maximizes sensitivity plus specificity on all labelled images",
+    "folds": 5,
+    "fold_thresholds": [
+      0.035264,
+      0.049722,
+      0.047957,
+      0.047957,
+      0.043022
+    ],
+    "samples": 117,
+    "cv_accuracy": 0.8632,
+    "cv_precision": 0.9595,
+    "cv_recall": 0.8452,
+    "cv_specificity": 0.9091,
+    "cv_balanced_accuracy": 0.8772,
+    "cv_f1": 0.8987,
+    "auroc": 0.9672,
+    "detector": "resnet18_normal_memory",
+    "localization": "opencv_normalized_residual",
+    "residual_threshold": 1.296797
+  }
+}

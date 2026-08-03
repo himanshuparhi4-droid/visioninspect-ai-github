@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown } from "lucide-react";
 
 import { logout } from "../services/authApi";
+import { getAnalyticsSummary } from "../services/analyticsApi";
 
 export default function Navbar({ title, subtitle, user }) {
   const [openMenu, setOpenMenu] = useState("");
+  const [summary, setSummary] = useState(null);
   const topbarMenuRef = useRef(null);
 
   function toggleMenu(menu) {
@@ -39,6 +41,19 @@ export default function Navbar({ title, subtitle, user }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    getAnalyticsSummary()
+      .then(setSummary)
+      .catch(() => setSummary(null));
+  }, [user]);
+
+  const criticalCount = summary?.critical_count || 0;
+  const reworkCount = summary?.rework_queue || 0;
+  const reviewCount = summary?.review_count || 0;
+  const notificationCount = criticalCount + reworkCount + reviewCount;
+  const canManageUsers = ["admin", "quality_manager"].includes(user?.role);
+
   return (
     <header className="topbar">
       <div>
@@ -54,24 +69,24 @@ export default function Navbar({ title, subtitle, user }) {
             onClick={() => toggleMenu("notifications")}
           >
             <Bell size={16} />
-            <span>8</span>
+            {notificationCount ? <span>{notificationCount}</span> : null}
           </button>
           {openMenu === "notifications" ? (
             <div className="topbar-dropdown notification-dropdown">
               <strong>Notifications</strong>
-              <p>8 quality events need attention.</p>
+              <p>{notificationCount} quality events need attention.</p>
               <div className="notification-list">
                 <span>
                   <b>Critical defects</b>
-                  <small>24 critical inspections recorded</small>
+                  <small>{criticalCount} critical inspections recorded</small>
                 </span>
                 <span>
                   <b>Rework queue</b>
-                  <small>2 products are waiting for repair action</small>
+                  <small>{reworkCount} products are waiting for repair action</small>
                 </span>
                 <span>
-                  <b>Model confidence</b>
-                  <small>Average confidence is stable at 84.4%</small>
+                  <b>Manual review</b>
+                  <small>{reviewCount} inspections require a decision</small>
                 </span>
               </div>
             </div>
@@ -89,8 +104,8 @@ export default function Navbar({ title, subtitle, user }) {
                 <strong>{user.name}</strong>
                 <small>{user.email || user.role}</small>
                 <div className="dropdown-divider" />
-                <a href="/users">User management</a>
-                <a href="/model-metrics">Model settings</a>
+                {canManageUsers ? <a href="/users">User management</a> : null}
+                {canManageUsers ? <a href="/model-metrics">Model settings</a> : null}
                 <button type="button" onClick={handleLogout}>
                   Logout
                 </button>

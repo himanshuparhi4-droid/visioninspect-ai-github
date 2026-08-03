@@ -7,9 +7,11 @@ import AppShell from "../../components/AppShell";
 import DefectHeatmap from "../../components/DefectHeatmap";
 import InspectionResult from "../../components/InspectionResult";
 import { formatTime } from "../../services/dateTime";
-import { getCameraSamples, simulateCameraInspection } from "../../services/inspectionApi";
+import { getCameraSamples, simulateCameraInspection, getModelCategories } from "../../services/inspectionApi";
 
 export default function CameraPage() {
+  const [modelCategories, setModelCategories] = useState([]);
+  const [category, setCategory] = useState("");
   const [samples, setSamples] = useState(null);
   const [label, setLabel] = useState("");
   const [running, setRunning] = useState(false);
@@ -22,16 +24,41 @@ export default function CameraPage() {
   const inFlightRef = useRef(false);
   const frameIndexRef = useRef(0);
 
-  async function loadSamples() {
-    setSamples(await getCameraSamples());
+  async function loadSamples(targetCategory = category) {
+    if (!targetCategory || typeof targetCategory !== "string") return;
+    setSamples(await getCameraSamples(targetCategory));
   }
+
+  useEffect(() => {
+    getModelCategories()
+      .then((payload) => {
+        const categories = payload.items || [];
+        setModelCategories(categories);
+        const cameraReady = categories.filter((item) => item.camera_ready);
+        if (cameraReady.length > 0) {
+          setCategory(cameraReady[0].category);
+        }
+      })
+      .catch(() => setModelCategories([]));
+  }, []);
+
+  useEffect(() => {
+    if (category) {
+      loadSamples(category);
+      setLabel("");
+      setFrameIndex(0);
+      frameIndexRef.current = 0;
+      setFeed([]);
+      setSelected(null);
+    }
+  }, [category]);
 
   async function inspectNextFrame(nextIndex = frameIndexRef.current) {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     setMessage("");
     try {
-      const inspection = await simulateCameraInspection({ frameIndex: nextIndex, label });
+      const inspection = await simulateCameraInspection({ frameIndex: nextIndex, label, category });
       setSelected(inspection);
       setFeed((current) => [inspection, ...current].slice(0, 12));
       frameIndexRef.current = nextIndex + 1;
@@ -73,7 +100,6 @@ export default function CameraPage() {
   }
 
   useEffect(() => {
-    loadSamples().catch(() => setMessage("Could not load camera samples"));
     return () => {
       stopStream();
     };
@@ -85,7 +111,7 @@ export default function CameraPage() {
       subtitle="Simulated production-line image acquisition and live inspection feed."
     >
       <div className="page-actions">
-        <button className="ghost-button" type="button" onClick={loadSamples}>
+        <button className="ghost-button" type="button" onClick={() => loadSamples(category)}>
           <RefreshCw size={16} />
           Refresh samples
         </button>
@@ -117,6 +143,18 @@ export default function CameraPage() {
           <Camera size={22} />
         </div>
         <div className="metadata-grid">
+          <label>
+            Inspection category
+            <select value={category} onChange={(e) => setCategory(e.target.value)} disabled={running}>
+              {modelCategories
+                .filter((item) => item.camera_ready)
+                .map((item) => (
+                  <option key={item.category} value={item.category}>
+                    {item.category.replaceAll("_", " ")} ({item.camera_sample_count})
+                  </option>
+                ))}
+            </select>
+          </label>
           <label>
             Defect stream
             <select value={label} onChange={(event) => chooseDemoLabel(event.target.value)} disabled={running}>

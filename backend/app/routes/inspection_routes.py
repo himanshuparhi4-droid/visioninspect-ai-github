@@ -4,13 +4,13 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
-from beanie import PydanticObjectId
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_roles
 from app.models.inspection_model import Inspection
+from app.models.production_model import Product
 from app.models.user_model import User
 from app.schemas.inspection_schema import (
     InspectionListResponse,
@@ -20,24 +20,19 @@ from app.schemas.inspection_schema import (
 )
 from app.serializers import inspection_to_response
 from app.services.audit_service import record_audit_event
-from app.services.cloudinary_service import CloudStorageError, upload_image_or_local_url
-from app.services.prediction_service import PredictionError, inspect_image_file, uploads_path
+from app.services.cloudinary_service import CloudStorageError, cleanup_stored_image, upload_image_or_local_url
+from app.services.prediction_service import PredictionError, inspect_image_file
 from app.services.rework_service import create_or_update_rework_ticket
 from app.time_utils import utc_now
+from app.utils import parse_document_id, uploads_path
+from ml.config import MVTEC_DATASET_ROOT
+from ml.model_registry import CategoryModelError, category_model_statuses, normalize_category
 
 router = APIRouter(prefix="/inspections", tags=["inspections"])
 
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 ADMIN_ROLES = {"admin", "quality_manager", "factory_supervisor"}
-CAMERA_LABELS = ["good", "broken_large", "broken_small", "contamination"]
-CAMERA_DEMO_CONTROLS = [
-    {"value": "", "label": "Mixed production stream"},
-    {"value": "good", "label": "Good bottles"},
-    {"value": "broken_large", "label": "Broken large defects"},
-    {"value": "broken_small", "label": "Broken small defects"},
-    {"value": "contamination", "label": "Contamination defects"},
-]
-METADATA_FIELDS = ["batch_number", "product_id", "production_line", "shift", "operator_name", "source_label"]
+METADATA_FIELDS = ["batch_number", "product_id", "production_line", "shift", "operator_name", "source_label", "category"]
 PREDICTION_FIELDS = [
     "processed_image_url",
     "processed_image_path",
@@ -46,6 +41,8 @@ PREDICTION_FIELDS = [
     "prediction",
     "defect_type",
     "confidence",
+    "detection_confidence",
+    "classification_confidence",
     "anomaly_score",
     "defect_area_ratio",
     "severity_score",
@@ -54,18 +51,13 @@ PREDICTION_FIELDS = [
     "recommended_action",
     "model_version",
 ]
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 APP_ROOT = Path(__file__).resolve().parents[1]
-CAMERA_SAMPLE_ROOT = PROJECT_ROOT / "data" / "raw" / "mvtec_anomaly_detection" / "bottle" / "test"
-DEMO_SAMPLE_ROOT = APP_ROOT / "demo_samples" / "bottle" / "test"
 
+def get_camera_sample_root(category: str) -> Path:
+    return Path(MVTEC_DATASET_ROOT) / category / "test"
 
-def parse_document_id(value: str) -> PydanticObjectId:
-    try:
-        return PydanticObjectId(value)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid inspection id") from exc
-
+def get_demo_sample_root(category: str) -> Path:
+    return APP_ROOT / "demo_samples" / category / "test"
 
 def optional_text(value: str | None) -> str | None:
     if value is None:
@@ -81,6 +73,10 @@ def metadata_fields(metadata: dict | None) -> dict:
 
 def automatic_metadata(metadata: dict | None, current_user: User, source_label: str | None = None) -> dict:
     values = metadata_fields(metadata)
+    try:
+        category = normalize_category(values["category"])
+    except CategoryModelError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     now = utc_now()
     source = values["source_label"] or optional_text(source_label) or "uploaded-image"
     stem = "".join(character if character.isalnum() else "-" for character in Path(source).stem).strip("-")
@@ -88,11 +84,12 @@ def automatic_metadata(metadata: dict | None, current_user: User, source_label: 
     return {
         **values,
         "batch_number": values["batch_number"] or f"AUTO-{now:%Y%m%d}",
-        "product_id": values["product_id"] or f"BOTTLE-{product_suffix}",
+        "product_id": values["product_id"] or f"{category.upper()}-{product_suffix}",
         "production_line": values["production_line"] or "Line-Manual-01",
         "shift": values["shift"] or "Auto Shift",
         "operator_name": values["operator_name"] or current_user.name,
         "source_label": source,
+        "category": category,
     }
 
 
@@ -140,7 +137,7 @@ def summarize_batch(inspections: list[Inspection]) -> dict:
         "review": count("pass_fail", "Review"),
         "fail": count("pass_fail", "Fail"),
         "critical": count("severity_level", "Critical"),
-        "average_confidence": round(sum(item.confidence or 0 for item in inspections) / len(inspections), 4),
+        "average_confidence": round(sum(item.confidence or 0 for item in inspections) / len(inspections), 4) if inspections else 0.0,
     }
 
 
@@ -148,8 +145,11 @@ def ordered_label_counts(paths: list[Path]) -> dict[str, int]:
     labels: dict[str, int] = {}
     for path in paths:
         labels[path.parent.name] = labels.get(path.parent.name, 0) + 1
-    ordered = {label: labels[label] for label in CAMERA_LABELS if labels.get(label)}
-    ordered.update({label: count for label, count in labels.items() if label not in ordered})
+    # Order 'good' first, then the rest
+    ordered = {}
+    if "good" in labels:
+        ordered["good"] = labels["good"]
+    ordered.update({label: count for label, count in labels.items() if label != "good"})
     return ordered
 
 
@@ -195,6 +195,7 @@ def inspection_metadata(
     shift: str | None = Form(default=None),
     operator_name: str | None = Form(default=None),
     source_label: str | None = Form(default=None),
+    category: str | None = Form(default=None),
 ) -> dict:
     return {
         "batch_number": optional_text(batch_number),
@@ -203,11 +204,12 @@ def inspection_metadata(
         "shift": optional_text(shift),
         "operator_name": optional_text(operator_name),
         "source_label": optional_text(source_label),
+        "category": optional_text(category),
     }
 
 
 async def get_visible_inspection(inspection_id: str, current_user: User) -> Inspection:
-    inspection = await Inspection.get(parse_document_id(inspection_id))
+    inspection = await Inspection.get(parse_document_id(inspection_id, "inspection"))
     if inspection is None:
         raise HTTPException(status_code=404, detail="Inspection not found")
 
@@ -223,27 +225,41 @@ async def create_inspection_from_path(
     source_type: str = "manual_upload",
 ) -> Inspection:
     metadata = automatic_metadata(metadata, current_user)
-    original_url = await store_image(image_path, "original")
-
+    original_url = None
+    prediction: dict = {}
     try:
-        prediction = await run_in_threadpool(inspect_image_file, image_path)
+        original_url = await store_image(image_path, "original")
+        product = await Product.find_one(Product.product_id == metadata["product_id"])
+        critical_zones = tuple(product.critical_zones) if product else ()
+        prediction = await run_in_threadpool(
+            inspect_image_file,
+            image_path,
+            metadata["category"],
+            critical_zones,
+        )
+        inspection = Inspection(
+            **inspection_base_fields(
+                image_path=image_path,
+                original_url=original_url,
+                current_user=current_user,
+                metadata=metadata,
+                source_type=source_type,
+            ),
+            **prediction_fields(prediction),
+            review_status="ai_completed",
+        )
+        await inspection.insert()
     except CloudStorageError as exc:
+        cleanup_stored_image(image_path, original_url)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except PredictionError as exc:
+        cleanup_stored_image(image_path, original_url)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-    inspection = Inspection(
-        **inspection_base_fields(
-            image_path=image_path,
-            original_url=original_url,
-            current_user=current_user,
-            metadata=metadata,
-            source_type=source_type,
-        ),
-        **prediction_fields(prediction),
-        review_status="ai_completed",
-    )
-    await inspection.insert()
+    except Exception:
+        cleanup_stored_image(image_path, original_url)
+        cleanup_stored_image(prediction.get("processed_image_path"), prediction.get("processed_image_url"))
+        cleanup_stored_image(prediction.get("heatmap_path"), prediction.get("heatmap_url"))
+        raise
     await record_audit_event(
         actor=current_user,
         action="inspection.completed",
@@ -256,19 +272,23 @@ async def create_inspection_from_path(
             "source_type": source_type,
             "product_id": inspection.product_id,
             "batch_number": inspection.batch_number,
+            "category": inspection.category,
         },
     )
     return inspection
 
 
 async def create_inspection_from_file(file: UploadFile, current_user: User, metadata: dict | None = None) -> Inspection:
-    metadata = automatic_metadata(metadata, current_user, file.filename)
+    metadata = {
+        **(metadata or {}),
+        "source_label": optional_text((metadata or {}).get("source_label")) or file.filename,
+    }
     image_path = await save_upload(file)
     return await create_inspection_from_path(image_path, current_user, metadata, source_type="manual_upload")
 
 
-def camera_sample_paths(label: str | None = None) -> list[Path]:
-    for sample_root in (CAMERA_SAMPLE_ROOT, DEMO_SAMPLE_ROOT):
+def camera_sample_paths(category: str, label: str | None = None) -> list[Path]:
+    for sample_root in (get_camera_sample_root(category), get_demo_sample_root(category)):
         if not sample_root.exists():
             continue
         roots = [sample_root / label] if label else [path for path in sample_root.iterdir() if path.is_dir()]
@@ -279,36 +299,6 @@ def camera_sample_paths(label: str | None = None) -> list[Path]:
         if paths:
             return sorted(paths)
     return []
-
-
-@router.post("/upload", response_model=InspectionResponse, status_code=201)
-async def upload_image(
-    file: UploadFile = File(...),
-    metadata: dict = Depends(inspection_metadata),
-    current_user: User = Depends(get_current_user),
-) -> InspectionResponse:
-    metadata = automatic_metadata(metadata, current_user, file.filename)
-    image_path = await save_upload(file)
-    original_url = await store_image(image_path, "original")
-    inspection = Inspection(
-        **inspection_base_fields(
-            image_path=image_path,
-            original_url=original_url,
-            current_user=current_user,
-            metadata=metadata,
-            source_type="manual_upload",
-        ),
-        review_status="uploaded",
-    )
-    await inspection.insert()
-    await record_audit_event(
-        actor=current_user,
-        action="inspection.uploaded",
-        entity_type="inspection",
-        entity_id=str(inspection.id),
-        metadata={"product_id": inspection.product_id, "batch_number": inspection.batch_number},
-    )
-    return inspection_to_response(inspection)
 
 
 @router.patch("/{inspection_id}/metadata", response_model=InspectionResponse)
@@ -359,53 +349,102 @@ async def batch_inspect_images(
         raise HTTPException(status_code=400, detail="Batch inspection is limited to 20 images")
 
     inspections = []
+    failures = []
     for file in files:
-        inspection = await create_inspection_from_file(file, current_user, metadata)
-        inspections.append(inspection)
+        try:
+            inspection = await create_inspection_from_file(file, current_user, metadata)
+            inspections.append(inspection)
+        except HTTPException as exc:
+            failures.append(
+                {
+                    "file_name": file.filename or "unnamed-image",
+                    "status": exc.status_code,
+                    "message": str(exc.detail),
+                }
+            )
+        except Exception:
+            failures.append(
+                {
+                    "file_name": file.filename or "unnamed-image",
+                    "status": 500,
+                    "message": "The image could not be inspected",
+                }
+            )
 
     return InspectionListResponse(
         total=len(inspections),
         items=[inspection_to_response(inspection) for inspection in inspections],
-        summary=summarize_batch(inspections),
+        failures=failures,
+        summary={
+            **summarize_batch(inspections),
+            "requested": len(files),
+            "succeeded": len(inspections),
+            "failed": len(failures),
+        },
     )
 
 
 @router.get("/camera-samples")
-async def get_camera_samples(current_user: User = Depends(get_current_user)) -> dict:
-    paths = camera_sample_paths()
+async def get_camera_samples(category: str = Query(default="bottle"), current_user: User = Depends(get_current_user)) -> dict:
+    paths = camera_sample_paths(category)
     labels = ordered_label_counts(paths)
     await record_audit_event(
         actor=current_user,
         action="camera.samples_viewed",
         entity_type="camera_simulation",
-        metadata={"total_samples": len(paths), "labels": labels},
+        metadata={"total_samples": len(paths), "labels": labels, "category": category},
     )
+
+    demo_controls = [{"value": "", "label": f"Mixed {category} stream"}]
+    for lbl in labels.keys():
+        name = "Good items" if lbl == "good" else f"{lbl.replace('_', ' ').title()} defects"
+        demo_controls.append({"value": lbl, "label": name})
+
     return {
+        "category": category,
         "total": len(paths),
         "labels": labels,
-        "demo_controls": CAMERA_DEMO_CONTROLS,
+        "demo_controls": demo_controls,
     }
+
+
+@router.get("/model-categories")
+async def get_model_categories(current_user: User = Depends(get_current_user)) -> dict:
+    """Expose portable runtime and camera-sample readiness to the UI."""
+    items = []
+    for status_item in category_model_statuses(settings.use_padim_inference):
+        sample_count = len(camera_sample_paths(status_item["category"]))
+        items.append(
+            {
+                **status_item,
+                "camera_ready": sample_count > 0,
+                "camera_sample_count": sample_count,
+            }
+        )
+    return {"items": items}
 
 
 @router.post("/camera-simulate", response_model=InspectionResponse, status_code=201)
 async def simulate_camera_inspection(
     frame_index: int = Query(default=0, ge=0),
     label: str | None = Query(default=None),
+    category: str = Query(default="bottle"),
     current_user: User = Depends(get_current_user),
 ) -> InspectionResponse:
-    paths = camera_sample_paths(label)
+    paths = camera_sample_paths(category, label)
     if not paths:
-        raise HTTPException(status_code=404, detail="No camera simulation samples found")
+        raise HTTPException(status_code=404, detail=f"No camera simulation samples found for category '{category}'")
 
     sample_path = paths[frame_index % len(paths)]
     image_path = copy_image_to_uploads(sample_path)
     metadata = {
         "batch_number": f"SIM-{utc_now().strftime('%Y%m%d')}",
-        "product_id": f"BOTTLE-{sample_path.stem}",
+        "product_id": f"{category.upper()}-STD-500",
         "production_line": "Line-SIM-01",
         "shift": "Simulation",
         "operator_name": "Camera simulator",
         "source_label": f"{sample_path.parent.name}/{sample_path.name}",
+        "category": category,
     }
     inspection = await create_inspection_from_path(
         image_path=image_path,
@@ -465,17 +504,19 @@ async def get_inspection(
 @router.patch("/{inspection_id}/review-status", response_model=InspectionResponse)
 async def update_review_status(
     inspection_id: str,
-    payload: ReviewStatusUpdate | None = Body(default=None),
-    review_status: str | None = Query(default=None),
-    review_notes: str | None = Query(default=None),
-    current_user: User = Depends(get_current_user),
+    payload: ReviewStatusUpdate,
+    current_user: User = Depends(
+        require_roles("admin", "quality_manager", "factory_supervisor", "quality_engineer")
+    ),
 ) -> InspectionResponse:
     inspection = await get_visible_inspection(inspection_id, current_user)
-    next_status = payload.review_status if payload else review_status
-    if not next_status:
-        raise HTTPException(status_code=400, detail="review_status is required")
+    if inspection.review_status in {"approved", "rejected"}:
+        raise HTTPException(status_code=409, detail="A finalized inspection cannot be reviewed again")
+    next_status = payload.review_status
+    if next_status == "sent_for_rework" and not optional_text(payload.review_notes):
+        raise HTTPException(status_code=400, detail="Review notes are required when sending an item to rework")
     inspection.review_status = next_status
-    inspection.review_notes = payload.review_notes if payload else review_notes
+    inspection.review_notes = optional_text(payload.review_notes)
     inspection.reviewed_by = str(current_user.id)
     inspection.reviewed_at = utc_now()
     inspection.updated_at = utc_now()
@@ -491,6 +532,10 @@ async def update_review_status(
             "rework_ticket_number": ticket.ticket_number,
             "rework_ticket_status": ticket.status,
         }
+        inspection.rework_ticket_id = str(ticket.id)
+        inspection.rework_ticket_number = ticket.ticket_number
+        inspection.rework_ticket_status = ticket.status
+        await inspection.save()
     else:
         ticket_metadata = {}
     await record_audit_event(
