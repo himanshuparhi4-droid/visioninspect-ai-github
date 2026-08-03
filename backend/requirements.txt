@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 fastapi==0.139.0
 uvicorn[standard]==0.49.0
 python-multipart==0.0.32
@@ -12,9 +14,12 @@ python-jose[cryptography]==3.5.0
 cloudinary==1.45.0
 opencv-python-headless==5.0.0.93
 numpy==2.4.4
+pandas==3.0.3
 pillow==12.2.0
 joblib==1.5.3
 scikit-learn==1.6.1
-torch==2.11.0
-torchvision==0.26.0
+torch==2.11.0+cpu; sys_platform == "linux"
+torchvision==0.26.0+cpu; sys_platform == "linux"
+torch==2.11.0; sys_platform != "linux"
+torchvision==0.26.0; sys_platform != "linux"
 reportlab==5.0.0

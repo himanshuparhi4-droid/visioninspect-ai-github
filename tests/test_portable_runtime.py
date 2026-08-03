@@ -66,3 +66,13 @@ def test_every_supported_category_has_portable_runtime_artifacts():
         assert "classifier" in classifier
         assert classifier["defect_only"] is True
         assert "good" not in classifier["labels"]
+
+
+def test_render_requirements_include_portable_inference_dependencies():
+    requirements = (Path(__file__).resolve().parents[1] / "backend" / "requirements.txt").read_text(
+        encoding="utf-8"
+    )
+
+    assert "pandas==3.0.3" in requirements
+    assert 'torch==2.11.0+cpu; sys_platform == "linux"' in requirements
+    assert 'torchvision==0.26.0+cpu; sys_platform == "linux"' in requirements
