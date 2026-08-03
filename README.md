@@ -82,7 +82,7 @@ visioninspect-ai/
 
 ## Local Setup
 
-Use Python 3.11, Node.js 20+, and a local MongoDB service.
+Use Python 3.13.5, Node.js 20+, and a local MongoDB service. The repository pins this Python version for local and Render deployments.
 
 Create a root `.env`:
 
