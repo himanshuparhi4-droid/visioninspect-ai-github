@@ -31,6 +31,12 @@ services:
         value: "true"
       - key: OPENVINO_INFERENCE_DEVICE
         value: CPU
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: OPENCV_NUM_THREADS
+        value: "2"
+      - key: WARM_MODEL_ON_STARTUP
+        value: "true"
       - key: PADIM_INFERENCE_ACCELERATOR
         value: cpu
       - key: UPLOAD_DIR
@@ -51,5 +57,7 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      - key: USE_CLOUDINARY_STORAGE
+        value: "true"
       - key: CLOUDINARY_TIMEOUT_SECONDS
         value: "20"
