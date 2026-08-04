@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from time import perf_counter
 from uuid import uuid4
 
 import cv2
@@ -12,6 +15,8 @@ from app.services.cloudinary_service import cleanup_stored_image, upload_image_o
 from app.utils import resolve_backend_path, uploads_path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+logger = logging.getLogger(__name__)
+storage_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="inspection-storage")
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -97,10 +102,23 @@ def save_visual_outputs(processed_image: np.ndarray, heatmap_image: np.ndarray) 
     try:
         if not cv2.imwrite(str(processed_path), np.clip(processed_image, 0, 255).astype(np.uint8)):
             raise PredictionError("Could not save the processed inspection image")
-        processed_url = upload_image_or_local_url(processed_path, "processed")
         if not cv2.imwrite(str(heatmap_path), np.clip(heatmap_image, 0, 255).astype(np.uint8)):
             raise PredictionError("Could not save the defect heatmap")
-        heatmap_url = upload_image_or_local_url(heatmap_path, "heatmaps")
+        futures = {
+            "processed": storage_executor.submit(upload_image_or_local_url, processed_path, "processed"),
+            "heatmap": storage_executor.submit(upload_image_or_local_url, heatmap_path, "heatmaps"),
+        }
+        errors = []
+        for name, future in futures.items():
+            try:
+                if name == "processed":
+                    processed_url = future.result()
+                else:
+                    heatmap_url = future.result()
+            except Exception as exc:
+                errors.append(exc)
+        if errors:
+            raise errors[0]
         return {
             "processed_image_path": str(processed_path),
             "processed_image_url": processed_url,
@@ -120,12 +138,29 @@ def inspect_image_file(
 ) -> dict:
     from ml.inference import InferenceError, inspect_image
 
+    started_at = perf_counter()
     try:
         result = inspect_image(image_path, build_inference_config(category, critical_zones))
     except InferenceError as exc:
         raise PredictionError(str(exc)) from exc
 
+    inference_ms = (perf_counter() - started_at) * 1000
+    storage_started_at = perf_counter()
     outputs = save_visual_outputs(result.pop("processed_image"), result.pop("heatmap_image"))
+    storage_ms = (perf_counter() - storage_started_at) * 1000
+    total_ms = (perf_counter() - started_at) * 1000
+    result.setdefault("explainability", {})["runtime_ms"] = {
+        "inference": round(inference_ms, 1),
+        "visual_storage": round(storage_ms, 1),
+        "total": round(total_ms, 1),
+    }
+    logger.info(
+        "inspection_timing category=%s inference_ms=%.1f visual_storage_ms=%.1f total_ms=%.1f",
+        category,
+        inference_ms,
+        storage_ms,
+        total_ms,
+    )
     result.pop("anomaly_map", None)
     result.pop("pred_mask", None)
     return {**result, **outputs}

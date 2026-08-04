@@ -2,7 +2,6 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_score, recall_score
 
 DEFAULT_VARIABILITY_FLOOR = 15.0
 DEFAULT_BASELINE_THRESHOLD = 1.34
@@ -125,6 +124,15 @@ def embedding_anomaly_score(
     image_path: str | Path,
     embedding_bank: np.ndarray,
 ) -> float:
+    score, _features = embedding_anomaly_evidence(image_path, embedding_bank)
+    return score
+
+
+def embedding_anomaly_evidence(
+    image_path: str | Path,
+    embedding_bank: np.ndarray,
+) -> tuple[float, np.ndarray]:
+    """Return anomaly score and reusable raw image features."""
     from ml.classifier import extract_features
     from ml.defect_classifier import shared_feature_runtime
 
@@ -135,7 +143,7 @@ def embedding_anomaly_score(
         preprocess=preprocess,
         device=device,
     )
-    return float(embedding_anomaly_scores(features, embedding_bank)[0])
+    return float(embedding_anomaly_scores(features, embedding_bank)[0]), features
 
 
 def anomaly_map(image_bgr: np.ndarray, reference_image: np.ndarray, size: tuple[int, int] = (256, 256)) -> np.ndarray:
@@ -204,6 +212,8 @@ def predict_from_score(score: float, threshold: float) -> int:
 
 
 def evaluate_binary_predictions(y_true: list[int], y_pred: list[int]) -> dict:
+    from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_score, recall_score
+
     matrix = confusion_matrix(y_true, y_pred, labels=[0, 1])
     return {
         "accuracy": round(float(accuracy_score(y_true, y_pred)), 4),

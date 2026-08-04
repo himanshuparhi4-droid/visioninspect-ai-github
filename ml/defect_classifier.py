@@ -114,11 +114,27 @@ def shared_feature_runtime():
     return build_resnet18_feature_extractor()
 
 
+def warm_shared_feature_runtime() -> None:
+    """Load and execute the shared feature model before the first request."""
+    from PIL import Image
+
+    from ml.classifier import extract_pil_features
+
+    feature_extractor, preprocess, device = shared_feature_runtime()
+    extract_pil_features(
+        [Image.new("RGB", (224, 224))],
+        feature_extractor=feature_extractor,
+        preprocess=preprocess,
+        device=device,
+    )
+
+
 def classify_defect_type(
     image_path: str | Path,
     classifier_model_path: str | Path,
     defect_mask: np.ndarray | None = None,
     cnn_classifier_path: str | Path | None = None,
+    global_features: np.ndarray | None = None,
 ) -> dict:
     from ml.classifier import (
         extract_features,
@@ -156,6 +172,7 @@ def classify_defect_type(
             feature_extractor=feature_extractor,
             preprocess=preprocess,
             device=device,
+            global_features=global_features,
         )
     elif bundle.get("feature_mode") == ROI_SHAPE_TEXTURE_FEATURE_MODE:
         features = extract_roi_shape_texture_features(
@@ -164,6 +181,7 @@ def classify_defect_type(
             feature_extractor=feature_extractor,
             preprocess=preprocess,
             device=device,
+            global_features=global_features,
         )
     elif bundle.get("feature_mode") == ROI_TEXTURE_FEATURE_MODE:
         features = extract_roi_texture_features(
@@ -172,6 +190,7 @@ def classify_defect_type(
             feature_extractor=feature_extractor,
             preprocess=preprocess,
             device=device,
+            global_features=global_features,
         )
     elif bundle.get("feature_mode") == GLOBAL_TEXTURE_FEATURE_MODE:
         features = extract_global_texture_features(
@@ -179,14 +198,17 @@ def classify_defect_type(
             feature_extractor=feature_extractor,
             preprocess=preprocess,
             device=device,
+            global_features=global_features,
         )
     else:
-        features = extract_features(
-            [image_path],
-            feature_extractor=feature_extractor,
-            preprocess=preprocess,
-            device=device,
-        )
+        features = global_features
+        if features is None:
+            features = extract_features(
+                [image_path],
+                feature_extractor=feature_extractor,
+                preprocess=preprocess,
+                device=device,
+            )
 
     classifier = bundle["classifier"]
     label = str(classifier.predict(features)[0])

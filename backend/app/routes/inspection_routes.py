@@ -1,5 +1,8 @@
+import asyncio
+import logging
 import shutil
 from pathlib import Path
+from time import perf_counter
 from uuid import uuid4
 
 import cv2
@@ -29,6 +32,7 @@ from ml.config import MVTEC_DATASET_ROOT
 from ml.model_registry import CategoryModelError, category_model_statuses, normalize_category
 
 router = APIRouter(prefix="/inspections", tags=["inspections"])
+logger = logging.getLogger(__name__)
 
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 ADMIN_ROLES = {"admin", "quality_manager", "factory_supervisor"}
@@ -224,19 +228,34 @@ async def create_inspection_from_path(
     metadata: dict | None = None,
     source_type: str = "manual_upload",
 ) -> Inspection:
+    request_started_at = perf_counter()
     metadata = automatic_metadata(metadata, current_user)
     original_url = None
     prediction: dict = {}
     try:
-        original_url = await store_image(image_path, "original")
         product = await Product.find_one(Product.product_id == metadata["product_id"])
         critical_zones = tuple(product.critical_zones) if product else ()
-        prediction = await run_in_threadpool(
-            inspect_image_file,
-            image_path,
-            metadata["category"],
-            critical_zones,
+        original_task = asyncio.create_task(store_image(image_path, "original"))
+        prediction_task = asyncio.create_task(
+            run_in_threadpool(
+                inspect_image_file,
+                image_path,
+                metadata["category"],
+                critical_zones,
+            )
         )
+        original_result, prediction_result = await asyncio.gather(
+            original_task,
+            prediction_task,
+            return_exceptions=True,
+        )
+        if not isinstance(original_result, BaseException):
+            original_url = original_result
+        if not isinstance(prediction_result, BaseException):
+            prediction = prediction_result
+        for result in (original_result, prediction_result):
+            if isinstance(result, BaseException):
+                raise result
         inspection = Inspection(
             **inspection_base_fields(
                 image_path=image_path,
@@ -274,6 +293,12 @@ async def create_inspection_from_path(
             "batch_number": inspection.batch_number,
             "category": inspection.category,
         },
+    )
+    logger.info(
+        "inspection_request_timing category=%s source_type=%s total_ms=%.1f",
+        metadata["category"],
+        source_type,
+        (perf_counter() - request_started_at) * 1000,
     )
     return inspection
 

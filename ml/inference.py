@@ -11,7 +11,7 @@ import numpy as np
 from ml.baseline_detector import (
     anomaly_mask,
     anomaly_score,
-    embedding_anomaly_score,
+    embedding_anomaly_evidence,
     heatmap_overlay,
     load_reference_profile,
     normalized_anomaly_map,
@@ -150,10 +150,12 @@ def baseline_anomaly_prediction(image_path: Path, image_bgr: np.ndarray, config:
         diff_map = normalized_anomaly_map(image_bgr, profile)
         residual_score = round(float(anomaly_score(diff_map, mask=profile["foreground_mask"])), 4)
         if "embedding_bank" in profile:
-            score = round(embedding_anomaly_score(image_path, profile["embedding_bank"]), 6)
+            embedding_score, global_features = embedding_anomaly_evidence(image_path, profile["embedding_bank"])
+            score = round(embedding_score, 6)
             detector_kind = "resnet18_normal_memory"
         else:
             score = residual_score
+            global_features = None
             detector_kind = "opencv_normal_profile"
     else:
         raise InferenceError(f"Portable normal profile not found: {config.baseline_profile_path}")
@@ -172,6 +174,7 @@ def baseline_anomaly_prediction(image_path: Path, image_bgr: np.ndarray, config:
         "detection_confidence": detection_confidence,
         "anomaly_map": diff_map,
         "pred_mask": binary_mask,
+        "global_features": global_features,
         "fallback_used": False,
         "fallback_reason": None,
     }
@@ -205,6 +208,7 @@ def classify_prediction(
     is_defective: bool,
     binary_mask: np.ndarray,
     config: InferenceConfig,
+    global_features: np.ndarray | None = None,
 ) -> dict:
     if not is_defective:
         return {
@@ -234,6 +238,7 @@ def classify_prediction(
             config.classifier_model_path,
             defect_mask=binary_mask,
             cnn_classifier_path=config.cnn_classifier_model_path,
+            global_features=global_features,
         )
     except Exception as exc:
         return {
@@ -381,6 +386,7 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
         is_defective,
         binary_mask,
         config,
+        global_features=anomaly.get("global_features"),
     )
     confidence = float(classification["confidence"])
     defect_type = classification["defect_type"]

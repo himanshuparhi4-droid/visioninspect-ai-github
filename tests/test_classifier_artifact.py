@@ -94,3 +94,46 @@ def test_portable_cnn_artifacts_run_without_pytorch():
         assert result["defect_type"]
         assert 0.0 <= result["confidence"] <= 1.0
         assert result["classifier_engine"] == "fine_tuned_resnet18_onnx"
+
+
+def test_compact_classifier_reuses_precomputed_global_features(monkeypatch, tmp_path):
+    import cv2
+
+    classifier_path = tmp_path / "defect_classifier.pkl"
+    classifier_path.touch()
+    image_path = tmp_path / "image.png"
+    cv2.imwrite(str(image_path), np.full((32, 32, 3), 128, dtype=np.uint8))
+
+    class FakeClassifier:
+        classes_ = np.asarray(["crack"])
+
+        @staticmethod
+        def predict(features):
+            assert features.shape[0] == 1
+            return np.asarray(["crack"])
+
+        @staticmethod
+        def predict_proba(features):
+            assert features.shape[0] == 1
+            return np.asarray([[1.0]])
+
+    monkeypatch.setattr(
+        "ml.defect_classifier.load_classifier_runtime",
+        lambda _path: {
+            "classifier": FakeClassifier(),
+            "feature_mode": GLOBAL_TEXTURE_FEATURE_MODE,
+        },
+    )
+    monkeypatch.setattr("ml.defect_classifier.shared_feature_runtime", lambda: (object(), object(), "cpu"))
+    monkeypatch.setattr(
+        "ml.classifier.extract_features",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("global features were recomputed")),
+    )
+
+    result = classify_defect_type(
+        image_path,
+        classifier_path,
+        global_features=np.ones((1, 512), dtype=np.float32),
+    )
+
+    assert result["defect_type"] == "crack"

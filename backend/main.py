@@ -1,8 +1,11 @@
+import asyncio
 import logging
 import sys
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+
+import cv2
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -29,6 +32,7 @@ from app.services.auth_service import ensure_bootstrap_admin
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +41,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     app.state.database_ready = False
     app.state.started_at = datetime.now(UTC)
+    cv2.setUseOptimized(True)
+    cv2.setNumThreads(max(1, settings.opencv_num_threads))
+    warmup_task = None
+    if settings.warm_model_on_startup:
+        from ml.defect_classifier import warm_shared_feature_runtime
+
+        warmup_task = asyncio.create_task(run_in_threadpool(warm_shared_feature_runtime))
     try:
         await ping_database()
         await init_database()
@@ -45,6 +56,12 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Database initialization failed: %s", exc)
         app.state.database_error = "Database connection unavailable"
+    if warmup_task is not None:
+        try:
+            await warmup_task
+            logger.info("Portable ONNX feature runtime warmed successfully")
+        except Exception as exc:
+            logger.warning("Portable ONNX feature runtime warmup failed: %s", exc)
     yield
     await close_database()
 

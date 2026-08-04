@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     model_metadata_path: str = "../models/model_metadata.json"
     baseline_profile_path: str = "../models/inference/normal_profile.npz"
     baseline_threshold: float = 1.34
+    opencv_num_threads: int = 2
+    warm_model_on_startup: bool = True
     upload_dir: str = "app/uploads"
     max_upload_size_mb: int = 10
     request_logging_enabled: bool = True

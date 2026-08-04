@@ -435,15 +435,17 @@ def extract_global_texture_features(
     feature_extractor=None,
     preprocess=None,
     device=None,
+    global_features: np.ndarray | None = None,
 ) -> np.ndarray:
     """Combine semantic ResNet context with local gradient and color cues."""
-    global_features = extract_features(
-        image_paths,
-        batch_size=batch_size,
-        feature_extractor=feature_extractor,
-        preprocess=preprocess,
-        device=device,
-    )
+    if global_features is None:
+        global_features = extract_features(
+            image_paths,
+            batch_size=batch_size,
+            feature_extractor=feature_extractor,
+            preprocess=preprocess,
+            device=device,
+        )
     texture_features = np.vstack([handcrafted_image_features(path) for path in image_paths])
     return np.concatenate([global_features, texture_features], axis=1)
 
@@ -457,17 +459,19 @@ def extract_roi_texture_features(
     feature_extractor=None,
     preprocess=None,
     device=None,
+    global_features: np.ndarray | None = None,
 ) -> np.ndarray:
     """Combine whole-image context with defect-region features and mask geometry."""
     mask_paths = mask_paths or [None] * len(image_paths)
     masks = masks or [None] * len(image_paths)
-    global_features = extract_features(
-        image_paths,
-        batch_size=batch_size,
-        feature_extractor=feature_extractor,
-        preprocess=preprocess,
-        device=device,
-    )
+    if global_features is None:
+        global_features = extract_features(
+            image_paths,
+            batch_size=batch_size,
+            feature_extractor=feature_extractor,
+            preprocess=preprocess,
+            device=device,
+        )
     roi_images = [
         roi_pil_image(path, mask_path=mask_path, mask=mask)
         for path, mask_path, mask in zip(image_paths, mask_paths, masks, strict=False)
@@ -504,6 +508,7 @@ def extract_roi_shape_texture_features(
     feature_extractor=None,
     preprocess=None,
     device=None,
+    global_features: np.ndarray | None = None,
 ) -> np.ndarray:
     mask_paths = mask_paths or [None] * len(image_paths)
     masks = masks or [None] * len(image_paths)
@@ -515,6 +520,7 @@ def extract_roi_shape_texture_features(
         feature_extractor=feature_extractor,
         preprocess=preprocess,
         device=device,
+        global_features=global_features,
     )
     shape_features = np.vstack(
         [
@@ -534,6 +540,7 @@ def extract_roi_pixel_texture_features(
     feature_extractor=None,
     preprocess=None,
     device=None,
+    global_features: np.ndarray | None = None,
 ) -> np.ndarray:
     mask_paths = mask_paths or [None] * len(image_paths)
     masks = masks or [None] * len(image_paths)
@@ -545,6 +552,7 @@ def extract_roi_pixel_texture_features(
         feature_extractor=feature_extractor,
         preprocess=preprocess,
         device=device,
+        global_features=global_features,
     )
     pixel_features = np.vstack(
         [

@@ -1,4 +1,5 @@
 from pathlib import Path
+from threading import Barrier
 
 import cv2
 import numpy as np
@@ -79,6 +80,7 @@ def test_runtime_keeps_detection_and_subtype_confidence_separate(monkeypatch, tm
     anomaly_map = np.zeros((32, 32), dtype=np.float32)
     anomaly_map[12:20, 12:20] = 1.0
     pred_mask = anomaly_map > 0.5
+    global_features = np.ones((1, 512), dtype=np.float32)
 
     monkeypatch.setattr(
         "ml.inference.live_anomaly_prediction",
@@ -91,18 +93,25 @@ def test_runtime_keeps_detection_and_subtype_confidence_separate(monkeypatch, tm
             "detection_confidence": 0.8,
             "anomaly_map": anomaly_map,
             "pred_mask": pred_mask,
+            "global_features": global_features,
             "fallback_used": False,
             "fallback_reason": None,
         },
     )
-    monkeypatch.setattr(
-        "ml.inference.classify_prediction",
-        lambda *_: {
+
+    def fake_classify_prediction(*_args, global_features=None):
+        assert global_features is not None
+        assert np.array_equal(global_features, np.ones((1, 512), dtype=np.float32))
+        return {
             "defect_type": "contamination",
             "confidence": 0.6,
             "classification_confidence": 0.6,
             "class_probabilities": {"contamination": 0.6},
-        },
+        }
+
+    monkeypatch.setattr(
+        "ml.inference.classify_prediction",
+        fake_classify_prediction,
     )
 
     missing = tmp_path / "missing"
@@ -174,3 +183,29 @@ def test_missing_classifier_reports_unknown_without_inventing_a_class(tmp_path):
     assert classification["defect_type"] == "unknown_defect"
     assert classification["classification_confidence"] is None
     assert "not found" in classification["classification_error"]
+
+
+def test_visual_outputs_upload_concurrently(monkeypatch, tmp_path):
+    from app.services.prediction_service import save_visual_outputs
+
+    barrier = Barrier(2)
+
+    def temporary_uploads_path(folder):
+        path = tmp_path / folder
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def synchronized_upload(_path, folder):
+        barrier.wait(timeout=2)
+        return f"https://storage.example/{folder}.png"
+
+    monkeypatch.setattr("app.services.prediction_service.uploads_path", temporary_uploads_path)
+    monkeypatch.setattr("app.services.prediction_service.upload_image_or_local_url", synchronized_upload)
+
+    outputs = save_visual_outputs(
+        np.zeros((32, 32), dtype=np.uint8),
+        np.zeros((32, 32, 3), dtype=np.uint8),
+    )
+
+    assert outputs["processed_image_url"].endswith("processed.png")
+    assert outputs["heatmap_url"].endswith("heatmaps.png")
