@@ -168,6 +168,13 @@ export default function UploadPage() {
 
   async function handleBatchInspect() {
     if (!batchFiles.length) return;
+    if (!metadata.category) {
+      setFailure({
+        title: "Inspection category required",
+        message: "Choose one product category before running the batch. Every image in the batch must belong to it.",
+      });
+      return;
+    }
     setBatchLoading(true);
     setMessage("");
     setFailure(null);
@@ -350,7 +357,11 @@ export default function UploadPage() {
         <div className="panel-heading">
           <div>
             <h2>Batch Image Processing</h2>
-            <p>Inspect multiple production images in one request.</p>
+            <p>
+              {metadata.category
+                ? `Using the ${metadata.category.replaceAll("_", " ")} inspection model for every selected image.`
+                : "Choose one inspection category above before selecting a same-category batch."}
+            </p>
           </div>
         </div>
 
@@ -368,7 +379,7 @@ export default function UploadPage() {
             className="primary-button"
             type="button"
             onClick={handleBatchInspect}
-            disabled={!batchFiles.length || batchLoading || loading}
+            disabled={!batchFiles.length || !metadata.category || batchLoading || loading}
           >
             {batchLoading ? "Processing" : "Run Batch"}
           </button>
