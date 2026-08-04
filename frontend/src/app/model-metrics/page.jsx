@@ -95,7 +95,7 @@ export default function ModelMetricsPage() {
                 <th>Type classifier</th>
                 <th>Advanced threshold</th>
                 <th>Image AUROC</th>
-                <th>Image F1</th>
+                <th>Live detector F1</th>
                 <th>Pixel AUROC</th>
                 <th>Classifier accuracy</th>
                 <th>Classifier macro F1</th>
@@ -106,8 +106,8 @@ export default function ModelMetricsPage() {
                 <tr key={model.category}>
                   <td>{model.category.replaceAll("_", " ")}</td>
                   <td>
-                    {model.trained
-                      ? `Portable + ${model.model_kind}`
+                    {model.active_engine
+                      ? model.active_engine.replaceAll("_", " ")
                       : model.available
                         ? "Portable baseline"
                         : "Unavailable"}
@@ -115,7 +115,7 @@ export default function ModelMetricsPage() {
                   <td>{model.classification_trained ? "Ready" : "Pending"}</td>
                   <td>{formatMetric(model.advanced_decision_threshold)}</td>
                   <td>{formatMetric(model.image_auroc)}</td>
-                  <td>{formatMetric(model.image_f1)}</td>
+                  <td>{formatMetric(model.openvino_f1 ?? model.portable_cv_f1 ?? model.image_f1)}</td>
                   <td>{formatMetric(model.pixel_auroc)}</td>
                   <td>{formatMetric(model.classifier_accuracy)}</td>
                   <td>{formatMetric(model.classifier_macro_f1)}</td>

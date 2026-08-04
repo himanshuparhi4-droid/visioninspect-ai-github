@@ -15,6 +15,7 @@ numpy==2.4.4
 pillow==12.2.0
 joblib==1.5.3
 scikit-learn==1.6.1
+openvino==2026.2.1
 torch==2.11.0; sys_platform != "linux"
 torchvision==0.26.0; sys_platform != "linux"
 reportlab==5.0.0

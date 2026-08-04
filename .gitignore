@@ -45,7 +45,9 @@ models/inference/resnet18-*.pth
 models/categories/**/training_runs/
 models/categories/**/benchmark_runs/
 models/categories/**/promotion_runs/
-models/exported/
+models/exported/*
+!models/exported/cable/
+!models/exported/cable/**
 outputs/
 results/
 tmp/

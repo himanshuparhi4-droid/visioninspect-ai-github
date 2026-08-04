@@ -27,6 +27,10 @@ services:
         value: "1.34"
       - key: USE_PADIM_INFERENCE
         value: "false"
+      - key: USE_OPENVINO_INFERENCE
+        value: "true"
+      - key: OPENVINO_INFERENCE_DEVICE
+        value: CPU
       - key: PADIM_INFERENCE_ACCELERATOR
         value: cpu
       - key: UPLOAD_DIR

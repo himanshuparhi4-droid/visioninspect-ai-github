@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
@@ -19,14 +20,16 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from ml.classifier import export_portable_forest
 from ml.config import MODELS_DIR, MVTEC_DATASET_ROOT
 from ml.model_registry import SUPPORTED_CATEGORIES, category_model_spec
+from ml.padim_detector import load_openvino_runtime, openvino_spatial_features
 
 
 def baseline_score_rows(category: str, dataset_root: Path) -> list[dict]:
@@ -102,6 +105,39 @@ def category_score_rows(category: str, dataset_root: Path) -> list[dict]:
         path = Path(item.image_path[0])
         score = float(item.pred_score.detach().cpu().numpy().reshape(-1)[0])
         rows.append({"path": str(path), "score": score, "target": int(path.parent.name != "good")})
+    return rows
+
+
+def openvino_feature_rows(category: str, dataset_root: Path) -> list[dict]:
+    import cv2
+
+    spec = category_model_spec(category)
+    if spec.openvino_path is None or not spec.openvino_path.exists():
+        raise FileNotFoundError(f"OpenVINO model not found for {category}: {spec.openvino_path}")
+    compiled_model = load_openvino_runtime(str(spec.openvino_path), "CPU")
+    rows = []
+    test_root = dataset_root / category / "test"
+    for label_dir in sorted(path for path in test_root.iterdir() if path.is_dir()):
+        paths = sorted(label_dir.glob("*.png"))
+        for start in range(0, len(paths), 8):
+            batch_paths = paths[start : start + 8]
+            batch = []
+            for path in batch_paths:
+                image = cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB)
+                image = cv2.resize(image, (256, 256)).astype(np.float32) / 255.0
+                batch.append(image.transpose(2, 0, 1))
+            outputs = compiled_model([np.stack(batch)])
+            scores = np.asarray(outputs[compiled_model.output("pred_score")]).reshape(-1)
+            anomaly_maps = np.asarray(outputs[compiled_model.output("anomaly_map")])[:, 0]
+            for path, score, anomaly_map in zip(batch_paths, scores, anomaly_maps, strict=True):
+                rows.append(
+                    {
+                        "path": str(path),
+                        "label": label_dir.name,
+                        "target": int(label_dir.name != "good"),
+                        "features": openvino_spatial_features(float(score), anomaly_map),
+                    }
+                )
     return rows
 
 
@@ -202,13 +238,70 @@ def calibrate_category(category: str, dataset_root: Path, objective: str) -> dic
     }
 
 
+def calibrate_openvino_category(category: str, dataset_root: Path) -> dict:
+    rows = openvino_feature_rows(category, dataset_root)
+    features = np.vstack([row["features"] for row in rows])
+    targets = np.asarray([row["target"] for row in rows], dtype=int)
+    classifier = ExtraTreesClassifier(
+        n_estimators=800,
+        min_samples_leaf=1,
+        max_features="sqrt",
+        class_weight="balanced",
+        random_state=42,
+        n_jobs=-1,
+    )
+    splitter = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    predictions = cross_val_predict(classifier, features, targets, cv=splitter, n_jobs=1)
+    decision_threshold = 0.5
+    classifier.fit(features, targets)
+    true_negative, false_positive, false_negative, true_positive = confusion_matrix(
+        targets, predictions, labels=[0, 1]
+    ).ravel()
+    spec = category_model_spec(category)
+    if spec.openvino_calibrator_path is None:
+        raise RuntimeError(f"No OpenVINO calibrator path configured for {category}")
+    spec.openvino_calibrator_path.parent.mkdir(parents=True, exist_ok=True)
+    export_portable_forest(
+        classifier,
+        spec.openvino_calibrator_path,
+        feature_mode="openvino_spatial_v1",
+        decision_threshold=decision_threshold,
+    )
+    subtype_recall = {}
+    labels = np.asarray([row["label"] for row in rows])
+    for label in sorted(set(labels) - {"good"}):
+        subtype_recall[label] = round(float(predictions[labels == label].mean()), 4)
+    return {
+        "detector": f"{spec.model_kind}_openvino_spatial_calibrator",
+        "protocol": (
+            "5-fold stratified out-of-fold evaluation on labelled MVTec test images; "
+            "production calibrator fitted on all labelled images"
+        ),
+        "folds": 5,
+        "samples": int(len(targets)),
+        "decision_threshold": round(float(decision_threshold), 6),
+        "accuracy": round(float(accuracy_score(targets, predictions)), 4),
+        "precision": round(float(precision_score(targets, predictions, zero_division=0)), 4),
+        "recall": round(float(recall_score(targets, predictions, zero_division=0)), 4),
+        "specificity": round(float(true_negative / max(true_negative + false_positive, 1)), 4),
+        "balanced_accuracy": round(float(balanced_accuracy_score(targets, predictions)), 4),
+        "f1": round(float(f1_score(targets, predictions, zero_division=0)), 4),
+        "confusion_matrix": [
+            [int(true_negative), int(false_positive)],
+            [int(false_negative), int(true_positive)],
+        ],
+        "defect_subtype_recall": subtype_recall,
+        "artifact": str(spec.openvino_calibrator_path.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--categories", default="all")
     parser.add_argument("--dataset-root", type=Path, default=MVTEC_DATASET_ROOT)
     parser.add_argument(
         "--engine",
-        choices=("baseline", "advanced"),
+        choices=("baseline", "advanced", "openvino"),
         default="baseline",
         help="Calibrate the portable baseline or the optional advanced anomaly model.",
     )
@@ -232,24 +325,32 @@ def main() -> None:
 
     for category in categories:
         print(f"Calibrating {args.engine} detector for {category}...", flush=True)
-        result = (
-            calibrate_baseline_category(category, dataset_root, args.objective)
-            if args.engine == "baseline"
-            else calibrate_category(category, dataset_root, args.objective)
-        )
+        if args.engine == "baseline":
+            result = calibrate_baseline_category(category, dataset_root, args.objective)
+        elif args.engine == "openvino":
+            result = calibrate_openvino_category(category, dataset_root)
+        else:
+            result = calibrate_category(category, dataset_root, args.objective)
         spec = category_model_spec(category)
         metadata = json.loads(spec.metadata_path.read_text(encoding="utf-8"))
-        metadata["baseline_threshold_calibration" if args.engine == "baseline" else "threshold_calibration"] = result
-        spec.metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        metadata_key = {
+            "baseline": "baseline_threshold_calibration",
+            "advanced": "threshold_calibration",
+            "openvino": "openvino_spatial_calibration",
+        }[args.engine]
+        metadata[metadata_key] = result
+        spec.metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         entry = registry.setdefault(category, {})
         if args.engine == "baseline":
             entry["baseline_score_threshold"] = result["threshold"]
             entry["baseline_residual_threshold"] = result["residual_threshold"]
-        else:
+        elif args.engine == "advanced":
             entry["padim_score_threshold"] = result["threshold"]
+        else:
+            entry["openvino_calibrator_path"] = result["artifact"]
         print(json.dumps({category: result}, indent=2), flush=True)
 
-    registry_path.write_text(json.dumps(registry, indent=2), encoding="utf-8")
+    registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

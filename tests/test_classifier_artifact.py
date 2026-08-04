@@ -8,8 +8,10 @@ from ml.classifier import (
     ROI_SHAPE_TEXTURE_FEATURE_MODE,
     ROI_TEXTURE_FEATURE_MODE,
     build_opencv_resnet18_feature_extractor,
+    export_portable_forest,
     extract_features,
     load_classifier_bundle,
+    predict_portable_forest,
 )
 from ml.defect_classifier import classify_defect_type, predict_portable_cnn_defect_type
 
@@ -137,3 +139,28 @@ def test_compact_classifier_reuses_precomputed_global_features(monkeypatch, tmp_
     )
 
     assert result["defect_type"] == "crack"
+
+
+def test_portable_forest_matches_scaled_sklearn_pipeline(tmp_path):
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    features = np.asarray(
+        [[0.0, 0.1], [0.2, 0.0], [0.8, 0.9], [1.0, 0.8], [0.1, 0.3], [0.9, 1.0]],
+        dtype=np.float32,
+    )
+    labels = np.asarray(["good", "good", "defect", "defect", "good", "defect"])
+    classifier = make_pipeline(
+        StandardScaler(),
+        RandomForestClassifier(n_estimators=20, random_state=42),
+    ).fit(features, labels)
+    artifact_path = tmp_path / "portable_forest.npz"
+    export_portable_forest(classifier, artifact_path, feature_mode="test")
+
+    expected = classifier.predict_proba(features)
+    actual = predict_portable_forest(artifact_path, features)
+
+    assert list(actual["classes"]) == list(classifier.classes_)
+    assert np.allclose(actual["probabilities"], expected, atol=1e-7)
+    assert list(actual["labels"]) == list(classifier.predict(features))

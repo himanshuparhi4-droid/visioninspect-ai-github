@@ -8,7 +8,9 @@
     "model_kind": "patchcore",
     "openvino_path": "models/exported/cable/weights/openvino/model.xml",
     "baseline_score_threshold": 0.041518,
-    "baseline_residual_threshold": 1.298446
+    "baseline_residual_threshold": 1.298446,
+    "openvino_calibrator_path": "models/categories/cable/openvino_calibrator.npz",
+    "compact_classifier_path": "models/categories/cable/defect_classifier_runtime.npz"
   },
   "capsule": {
     "checkpoint_path": "models/categories/capsule/padim_v1.ckpt",

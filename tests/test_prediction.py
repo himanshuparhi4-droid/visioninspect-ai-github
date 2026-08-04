@@ -5,8 +5,9 @@ import cv2
 import numpy as np
 
 from ml import predict
-from ml.inference import InferenceConfig, classify_prediction, compute_defect_geometry
+from ml.inference import InferenceConfig, build_explainability, classify_prediction, compute_defect_geometry
 from ml.model_registry import category_model_spec
+from ml.padim_detector import openvino_spatial_features
 
 
 def test_inspect_image_returns_backend_ready_output(monkeypatch):
@@ -209,3 +210,46 @@ def test_visual_outputs_upload_concurrently(monkeypatch, tmp_path):
 
     assert outputs["processed_image_url"].endswith("processed.png")
     assert outputs["heatmap_url"].endswith("heatmaps.png")
+
+
+def test_openvino_spatial_features_are_fixed_length_and_finite():
+    anomaly_map = np.linspace(0.1, 0.9, 256 * 256, dtype=np.float32).reshape(256, 256)
+
+    features = openvino_spatial_features(0.63, anomaly_map)
+
+    assert features.shape == (72,)
+    assert features.dtype == np.float32
+    assert np.isfinite(features).all()
+
+
+def test_explainability_describes_spatially_calibrated_decision():
+    explanation = build_explainability(
+        prediction="Defective",
+        defect_type="poke_insulation",
+        confidence=0.91,
+        detection_confidence=0.88,
+        classification_confidence=0.91,
+        classification_error=None,
+        anomaly_score_value=0.47,
+        decision_threshold=0.52,
+        geometry={
+            "area_ratio": 0.01,
+            "is_critical_location": False,
+            "critical_zones": [],
+            "detected_regions": [],
+            "defect_center_x_ratio": 0.5,
+            "defect_center_y_ratio": 0.5,
+        },
+        severity={"components": {}},
+        anomaly_map_value=np.ones((16, 16), dtype=np.float32),
+        engine="patchcore_openvino",
+        fallback_used=False,
+        fallback_reason=None,
+        decision_basis="spatial_calibrator",
+        calibrated_defect_probability=0.87,
+        calibration_threshold=0.5,
+    )
+
+    assert explanation["decision_basis"] == "spatial_calibrator"
+    assert explanation["calibrated_defect_probability"] == 0.87
+    assert "87.0% defect probability" in explanation["notes"][0]

@@ -15,12 +15,24 @@ router = APIRouter(prefix="/health", tags=["health"])
 async def health_check(request: Request) -> dict:
     classifier_path = resolve_backend_path(settings.classifier_model_path)
     profile_path = resolve_backend_path(settings.baseline_profile_path)
-    category_statuses = category_model_statuses(settings.use_padim_inference)
+    category_statuses = category_model_statuses(
+        settings.use_padim_inference,
+        settings.use_openvino_inference,
+    )
     bottle_model = category_model_spec("bottle")
     advanced_enabled = settings.use_padim_inference and any(
         item["advanced_model_available"] for item in category_statuses
     )
-    active_engine = "advanced-anomaly-models" if advanced_enabled else "opencv-baseline"
+    openvino_enabled = settings.use_openvino_inference and any(
+        item["active_engine"].endswith("_openvino") for item in category_statuses
+    )
+    active_engine = (
+        "openvino-anomaly-models"
+        if openvino_enabled
+        else "advanced-anomaly-models"
+        if advanced_enabled
+        else "opencv-baseline"
+    )
 
     return {
         "status": "ok",
@@ -46,7 +58,7 @@ async def health_check(request: Request) -> dict:
             "padim_enabled": advanced_enabled,
             "padim_requested": settings.use_padim_inference,
             "padim_accelerator": settings.padim_inference_accelerator,
-            "openvino_enabled": settings.use_openvino_inference,
+            "openvino_enabled": openvino_enabled,
             "openvino_device": settings.openvino_inference_device,
             "active_engine": active_engine,
             "portable_engine": "opencv-baseline",
@@ -65,7 +77,10 @@ async def liveness_check() -> dict:
 
 @router.get("/ready")
 async def readiness_check(request: Request) -> JSONResponse:
-    category_statuses = category_model_statuses(settings.use_padim_inference)
+    category_statuses = category_model_statuses(
+        settings.use_padim_inference,
+        settings.use_openvino_inference,
+    )
     checks = {
         "database_ready": getattr(request.app.state, "database_ready", False),
         "portable_detection_models": all(item["available"] for item in category_statuses),

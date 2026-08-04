@@ -35,6 +35,7 @@ export default function BatchInspectionResults({ results = [], summary = null, f
         <table>
           <thead>
             <tr>
+              <th>Image</th>
               <th>Prediction</th>
               <th>Defect</th>
               <th>Severity</th>
@@ -45,6 +46,7 @@ export default function BatchInspectionResults({ results = [], summary = null, f
           <tbody>
             {results.map((item) => (
               <tr key={item.id}>
+                <td>{item.source_label || item.original_filename || "Uploaded image"}</td>
                 <td>{item.prediction}</td>
                 <td>{item.defect_type}</td>
                 <td>{item.severity_level}</td>

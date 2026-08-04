@@ -42,6 +42,8 @@ class InferenceConfig:
     critical_zones: tuple[str, ...] = ()
     cnn_classifier_model_path: Path | None = None
     openvino_path: Path | None = None
+    openvino_calibrator_path: Path | None = None
+    compact_classifier_path: Path | None = None
     use_openvino_inference: bool = False
     openvino_inference_device: str = "CPU"
 
@@ -181,7 +183,7 @@ def baseline_anomaly_prediction(image_path: Path, image_bgr: np.ndarray, config:
 
 
 def live_anomaly_prediction(image_path: Path, image_bgr: np.ndarray, config: InferenceConfig) -> dict:
-    if config.use_padim_inference:
+    if config.use_padim_inference or config.use_openvino_inference:
         try:
             return predict_with_anomaly_model(
                 image_path,
@@ -190,6 +192,9 @@ def live_anomaly_prediction(image_path: Path, image_bgr: np.ndarray, config: Inf
                 score_threshold=config.padim_score_threshold,
                 accelerator=config.padim_inference_accelerator,
                 openvino_path=config.openvino_path if config.use_openvino_inference else None,
+                openvino_calibrator_path=config.openvino_calibrator_path
+                if config.use_openvino_inference
+                else None,
                 openvino_device=config.openvino_inference_device,
             )
         except PadimInferenceError as exc:
@@ -238,6 +243,7 @@ def classify_prediction(
             config.classifier_model_path,
             defect_mask=binary_mask,
             cnn_classifier_path=config.cnn_classifier_model_path,
+            compact_classifier_path=config.compact_classifier_path,
             global_features=global_features,
         )
     except Exception as exc:
@@ -315,19 +321,34 @@ def build_explainability(
     engine: str,
     fallback_used: bool,
     fallback_reason: str | None,
+    decision_basis: str = "score_threshold",
+    calibrated_defect_probability: float | None = None,
+    calibration_threshold: float | None = None,
 ) -> dict:
     heatmap_intensity = float(np.percentile(anomaly_map_value, 95)) if anomaly_map_value.size else 0.0
     area_percent = float(geometry["area_ratio"] * 100)
     notes: list[str] = []
+    calibrated_decision = decision_basis == "spatial_calibrator" and calibrated_defect_probability is not None
     if prediction == "Good":
-        if anomaly_score_value <= decision_threshold:
+        if calibrated_decision:
+            notes.append(
+                "Spatial anomaly calibration classified the image as normal "
+                f"({calibrated_defect_probability * 100:.1f}% defect probability)."
+            )
+        elif anomaly_score_value <= decision_threshold:
             notes.append("Anomaly score stayed below the active decision threshold.")
         else:
             notes.append(
                 "Anomaly score was borderline, but no localized defect region remained after residual-noise filtering."
             )
     else:
-        notes.append("Anomaly score exceeded the active decision threshold.")
+        if calibrated_decision:
+            notes.append(
+                "Spatial anomaly calibration classified the image as defective "
+                f"({calibrated_defect_probability * 100:.1f}% defect probability)."
+            )
+        else:
+            notes.append("Anomaly score exceeded the active decision threshold.")
         notes.append(f"Defect area covers approximately {area_percent:.2f}% of the inspected image.")
         if geometry.get("is_critical_location"):
             regions = ", ".join(geometry.get("detected_regions", [])) or "configured"
@@ -347,6 +368,15 @@ def build_explainability(
         "fallback_used": bool(fallback_used),
         "fallback_reason": fallback_reason,
         "decision_threshold": round(float(decision_threshold), 4),
+        "decision_basis": decision_basis,
+        "calibrated_defect_probability": (
+            round(float(calibrated_defect_probability), 4)
+            if calibrated_defect_probability is not None
+            else None
+        ),
+        "calibration_threshold": (
+            round(float(calibration_threshold), 4) if calibration_threshold is not None else None
+        ),
         "anomaly_score": round(float(anomaly_score_value), 4),
         "detection_confidence": round(float(detection_confidence), 4),
         "classification_confidence": (
@@ -424,6 +454,9 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
         engine=anomaly["engine"],
         fallback_used=bool(anomaly.get("fallback_used", False)),
         fallback_reason=anomaly.get("fallback_reason"),
+        decision_basis=str(anomaly.get("decision_basis", "score_threshold")),
+        calibrated_defect_probability=anomaly.get("calibrated_defect_probability"),
+        calibration_threshold=anomaly.get("calibration_threshold"),
     )
 
     processed = np.clip(preprocess_gray(image_bgr), 0, 255).astype(np.uint8)

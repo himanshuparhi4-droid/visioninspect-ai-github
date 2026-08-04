@@ -7,6 +7,8 @@ import json
 import sys
 from pathlib import Path
 
+import cv2
+import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -15,13 +17,16 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from ml.classifier import (
     GLOBAL_TEXTURE_FEATURE_MODE,
+    HANDCRAFTED_ROI_SHAPE_FEATURE_MODE,
     ROI_PIXEL_TEXTURE_FEATURE_MODE,
     ROI_SHAPE_TEXTURE_FEATURE_MODE,
     ROI_TEXTURE_FEATURE_MODE,
+    export_portable_forest,
     train_defect_classifier,
 )
 from ml.config import MVTEC_DATASET_ROOT
-from ml.model_registry import SUPPORTED_CATEGORIES, category_model_spec
+from ml.model_registry import SUPPORTED_CATEGORIES, category_model_spec, registry_file
+from ml.padim_detector import load_openvino_runtime
 
 
 def category_records(category_root: Path) -> pd.DataFrame:
@@ -38,6 +43,25 @@ def category_records(category_root: Path) -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(records)
+
+
+def attach_openvino_masks(records: pd.DataFrame, model_path: Path) -> pd.DataFrame:
+    if not model_path.exists():
+        raise FileNotFoundError(f"OpenVINO model not found: {model_path}")
+    compiled_model = load_openvino_runtime(str(model_path), "CPU")
+    updated = records.copy()
+    masks = []
+    for image_path in updated["image_path"]:
+        image = cv2.cvtColor(cv2.imread(str(image_path)), cv2.COLOR_BGR2RGB)
+        image = cv2.resize(image, (256, 256)).astype(np.float32) / 255.0
+        outputs = compiled_model([image.transpose(2, 0, 1)[None]])
+        anomaly_map = np.asarray(outputs[compiled_model.output("anomaly_map")]).squeeze()
+        mask = np.asarray(outputs[compiled_model.output("pred_mask")]).squeeze().astype(bool)
+        if not np.any(mask):
+            mask = anomaly_map >= np.percentile(anomaly_map, 99)
+        masks.append(mask)
+    updated["mask"] = masks
+    return updated
 
 
 def metric_floor(metrics: dict) -> float:
@@ -75,9 +99,16 @@ def main() -> None:
             ROI_TEXTURE_FEATURE_MODE,
             ROI_SHAPE_TEXTURE_FEATURE_MODE,
             ROI_PIXEL_TEXTURE_FEATURE_MODE,
+            HANDCRAFTED_ROI_SHAPE_FEATURE_MODE,
         ),
     )
     parser.add_argument("--force", action="store_true", help="Promote the best new classifier even if metrics are lower.")
+    parser.add_argument(
+        "--mask-source",
+        choices=("ground_truth", "openvino"),
+        default="ground_truth",
+        help="Use annotation masks or production-style OpenVINO anomaly masks for ROI features.",
+    )
     args = parser.parse_args()
 
     categories = (
@@ -88,6 +119,10 @@ def main() -> None:
     for category in categories:
         spec = category_model_spec(category)
         records = category_records(args.dataset_root / category)
+        if args.mask_source == "openvino":
+            if spec.openvino_path is None:
+                raise FileNotFoundError(f"No OpenVINO model configured for {category}")
+            records = attach_openvino_masks(records, spec.openvino_path)
         defect_records = records[records["label"] != "good"]
         counts = defect_records["label"].value_counts()
         if defect_records.empty or (counts < 2).any():
@@ -106,6 +141,7 @@ def main() -> None:
                 ROI_TEXTURE_FEATURE_MODE,
                 ROI_SHAPE_TEXTURE_FEATURE_MODE,
                 ROI_PIXEL_TEXTURE_FEATURE_MODE,
+                HANDCRAFTED_ROI_SHAPE_FEATURE_MODE,
             )
             if args.feature_mode == "auto"
             else (args.feature_mode,)
@@ -126,7 +162,8 @@ def main() -> None:
                 dataset_context={
                     "source": "MVTec AD labelled test folders",
                     "protocol": (
-                        "defect-only subtype classification with stratified cross-validation; "
+                        "defect-only subtype classification with stratified cross-validation using "
+                        f"{args.mask_source.replace('_', ' ')} masks; "
                         "not an official held-out MVTec anomaly-detection benchmark"
                     ),
                     "category": category,
@@ -150,8 +187,20 @@ def main() -> None:
         should_promote = args.force or not current_metrics or is_better(best_result["metrics"], current_metrics)
         if should_promote:
             best_path.replace(spec.classifier_path)
+            if spec.compact_classifier_path is not None and best_result["metrics"]["feature_mode"] == HANDCRAFTED_ROI_SHAPE_FEATURE_MODE:
+                export_portable_forest(
+                    best_result["bundle"]["classifier"],
+                    spec.compact_classifier_path,
+                    feature_mode=HANDCRAFTED_ROI_SHAPE_FEATURE_MODE,
+                )
+                registry_path = registry_file()
+                registry = json.loads(registry_path.read_text(encoding="utf-8"))
+                registry.setdefault(category, {})["compact_classifier_path"] = str(
+                    spec.compact_classifier_path.relative_to(PROJECT_ROOT)
+                ).replace("\\", "/")
+                registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
             metadata["defect_classifier"] = best_result["metrics"]
-            spec.metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+            spec.metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
             status = "promoted"
         else:
             status = "kept-existing"

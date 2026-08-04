@@ -57,10 +57,10 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
     )
     use_advanced_model = settings.use_padim_inference and advanced_model_available
     use_openvino = (
-        use_advanced_model
-        and settings.use_openvino_inference
+        settings.use_openvino_inference
         and spec.openvino_path is not None
         and spec.openvino_path.exists()
+        and spec.openvino_path.with_suffix(".bin").exists()
     )
     return InferenceConfig(
         category=spec.category,
@@ -90,6 +90,8 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
         fail_severity_threshold=runtime_settings.fail_severity_threshold,
         critical_zones=critical_zones,
         openvino_path=spec.openvino_path if use_openvino else None,
+        openvino_calibrator_path=spec.openvino_calibrator_path if use_openvino else None,
+        compact_classifier_path=spec.compact_classifier_path,
     )
 
 

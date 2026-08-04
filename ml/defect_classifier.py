@@ -134,14 +134,19 @@ def classify_defect_type(
     classifier_model_path: str | Path,
     defect_mask: np.ndarray | None = None,
     cnn_classifier_path: str | Path | None = None,
+    compact_classifier_path: str | Path | None = None,
     global_features: np.ndarray | None = None,
 ) -> dict:
     from ml.classifier import (
+        HANDCRAFTED_ROI_SHAPE_FEATURE_MODE,
         extract_features,
         extract_global_texture_features,
+        extract_handcrafted_roi_shape_features,
         extract_roi_pixel_texture_features,
         extract_roi_shape_texture_features,
         extract_roi_texture_features,
+        load_portable_forest,
+        predict_portable_forest,
     )
 
     classifier_model_path = Path(classifier_model_path)
@@ -162,6 +167,27 @@ def classify_defect_type(
         except Exception:
             # Continue to the compact classifier if portable CNN loading fails.
             pass
+
+    compact_path = Path(compact_classifier_path) if compact_classifier_path is not None else None
+    if compact_path is not None and compact_path.exists():
+        runtime = load_portable_forest(str(compact_path), compact_path.stat().st_mtime_ns)
+        feature_mode = str(runtime["feature_mode"])
+        if feature_mode != HANDCRAFTED_ROI_SHAPE_FEATURE_MODE:
+            raise DefectClassifierError(f"Unsupported compact classifier feature mode: {feature_mode}")
+        features = extract_handcrafted_roi_shape_features([image_path], masks=[defect_mask])
+        prediction = predict_portable_forest(compact_path, features)
+        probabilities = prediction["probabilities"][0]
+        classes = prediction["classes"]
+        label = str(prediction["labels"][0])
+        return {
+            "defect_type": label,
+            "confidence": round(float(max(probabilities)), 4),
+            "class_probabilities": {
+                str(class_name): round(float(probability), 4)
+                for class_name, probability in zip(classes, probabilities, strict=True)
+            },
+            "classifier_engine": "portable_forest",
+        }
 
     bundle = load_classifier_runtime(str(classifier_model_path))
     feature_extractor, preprocess, device = shared_feature_runtime()

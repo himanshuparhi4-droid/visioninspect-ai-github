@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING
@@ -18,11 +19,13 @@ GLOBAL_TEXTURE_FEATURE_MODE = "global_texture"
 ROI_TEXTURE_FEATURE_MODE = "global_roi_texture"
 ROI_SHAPE_TEXTURE_FEATURE_MODE = "global_roi_shape_texture"
 ROI_PIXEL_TEXTURE_FEATURE_MODE = "global_roi_pixel_texture"
+HANDCRAFTED_ROI_SHAPE_FEATURE_MODE = "handcrafted_roi_shape_texture"
 FEATURE_EXTRACTOR_NAME = "resnet18_imagenet1k_v1"
 GLOBAL_TEXTURE_EXTRACTOR_NAME = "resnet18_imagenet1k_v1_plus_texture"
 ROI_TEXTURE_EXTRACTOR_NAME = "resnet18_imagenet1k_v1_plus_roi_texture_geometry"
 ROI_SHAPE_TEXTURE_EXTRACTOR_NAME = "resnet18_imagenet1k_v1_plus_roi_texture_mask_shape"
 ROI_PIXEL_TEXTURE_EXTRACTOR_NAME = "resnet18_imagenet1k_v1_plus_roi_texture_mask_shape_pixels"
+HANDCRAFTED_ROI_SHAPE_EXTRACTOR_NAME = "opencv_texture_gradient_color_mask_shape"
 MASK_SHAPE_FEATURE_LENGTH = 284
 ROI_PIXEL_FEATURE_LENGTH = 3072
 DEFAULT_RESNET_WEIGHTS_PATH = Path(__file__).resolve().parents[1] / "models" / "inference" / "resnet18-f37072fd.pth"
@@ -563,6 +566,30 @@ def extract_roi_pixel_texture_features(
     return np.concatenate([base_features, pixel_features], axis=1)
 
 
+def extract_handcrafted_roi_shape_features(
+    image_paths: list[str | Path],
+    *,
+    mask_paths: list[str | Path | None] | None = None,
+    masks: list[np.ndarray | None] | None = None,
+) -> np.ndarray:
+    """Extract portable global/ROI texture and mask-shape features without a CNN runtime."""
+    mask_paths = mask_paths or [None] * len(image_paths)
+    masks = masks or [None] * len(image_paths)
+    rows = []
+    for path, mask_path, mask in zip(image_paths, mask_paths, masks, strict=False):
+        rows.append(
+            np.concatenate(
+                [
+                    handcrafted_image_features(path),
+                    handcrafted_roi_features(path, mask_path=mask_path, mask=mask),
+                    mask_geometry_features(path, mask_path=mask_path, mask=mask),
+                    mask_shape_features(path, mask_path=mask_path, mask=mask),
+                ]
+            )
+        )
+    return np.vstack(rows).astype(np.float32, copy=False)
+
+
 def create_estimator(kind: str = "logistic", regularization: float = 1.0):
     from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
     from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingClassifier, RandomForestClassifier
@@ -731,6 +758,10 @@ def _extract_training_features(
     device,
 ) -> np.ndarray:
     paths = data["image_path"].tolist()
+    masks = data["mask"].tolist() if "mask" in data.columns else None
+    if feature_mode == HANDCRAFTED_ROI_SHAPE_FEATURE_MODE:
+        mask_paths = data["mask_path"].tolist() if "mask_path" in data.columns else None
+        return extract_handcrafted_roi_shape_features(paths, mask_paths=mask_paths, masks=masks)
     if feature_mode == GLOBAL_TEXTURE_FEATURE_MODE:
         return extract_global_texture_features(
             paths,
@@ -744,6 +775,7 @@ def _extract_training_features(
         return extract_roi_texture_features(
             paths,
             mask_paths=mask_paths,
+            masks=masks,
             batch_size=batch_size,
             feature_extractor=feature_extractor,
             preprocess=preprocess,
@@ -754,6 +786,7 @@ def _extract_training_features(
         return extract_roi_shape_texture_features(
             paths,
             mask_paths=mask_paths,
+            masks=masks,
             batch_size=batch_size,
             feature_extractor=feature_extractor,
             preprocess=preprocess,
@@ -764,6 +797,7 @@ def _extract_training_features(
         return extract_roi_pixel_texture_features(
             paths,
             mask_paths=mask_paths,
+            masks=masks,
             batch_size=batch_size,
             feature_extractor=feature_extractor,
             preprocess=preprocess,
@@ -805,7 +839,10 @@ def train_defect_classifier(
     if data.empty:
         raise ValueError("Dataset is empty. Cannot train classifier.")
 
-    feature_extractor, preprocess, device = build_resnet18_feature_extractor()
+    if feature_mode == HANDCRAFTED_ROI_SHAPE_FEATURE_MODE:
+        feature_extractor = preprocess = device = None
+    else:
+        feature_extractor, preprocess, device = build_resnet18_feature_extractor()
     features = _extract_training_features(
         data,
         feature_mode,
@@ -821,6 +858,7 @@ def train_defect_classifier(
         ROI_TEXTURE_FEATURE_MODE: ROI_TEXTURE_EXTRACTOR_NAME,
         ROI_SHAPE_TEXTURE_FEATURE_MODE: ROI_SHAPE_TEXTURE_EXTRACTOR_NAME,
         ROI_PIXEL_TEXTURE_FEATURE_MODE: ROI_PIXEL_TEXTURE_EXTRACTOR_NAME,
+        HANDCRAFTED_ROI_SHAPE_FEATURE_MODE: HANDCRAFTED_ROI_SHAPE_EXTRACTOR_NAME,
     }
     extractor_name = extractor_names.get(feature_mode, FEATURE_EXTRACTOR_NAME)
     context = dataset_context or {}
@@ -921,3 +959,107 @@ def train_defect_classifier(
 
 def load_classifier_bundle(path: str | Path) -> dict:
     return joblib.load(path)
+
+
+def export_portable_forest(
+    classifier,
+    output_path: str | Path,
+    *,
+    feature_mode: str,
+    decision_threshold: float = 0.5,
+) -> Path:
+    """Export a fitted sklearn tree ensemble to a NumPy-only inference artifact."""
+    estimator = classifier
+    scaler_mean = np.empty(0, dtype=np.float32)
+    scaler_scale = np.empty(0, dtype=np.float32)
+    if hasattr(classifier, "named_steps"):
+        estimator = classifier.steps[-1][1]
+        scaler = classifier.named_steps.get("scaler")
+        if scaler is None and classifier.steps and hasattr(classifier.steps[0][1], "mean_"):
+            scaler = classifier.steps[0][1]
+        if scaler is not None:
+            scaler_mean = np.asarray(scaler.mean_, dtype=np.float32)
+            scaler_scale = np.asarray(scaler.scale_, dtype=np.float32)
+    if not hasattr(estimator, "estimators_"):
+        raise ValueError("Portable forest export requires a fitted tree ensemble")
+
+    offsets = [0]
+    children_left = []
+    children_right = []
+    split_features = []
+    thresholds = []
+    values = []
+    for tree_estimator in estimator.estimators_:
+        tree = tree_estimator.tree_
+        offset = offsets[-1]
+        left = tree.children_left.astype(np.int32)
+        right = tree.children_right.astype(np.int32)
+        children_left.append(np.where(left >= 0, left + offset, left))
+        children_right.append(np.where(right >= 0, right + offset, right))
+        split_features.append(tree.feature.astype(np.int32))
+        thresholds.append(tree.threshold.astype(np.float32))
+        values.append(tree.value[:, 0, :].astype(np.float32))
+        offsets.append(offsets[-1] + tree.node_count)
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        output_path,
+        tree_offsets=np.asarray(offsets, dtype=np.int32),
+        children_left=np.concatenate(children_left),
+        children_right=np.concatenate(children_right),
+        split_features=np.concatenate(split_features),
+        thresholds=np.concatenate(thresholds),
+        values=np.concatenate(values),
+        classes=np.asarray(estimator.classes_),
+        scaler_mean=scaler_mean,
+        scaler_scale=scaler_scale,
+        feature_mode=np.asarray(feature_mode),
+        decision_threshold=np.asarray(decision_threshold, dtype=np.float32),
+    )
+    return output_path
+
+
+@lru_cache(maxsize=16)
+def load_portable_forest(path_value: str, modified_ns: int) -> dict:
+    del modified_ns
+    path = Path(path_value)
+    if not path.exists():
+        raise FileNotFoundError(f"Portable classifier not found: {path}")
+    with np.load(path, allow_pickle=False) as artifact:
+        return {name: artifact[name].copy() for name in artifact.files}
+
+
+def predict_portable_forest(path_value: str | Path, features: np.ndarray) -> dict:
+    path = Path(path_value)
+    runtime = load_portable_forest(str(path), path.stat().st_mtime_ns)
+    matrix = np.atleast_2d(np.asarray(features, dtype=np.float32))
+    if runtime["scaler_mean"].size:
+        matrix = (matrix - runtime["scaler_mean"]) / np.maximum(runtime["scaler_scale"], 1e-12)
+
+    offsets = runtime["tree_offsets"]
+    probabilities = np.zeros((len(matrix), len(runtime["classes"])), dtype=np.float64)
+    for row_index, row in enumerate(matrix):
+        for tree_index in range(len(offsets) - 1):
+            node = int(offsets[tree_index])
+            tree_end = int(offsets[tree_index + 1])
+            while runtime["children_left"][node] >= 0:
+                feature = int(runtime["split_features"][node])
+                node = int(
+                    runtime["children_left"][node]
+                    if row[feature] <= runtime["thresholds"][node]
+                    else runtime["children_right"][node]
+                )
+                if node < offsets[tree_index] or node >= tree_end:
+                    raise ValueError("Portable forest contains an invalid node reference")
+            leaf_values = runtime["values"][node]
+            probabilities[row_index] += leaf_values / max(float(leaf_values.sum()), 1.0)
+    probabilities /= max(len(offsets) - 1, 1)
+    labels = runtime["classes"][np.argmax(probabilities, axis=1)]
+    return {
+        "labels": labels,
+        "probabilities": probabilities,
+        "classes": runtime["classes"],
+        "feature_mode": str(runtime["feature_mode"]),
+        "decision_threshold": float(runtime["decision_threshold"]),
+    }

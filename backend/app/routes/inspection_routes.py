@@ -377,7 +377,11 @@ async def batch_inspect_images(
     failures = []
     for file in files:
         try:
-            inspection = await create_inspection_from_file(file, current_user, metadata)
+            inspection = await create_inspection_from_file(
+                file,
+                current_user,
+                {**metadata, "source_label": file.filename},
+            )
             inspections.append(inspection)
         except HTTPException as exc:
             failures.append(
@@ -437,7 +441,10 @@ async def get_camera_samples(category: str = Query(default="bottle"), current_us
 async def get_model_categories(current_user: User = Depends(get_current_user)) -> dict:
     """Expose portable runtime and camera-sample readiness to the UI."""
     items = []
-    for status_item in category_model_statuses(settings.use_padim_inference):
+    for status_item in category_model_statuses(
+        settings.use_padim_inference,
+        settings.use_openvino_inference,
+    ):
         sample_count = len(camera_sample_paths(status_item["category"]))
         items.append(
             {

@@ -126,7 +126,10 @@ def build_model_metrics_payload() -> dict:
     ]
     category_models = []
     baseline_metrics = []
-    for status in category_model_statuses(settings.use_padim_inference):
+    for status in category_model_statuses(
+        settings.use_padim_inference,
+        settings.use_openvino_inference,
+    ):
         spec = category_model_spec(status["category"])
         category_metadata = {}
         if spec.metadata_path.exists():
@@ -138,6 +141,7 @@ def build_model_metrics_payload() -> dict:
         if isinstance(category_metrics, list):
             category_metrics = category_metrics[0] if category_metrics else {}
         portable_metrics = category_metadata.get("baseline_threshold_calibration") or {}
+        openvino_metrics = category_metadata.get("openvino_spatial_calibration") or {}
         threshold_metrics = category_metadata.get("threshold_calibration") or {}
         baseline_metrics.append(
             {
@@ -178,6 +182,10 @@ def build_model_metrics_payload() -> dict:
                 "portable_cv_balanced_accuracy": portable_metrics.get("cv_balanced_accuracy"),
                 "classifier_macro_f1": category_metadata.get("defect_classifier", {}).get("macro_f1"),
                 "classifier_accuracy": category_metadata.get("defect_classifier", {}).get("accuracy"),
+                "openvino_accuracy": openvino_metrics.get("accuracy"),
+                "openvino_f1": openvino_metrics.get("f1"),
+                "openvino_recall": openvino_metrics.get("recall"),
+                "openvino_specificity": openvino_metrics.get("specificity"),
                 "trained_at": category_metadata.get("trained_at"),
             }
         )

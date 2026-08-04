@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     cloudinary_timeout_seconds: int = 20
     use_cloudinary_storage: bool = False
     use_padim_inference: bool = False
-    use_openvino_inference: bool = False
+    use_openvino_inference: bool = True
     openvino_inference_device: str = "CPU"
     padim_inference_accelerator: str = "auto"
     model_checkpoint_path: str = "../models/local_checkpoints/padim_mvtec_bottle_v1.ckpt"
