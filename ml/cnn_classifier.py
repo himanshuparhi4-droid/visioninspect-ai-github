@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
@@ -19,8 +20,11 @@ from ml.config import MODELS_DIR
 from ml.object_preprocessing import enhance_contrast_bgr, prepare_classifier_view, read_bgr, resize_with_padding
 
 CNN_ARTIFACT_TYPE = "visioninspect_resnet18_finetuned_classifier"
+CNN_ONNX_ARTIFACT_TYPE = "visioninspect_resnet18_finetuned_classifier_onnx"
 CNN_CLASSIFIER_FILE = "cnn_defect_classifier.pt"
 CNN_CANDIDATE_FILE = "cnn_defect_classifier.candidate.pt"
+CNN_ONNX_FILE = "cnn_defect_classifier.onnx"
+CNN_ONNX_METADATA_FILE = "cnn_defect_classifier.json"
 DEFAULT_RESNET_WEIGHTS_PATH = MODELS_DIR / "inference" / "resnet18-f37072fd.pth"
 
 
@@ -99,7 +103,7 @@ def prepare_cnn_view(
         return enhance_contrast_bgr(resize_with_padding(image_bgr, (image_size, image_size)))
     if crop_mode == "object":
         return prepare_classifier_view(image_bgr, None, image_size=image_size)
-    if crop_mode == "defect":
+    if crop_mode in {"defect", "object_crop_or_anomaly_mask_crop"}:
         return prepare_classifier_view(image_bgr, defect_mask, image_size=image_size)
     raise ValueError(f"Unsupported CNN crop_mode: {crop_mode}")
 
@@ -336,6 +340,45 @@ def load_cnn_classifier(path_value: str) -> tuple[nn.Module, dict, torch.device]
     model.to(device)
     model.eval()
     return model, artifact, device
+
+
+def export_cnn_classifier_onnx(
+    artifact_path: str | Path,
+    output_path: str | Path | None = None,
+) -> dict:
+    """Export a trained CNN classifier and its runtime metadata to ONNX."""
+    artifact_path = Path(artifact_path)
+    model, artifact, _ = load_cnn_classifier(str(artifact_path))
+    model = model.cpu().eval()
+    image_size = int(artifact["image_size"][0])
+    output_path = Path(output_path) if output_path else artifact_path.with_name(CNN_ONNX_FILE)
+    metadata_path = output_path.with_name(CNN_ONNX_METADATA_FILE)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    torch.onnx.export(
+        model,
+        torch.zeros(1, 3, image_size, image_size, dtype=torch.float32),
+        output_path,
+        input_names=["images"],
+        output_names=["logits"],
+        dynamic_axes={"images": {0: "batch"}, "logits": {0: "batch"}},
+        opset_version=17,
+        dynamo=False,
+    )
+    metadata = {
+        "artifact_type": CNN_ONNX_ARTIFACT_TYPE,
+        "category": str(artifact["category"]),
+        "labels": [str(label) for label in artifact["labels"]],
+        "image_size": image_size,
+        "preprocessing": artifact.get("preprocessing", {}),
+        "classifier_engine": "fine_tuned_resnet18_onnx",
+    }
+    metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    return {
+        "model_path": output_path,
+        "metadata_path": metadata_path,
+        "metadata": metadata,
+    }
 
 
 def predict_cnn_defect_type(

@@ -40,6 +40,7 @@ class InferenceConfig:
     review_severity_threshold: float
     fail_severity_threshold: float
     critical_zones: tuple[str, ...] = ()
+    cnn_classifier_model_path: Path | None = None
     openvino_path: Path | None = None
     use_openvino_inference: bool = False
     openvino_inference_device: str = "CPU"
@@ -232,6 +233,7 @@ def classify_prediction(
             image_path,
             config.classifier_model_path,
             defect_mask=binary_mask,
+            cnn_classifier_path=config.cnn_classifier_model_path,
         )
     except Exception as exc:
         return {

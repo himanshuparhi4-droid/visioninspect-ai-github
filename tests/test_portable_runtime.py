@@ -80,6 +80,19 @@ def test_render_requirements_include_portable_inference_dependencies():
 
 def test_shared_onnx_feature_model_is_github_safe():
     model_path = Path("models/inference/resnet18_features.onnx")
+    pytorch_weights_path = Path("models/inference/resnet18-f37072fd.pth")
 
     assert model_path.exists()
     assert 1_000_000 < model_path.stat().st_size < 100_000_000
+    assert not pytorch_weights_path.exists()
+
+
+def test_promoted_cnn_classifiers_are_portable_onnx_artifacts():
+    for category in ("capsule", "wood"):
+        spec = category_model_spec(category)
+
+        assert spec.cnn_classifier_path is not None
+        assert spec.cnn_classifier_path.exists()
+        assert 1_000_000 < spec.cnn_classifier_path.stat().st_size < 100_000_000
+        assert spec.cnn_classifier_path.with_suffix(".json").exists()
+        assert not spec.cnn_classifier_path.with_suffix(".pt").exists()

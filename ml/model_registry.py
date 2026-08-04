@@ -67,6 +67,7 @@ class CategoryModelSpec:
     classifier_path: Path
     baseline_profile_path: Path
     metadata_path: Path
+    cnn_classifier_path: Path | None = None
     openvino_path: Path | None = None
     padim_score_threshold: float = 0.5
     baseline_score_threshold: float = 1.34
@@ -126,6 +127,7 @@ def _default_spec(category: str) -> CategoryModelSpec:
         classifier_path=category_dir / "defect_classifier.pkl",
         baseline_profile_path=category_dir / "normal_profile.npz",
         metadata_path=category_dir / "model_metadata.json",
+        cnn_classifier_path=category_dir / "cnn_defect_classifier.onnx",
         openvino_path=MODELS_DIR / "exported" / category / "weights" / "openvino" / "model.xml",
     )
 
@@ -155,18 +157,23 @@ def category_model_spec(category: str | None) -> CategoryModelSpec:
     if not isinstance(override, dict):
         override = {}
 
-    def path_value(name: str, fallback: Path) -> Path:
+    def required_path_value(name: str, fallback: Path) -> Path:
+        value = override.get(name)
+        return MODELS_DIR.parent / value if value else fallback
+
+    def optional_path_value(name: str, fallback: Path | None) -> Path | None:
         value = override.get(name)
         return MODELS_DIR.parent / value if value else fallback
 
     return CategoryModelSpec(
         category=normalized,
         model_kind=str(override.get("model_kind", default.model_kind)).lower(),
-        checkpoint_path=path_value("checkpoint_path", default.checkpoint_path),
-        classifier_path=path_value("classifier_path", default.classifier_path),
-        baseline_profile_path=path_value("baseline_profile_path", default.baseline_profile_path),
-        metadata_path=path_value("metadata_path", default.metadata_path),
-        openvino_path=path_value("openvino_path", default.openvino_path),
+        checkpoint_path=required_path_value("checkpoint_path", default.checkpoint_path),
+        classifier_path=required_path_value("classifier_path", default.classifier_path),
+        baseline_profile_path=required_path_value("baseline_profile_path", default.baseline_profile_path),
+        metadata_path=required_path_value("metadata_path", default.metadata_path),
+        cnn_classifier_path=optional_path_value("cnn_classifier_path", default.cnn_classifier_path),
+        openvino_path=optional_path_value("openvino_path", default.openvino_path),
         padim_score_threshold=float(override.get("padim_score_threshold", default.padim_score_threshold)),
         baseline_score_threshold=float(override.get("baseline_score_threshold", default.baseline_score_threshold)),
         baseline_residual_threshold=float(
@@ -185,6 +192,7 @@ def category_model_statuses(advanced_enabled: bool = False) -> list[dict]:
             "trained": spec.has_advanced_model,
             "advanced_model_available": spec.has_advanced_model,
             "classification_trained": spec.classifier_path.exists(),
+            "portable_cnn_available": bool(spec.cnn_classifier_path and spec.cnn_classifier_path.exists()),
             "model_kind": spec.model_kind,
             "active_engine": spec.model_kind if advanced_enabled and spec.has_advanced_model else "opencv-baseline",
             "decision_threshold": spec.padim_score_threshold,
@@ -192,6 +200,7 @@ def category_model_statuses(advanced_enabled: bool = False) -> list[dict]:
             "artifacts": {
                 "profile": artifact_descriptor(spec.baseline_profile_path),
                 "classifier": artifact_descriptor(spec.classifier_path),
+                "cnn_classifier": artifact_descriptor(spec.cnn_classifier_path) if spec.cnn_classifier_path else None,
                 "metadata": artifact_descriptor(spec.metadata_path),
             },
         }

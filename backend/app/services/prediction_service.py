@@ -66,6 +66,7 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
         padim_inference_accelerator=settings.padim_inference_accelerator,
         model_checkpoint_path=checkpoint_path,
         classifier_model_path=spec.classifier_path,
+        cnn_classifier_model_path=spec.cnn_classifier_path,
         model_metadata_path=spec.metadata_path,
         baseline_profile_path=spec.baseline_profile_path,
         # The dashboard value remains a global sensitivity control while each

@@ -13,7 +13,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from ml.cnn_classifier import CNN_CANDIDATE_FILE, CNN_CLASSIFIER_FILE, train_cnn_defect_classifier
+from ml.cnn_classifier import (
+    CNN_CANDIDATE_FILE,
+    CNN_ONNX_FILE,
+    export_cnn_classifier_onnx,
+    train_cnn_defect_classifier,
+)
 from ml.config import MVTEC_DATASET_ROOT
 from ml.model_registry import SUPPORTED_CATEGORIES, category_model_spec, registry_file
 
@@ -100,7 +105,7 @@ def main() -> None:
 
         metadata = json.loads(spec.metadata_path.read_text(encoding="utf-8")) if spec.metadata_path.exists() else {}
         current_metrics = metadata.get("defect_classifier", {})
-        final_path = spec.classifier_path.with_name(CNN_CLASSIFIER_FILE)
+        final_path = spec.classifier_path.with_name(CNN_ONNX_FILE)
         crop_modes = ("defect", "object", "full") if args.crop_mode == "auto" else (args.crop_mode,)
         best_result = None
         best_candidate_path = None
@@ -144,7 +149,7 @@ def main() -> None:
             flush=True,
         )
         if args.force or not current_metrics or is_better(metrics, current_metrics):
-            best_candidate_path.replace(final_path)
+            export_cnn_classifier_onnx(best_candidate_path, final_path)
             metadata["defect_classifier"] = metrics
             metadata["defect_classifier"]["active_artifact"] = str(final_path.relative_to(PROJECT_ROOT)).replace(
                 "\\", "/"

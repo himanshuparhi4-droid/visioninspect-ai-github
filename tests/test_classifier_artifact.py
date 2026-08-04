@@ -11,7 +11,7 @@ from ml.classifier import (
     extract_features,
     load_classifier_bundle,
 )
-from ml.defect_classifier import classify_defect_type
+from ml.defect_classifier import classify_defect_type, predict_portable_cnn_defect_type
 
 
 def test_defect_classifier_artifact_loads():
@@ -47,26 +47,29 @@ def test_opencv_feature_runtime_returns_resnet_embeddings():
     assert np.isfinite(features).all()
 
 
-def test_classifier_prefers_promoted_cnn_artifact(monkeypatch, tmp_path):
+def test_classifier_prefers_portable_cnn_artifact(monkeypatch, tmp_path):
     classifier_path = tmp_path / "defect_classifier.pkl"
     classifier_path.write_bytes(b"placeholder")
-    cnn_path = tmp_path / "cnn_defect_classifier.pt"
+    cnn_path = tmp_path / "cnn_defect_classifier.onnx"
     cnn_path.write_bytes(b"placeholder")
+    metadata_path = tmp_path / "cnn_defect_classifier.json"
+    metadata_path.write_text("{}", encoding="utf-8")
     image_path = tmp_path / "image.png"
     image_path.write_bytes(b"placeholder")
 
-    def fake_cnn_predict(image_path_arg, artifact_path_arg, *, defect_mask=None):
+    def fake_cnn_predict(image_path_arg, artifact_path_arg, metadata_path_arg, *, defect_mask=None):
         assert Path(image_path_arg) == image_path
         assert Path(artifact_path_arg) == cnn_path
+        assert Path(metadata_path_arg) == metadata_path
         assert defect_mask is not None
         return {
             "defect_type": "crack",
             "confidence": 0.91,
             "class_probabilities": {"crack": 0.91},
-            "classifier_engine": "fine_tuned_resnet18",
+            "classifier_engine": "fine_tuned_resnet18_onnx",
         }
 
-    monkeypatch.setattr("ml.cnn_classifier.predict_cnn_defect_type", fake_cnn_predict)
+    monkeypatch.setattr("ml.defect_classifier.predict_portable_cnn_defect_type", fake_cnn_predict)
 
     result = classify_defect_type(
         image_path,
@@ -75,4 +78,19 @@ def test_classifier_prefers_promoted_cnn_artifact(monkeypatch, tmp_path):
     )
 
     assert result["defect_type"] == "crack"
-    assert result["classifier_engine"] == "fine_tuned_resnet18"
+    assert result["classifier_engine"] == "fine_tuned_resnet18_onnx"
+
+
+def test_portable_cnn_artifacts_run_without_pytorch():
+    image_path = Path("models/inference/normal_reference.png")
+    for category in ("capsule", "wood"):
+        model_dir = Path("models/categories") / category
+        result = predict_portable_cnn_defect_type(
+            image_path,
+            model_dir / "cnn_defect_classifier.onnx",
+            model_dir / "cnn_defect_classifier.json",
+        )
+
+        assert result["defect_type"]
+        assert 0.0 <= result["confidence"] <= 1.0
+        assert result["classifier_engine"] == "fine_tuned_resnet18_onnx"

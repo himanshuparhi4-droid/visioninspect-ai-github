@@ -40,6 +40,8 @@ data/sample_images/
 models/checkpoints/
 models/local_checkpoints/
 models/categories/**/*.ckpt
+models/categories/**/cnn_defect_classifier*.pt
+models/inference/resnet18-*.pth
 models/categories/**/training_runs/
 models/categories/**/benchmark_runs/
 models/categories/**/promotion_runs/

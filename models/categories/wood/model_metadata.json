@@ -1026,7 +1026,7 @@
       "category": "wood",
       "crop_mode": "full"
     },
-    "active_artifact": "models/categories/wood/cnn_defect_classifier.pt"
+    "active_artifact": "models/categories/wood/cnn_defect_classifier.onnx"
   },
   "portable_detector": "resnet18_normal_memory_with_opencv_localization",
   "portable_train_good_images": 247,

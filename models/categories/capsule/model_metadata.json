@@ -1729,7 +1729,7 @@
       "protocol": "defect-only subtype CNN classification using object/defect crops",
       "category": "capsule"
     },
-    "active_artifact": "models/categories/capsule/cnn_defect_classifier.pt"
+    "active_artifact": "models/categories/capsule/cnn_defect_classifier.onnx"
   },
   "portable_detector": "resnet18_normal_memory_with_opencv_localization",
   "portable_train_good_images": 219,

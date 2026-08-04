@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
+from threading import Lock
 
+import cv2
 import numpy as np
 
 from ml.classifier import (
@@ -15,6 +18,77 @@ from ml.classifier import (
 
 class DefectClassifierError(RuntimeError):
     pass
+
+
+class PortableCNNClassifier:
+    """Thread-safe OpenCV DNN runtime for a fine-tuned CNN classifier."""
+
+    def __init__(self, model_path: Path, metadata: dict):
+        self.net = cv2.dnn.readNetFromONNX(str(model_path))
+        self.metadata = metadata
+        self.lock = Lock()
+
+    def predict(self, tensor: np.ndarray) -> np.ndarray:
+        with self.lock:
+            self.net.setInput(tensor)
+            return self.net.forward()
+
+
+@lru_cache(maxsize=16)
+def load_portable_cnn_runtime(model_path_value: str, metadata_path_value: str) -> PortableCNNClassifier:
+    model_path = Path(model_path_value)
+    metadata_path = Path(metadata_path_value)
+    if not model_path.exists() or not metadata_path.exists():
+        raise DefectClassifierError(f"Portable CNN classifier artifacts are incomplete: {model_path.parent}")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if metadata.get("artifact_type") != "visioninspect_resnet18_finetuned_classifier_onnx":
+        raise DefectClassifierError(f"Unsupported portable CNN classifier metadata: {metadata_path}")
+    return PortableCNNClassifier(model_path, metadata)
+
+
+def predict_portable_cnn_defect_type(
+    image_path: str | Path,
+    model_path: str | Path,
+    metadata_path: str | Path,
+    *,
+    defect_mask: np.ndarray | None = None,
+) -> dict:
+    from ml.object_preprocessing import prepare_classifier_view, read_bgr
+
+    runtime = load_portable_cnn_runtime(str(model_path), str(metadata_path))
+    metadata = runtime.metadata
+    image_size = int(metadata["image_size"])
+    crop_mode = str(metadata.get("preprocessing", {}).get("view", "defect"))
+    image_bgr = read_bgr(image_path)
+    if crop_mode == "full":
+        from ml.object_preprocessing import enhance_contrast_bgr, resize_with_padding
+
+        view = enhance_contrast_bgr(resize_with_padding(image_bgr, (image_size, image_size)))
+    elif crop_mode == "object":
+        view = prepare_classifier_view(image_bgr, None, image_size=image_size)
+    elif crop_mode in {"defect", "object_crop_or_anomaly_mask_crop"}:
+        view = prepare_classifier_view(image_bgr, defect_mask, image_size=image_size)
+    else:
+        raise DefectClassifierError(f"Unsupported portable CNN crop mode: {crop_mode}")
+
+    rgb = cv2.cvtColor(view, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+    mean = np.asarray((0.485, 0.456, 0.406), dtype=np.float32)
+    std = np.asarray((0.229, 0.224, 0.225), dtype=np.float32)
+    tensor = np.transpose((rgb - mean) / std, (2, 0, 1))[None].astype(np.float32, copy=False)
+    logits = runtime.predict(tensor).reshape(-1)
+    probabilities = np.exp(logits - np.max(logits))
+    probabilities /= probabilities.sum()
+    labels = [str(label) for label in metadata["labels"]]
+    best_index = int(np.argmax(probabilities))
+    return {
+        "defect_type": labels[best_index],
+        "confidence": round(float(probabilities[best_index]), 4),
+        "class_probabilities": {
+            label: round(float(probability), 4)
+            for label, probability in zip(labels, probabilities, strict=True)
+        },
+        "classifier_engine": "fine_tuned_resnet18_onnx",
+    }
 
 
 @lru_cache(maxsize=32)
@@ -44,6 +118,7 @@ def classify_defect_type(
     image_path: str | Path,
     classifier_model_path: str | Path,
     defect_mask: np.ndarray | None = None,
+    cnn_classifier_path: str | Path | None = None,
 ) -> dict:
     from ml.classifier import (
         extract_features,
@@ -54,15 +129,22 @@ def classify_defect_type(
     )
 
     classifier_model_path = Path(classifier_model_path)
-    cnn_path = classifier_model_path.with_name("cnn_defect_classifier.pt")
-    if cnn_path.exists():
+    cnn_onnx_path = (
+        Path(cnn_classifier_path)
+        if cnn_classifier_path is not None
+        else classifier_model_path.with_name("cnn_defect_classifier.onnx")
+    )
+    cnn_metadata_path = cnn_onnx_path.with_suffix(".json")
+    if cnn_onnx_path.exists() and cnn_metadata_path.exists():
         try:
-            from ml.cnn_classifier import predict_cnn_defect_type
-
-            return predict_cnn_defect_type(image_path, cnn_path, defect_mask=defect_mask)
+            return predict_portable_cnn_defect_type(
+                image_path,
+                cnn_onnx_path,
+                cnn_metadata_path,
+                defect_mask=defect_mask,
+            )
         except Exception:
-            # Keep the production workflow available if an experimental CNN
-            # artifact is corrupted or incompatible with the local runtime.
+            # Continue to the compact classifier if portable CNN loading fails.
             pass
 
     bundle = load_classifier_runtime(str(classifier_model_path))
