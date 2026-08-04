@@ -95,16 +95,7 @@ export default function UploadPage() {
     getModelCategories()
       .then((payload) => {
         const categories = payload.items || [];
-        const firstAvailable = categories.find(
-          (item) => item.available || item.runnable || item.trained || item.is_trained
-        );
         setModelCategories(categories);
-        if (firstAvailable) {
-          setMetadata((current) => ({
-            ...current,
-            category: current.category || firstAvailable.category,
-          }));
-        }
       })
       .catch(() => setModelCategories([]));
     getCurrentUser()
@@ -114,9 +105,20 @@ export default function UploadPage() {
 
   function handleFileChange(nextFile) {
     setFile(nextFile);
+    setResult(null);
+    setFailure(null);
+    setMessage("");
     if (nextFile) {
       setMetadata((current) => ({ ...automaticMetadata(nextFile, catalog, current), source_label: nextFile.name }));
     }
+  }
+
+  function handleMetadataChange(nextMetadata) {
+    const categoryChanged = nextMetadata.category !== metadata.category;
+    setMetadata(categoryChanged && file ? automaticMetadata(file, catalog, nextMetadata) : nextMetadata);
+    setResult(null);
+    setFailure(null);
+    setMessage("");
   }
 
   function handleBatchFiles(nextFiles) {
@@ -129,9 +131,18 @@ export default function UploadPage() {
 
   async function handleInspect() {
     if (!file) return;
+    if (!metadata.category) {
+      setFailure({
+        title: "Inspection category required",
+        message: "Choose the product category before running the inspection.",
+        status: 400,
+      });
+      return;
+    }
     setLoading(true);
     setMessage("");
     setFailure(null);
+    setResult(null);
     setSlowMessage("");
     const slowTimer = window.setTimeout(
       () => setSlowMessage("Inspection is taking longer than expected. The request is still processing."),
@@ -257,6 +268,13 @@ export default function UploadPage() {
         </section>
       ) : null}
 
+      {file && !metadata.category ? (
+        <section className="processing-warning category-selection-prompt" role="status">
+          <strong>Choose the inspection category</strong>
+          <p>Select the product type below so VisionInspect AI uses the correct detector and defect classifier.</p>
+        </section>
+      ) : null}
+
       <div className="workflow-grid">
         <div className="stack">
           <ImageUpload
@@ -277,7 +295,7 @@ export default function UploadPage() {
               value={metadata}
               catalog={catalog}
               modelCategories={modelCategories}
-              onChange={setMetadata}
+              onChange={handleMetadataChange}
               disabled={loading || batchLoading}
             />
           </section>

@@ -1,25 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Lock
+from typing import TYPE_CHECKING
 
 import cv2
 import joblib
 import numpy as np
-import pandas as pd
-import torch
 from PIL import Image
-from sklearn.decomposition import PCA
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingClassifier, RandomForestClassifier
-from sklearn.linear_model import LogisticRegression, SGDClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
-from sklearn.model_selection import StratifiedKFold, cross_val_predict, cross_validate, train_test_split
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
-from torchvision import models
+
+if TYPE_CHECKING:
+    import pandas as pd
+    from sklearn.pipeline import Pipeline
 
 GLOBAL_FEATURE_MODE = "global"
 GLOBAL_TEXTURE_FEATURE_MODE = "global_texture"
@@ -34,14 +26,62 @@ ROI_PIXEL_TEXTURE_EXTRACTOR_NAME = "resnet18_imagenet1k_v1_plus_roi_texture_mask
 MASK_SHAPE_FEATURE_LENGTH = 284
 ROI_PIXEL_FEATURE_LENGTH = 3072
 DEFAULT_RESNET_WEIGHTS_PATH = Path(__file__).resolve().parents[1] / "models" / "inference" / "resnet18-f37072fd.pth"
+DEFAULT_RESNET_ONNX_PATH = Path(__file__).resolve().parents[1] / "models" / "inference" / "resnet18_features.onnx"
+IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 
-def get_device() -> torch.device:
+class OpenCVResNet18FeatureExtractor:
+    """Run the frozen ResNet18 embedding model without a PyTorch runtime."""
+
+    def __init__(self, model_path: str | Path):
+        self.net = cv2.dnn.readNetFromONNX(str(model_path))
+        self.lock = Lock()
+
+    def extract(self, images: list[Image.Image], preprocess, batch_size: int = 16) -> np.ndarray:
+        features: list[np.ndarray] = []
+        with self.lock:
+            for start in range(0, len(images), batch_size):
+                batch = np.stack([preprocess(image) for image in images[start : start + batch_size]])
+                self.net.setInput(batch.astype(np.float32, copy=False))
+                features.append(self.net.forward().reshape(len(batch), -1))
+        return np.vstack(features).astype(np.float32, copy=False)
+
+
+def imagenet_preprocess(image: Image.Image) -> np.ndarray:
+    """Match torchvision's ResNet18 resize, center-crop, and normalization."""
+    image = image.convert("RGB")
+    width, height = image.size
+    if width < height:
+        resized_width, resized_height = 256, int(256 * height / width)
+    else:
+        resized_height, resized_width = 256, int(256 * width / height)
+    resized = image.resize((resized_width, resized_height), Image.Resampling.BILINEAR)
+    left = (resized_width - 224) // 2
+    top = (resized_height - 224) // 2
+    array = np.asarray(resized.crop((left, top, left + 224, top + 224)), dtype=np.float32) / 255.0
+    normalized = (array - IMAGENET_MEAN) / IMAGENET_STD
+    return np.transpose(normalized, (2, 0, 1)).astype(np.float32, copy=False)
+
+
+def build_opencv_resnet18_feature_extractor(model_path: str | Path = DEFAULT_RESNET_ONNX_PATH):
+    path = Path(model_path)
+    if not path.exists() or path.stat().st_size < 1_000_000:
+        raise FileNotFoundError(f"Portable ResNet18 ONNX model not found: {path}")
+    return OpenCVResNet18FeatureExtractor(path), imagenet_preprocess, "cpu"
+
+
+def get_device():
+    import torch
+
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def build_resnet18_feature_extractor(device: torch.device | None = None):
+def build_resnet18_feature_extractor(device=None):
     """Build the shared frozen ImageNet ResNet18 feature extractor."""
+    import torch
+    from torchvision import models
+
     device = device or get_device()
     weights = models.ResNet18_Weights.DEFAULT
     has_bundled_weights = (
@@ -67,12 +107,20 @@ def extract_pil_features(
     batch_size: int = 16,
     feature_extractor=None,
     preprocess=None,
-    device: torch.device | None = None,
+    device=None,
 ) -> np.ndarray:
     if feature_extractor is None or preprocess is None:
-        feature_extractor, preprocess, device = build_resnet18_feature_extractor(device)
-    else:
-        device = device or get_device()
+        if DEFAULT_RESNET_ONNX_PATH.exists():
+            feature_extractor, preprocess, device = build_opencv_resnet18_feature_extractor()
+        else:
+            feature_extractor, preprocess, device = build_resnet18_feature_extractor(device)
+    if isinstance(feature_extractor, OpenCVResNet18FeatureExtractor):
+        return feature_extractor.extract(images, preprocess, batch_size=batch_size)
+
+    import torch
+
+    if device is None:
+        device = get_device()
 
     features = []
     with torch.inference_mode():
@@ -89,7 +137,7 @@ def extract_features(
     batch_size: int = 16,
     feature_extractor=None,
     preprocess=None,
-    device: torch.device | None = None,
+    device=None,
 ) -> np.ndarray:
     """Extract global ResNet18 embeddings for a list of image paths."""
     return extract_pil_features(
@@ -145,7 +193,7 @@ def handcrafted_array_features(image: np.ndarray) -> np.ndarray:
         gray[1:-1, :-2],
     ]
     for bit, neighbor in enumerate(neighbors):
-        lbp |= ((neighbor >= center).astype(np.uint8) << bit)
+        lbp |= (neighbor >= center).astype(np.uint8) << bit
     histogram, _ = np.histogram(lbp.ravel(), bins=32, range=(0, 256))
     histogram = histogram.astype(np.float32)
     histogram /= max(float(histogram.sum()), 1.0)
@@ -162,7 +210,9 @@ def handcrafted_image_features(image_path: str | Path) -> np.ndarray:
     return handcrafted_array_features(image)
 
 
-def load_mask(mask_path: str | Path | None = None, mask: np.ndarray | None = None, image_shape: tuple[int, int] | None = None) -> np.ndarray | None:
+def load_mask(
+    mask_path: str | Path | None = None, mask: np.ndarray | None = None, image_shape: tuple[int, int] | None = None
+) -> np.ndarray | None:
     if mask is not None:
         mask_array = np.asarray(mask)
     elif mask_path:
@@ -215,7 +265,9 @@ def crop_bgr_from_mask(image: np.ndarray, mask: np.ndarray | None) -> np.ndarray
     return image[y1:y2, x1:x2]
 
 
-def roi_pil_image(image_path: str | Path, mask_path: str | Path | None = None, mask: np.ndarray | None = None) -> Image.Image:
+def roi_pil_image(
+    image_path: str | Path, mask_path: str | Path | None = None, mask: np.ndarray | None = None
+) -> Image.Image:
     image = cv2.imread(str(image_path))
     if image is None:
         raise FileNotFoundError(f"Could not read image: {image_path}")
@@ -329,7 +381,9 @@ def mask_shape_features(
         circularity = min((4.0 * np.pi * contour_area) / (perimeter * perimeter), 1.0)
         moments = cv2.moments(contour)
         hu_raw = cv2.HuMoments(moments).ravel()
-        hu_values = np.asarray([-np.sign(value) * np.log10(abs(value) + 1e-12) / 20.0 for value in hu_raw], dtype=np.float32)
+        hu_values = np.asarray(
+            [-np.sign(value) * np.log10(abs(value) + 1e-12) / 20.0 for value in hu_raw], dtype=np.float32
+        )
 
     horizontal_profile = cv2.resize(mask_uint8.astype(np.float32), (1, 8), interpolation=cv2.INTER_AREA).reshape(-1)
     vertical_profile = cv2.resize(mask_uint8.astype(np.float32), (8, 1), interpolation=cv2.INTER_AREA).reshape(-1)
@@ -380,7 +434,7 @@ def extract_global_texture_features(
     batch_size: int = 16,
     feature_extractor=None,
     preprocess=None,
-    device: torch.device | None = None,
+    device=None,
 ) -> np.ndarray:
     """Combine semantic ResNet context with local gradient and color cues."""
     global_features = extract_features(
@@ -402,7 +456,7 @@ def extract_roi_texture_features(
     batch_size: int = 16,
     feature_extractor=None,
     preprocess=None,
-    device: torch.device | None = None,
+    device=None,
 ) -> np.ndarray:
     """Combine whole-image context with defect-region features and mask geometry."""
     mask_paths = mask_paths or [None] * len(image_paths)
@@ -449,7 +503,7 @@ def extract_roi_shape_texture_features(
     batch_size: int = 16,
     feature_extractor=None,
     preprocess=None,
-    device: torch.device | None = None,
+    device=None,
 ) -> np.ndarray:
     mask_paths = mask_paths or [None] * len(image_paths)
     masks = masks or [None] * len(image_paths)
@@ -479,7 +533,7 @@ def extract_roi_pixel_texture_features(
     batch_size: int = 16,
     feature_extractor=None,
     preprocess=None,
-    device: torch.device | None = None,
+    device=None,
 ) -> np.ndarray:
     mask_paths = mask_paths or [None] * len(image_paths)
     masks = masks or [None] * len(image_paths)
@@ -502,6 +556,12 @@ def extract_roi_pixel_texture_features(
 
 
 def create_estimator(kind: str = "logistic", regularization: float = 1.0):
+    from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+    from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingClassifier, RandomForestClassifier
+    from sklearn.linear_model import LogisticRegression, SGDClassifier
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.svm import SVC
+
     if kind == "svc":
         return SVC(
             C=regularization,
@@ -555,11 +615,18 @@ def create_estimator(kind: str = "logistic", regularization: float = 1.0):
 
 
 def create_classifier(kind: str = "logistic", regularization: float = 1.0) -> Pipeline:
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler
+
     estimator = create_estimator(kind, regularization)
     return Pipeline([("scaler", StandardScaler()), ("classifier", estimator)])
 
 
 def create_pca_classifier(kind: str = "logistic", regularization: float = 1.0) -> Pipeline:
+    from sklearn.decomposition import PCA
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler
+
     estimator = create_estimator(kind, regularization)
     return Pipeline(
         [
@@ -602,6 +669,9 @@ def classifier_candidates(feature_count: int | None = None) -> dict[str, Pipelin
 
 
 def select_classifier(features: np.ndarray, labels: np.ndarray, random_state: int = 42) -> tuple[str, Pipeline, dict]:
+    import pandas as pd
+    from sklearn.model_selection import StratifiedKFold, cross_val_predict, cross_validate
+
     class_counts = pd.Series(labels).value_counts()
     folds = min(5, int(class_counts.min()))
     if folds < 2:
@@ -714,6 +784,10 @@ def train_defect_classifier(
     cross_validate_model: bool = False,
 ) -> dict:
     """Train a compact category-specific classifier from labelled images."""
+    from sklearn.dummy import DummyClassifier
+    from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
+    from sklearn.model_selection import train_test_split
+
     data = dataset_df.copy()
     if defect_only:
         data = data[data["label"] != "good"].copy()

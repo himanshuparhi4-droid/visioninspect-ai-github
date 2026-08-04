@@ -7,6 +7,8 @@ from ml.classifier import (
     ROI_PIXEL_TEXTURE_FEATURE_MODE,
     ROI_SHAPE_TEXTURE_FEATURE_MODE,
     ROI_TEXTURE_FEATURE_MODE,
+    build_opencv_resnet18_feature_extractor,
+    extract_features,
     load_classifier_bundle,
 )
 from ml.defect_classifier import classify_defect_type
@@ -28,6 +30,21 @@ def test_defect_classifier_artifact_loads():
         ROI_PIXEL_TEXTURE_FEATURE_MODE,
     }
     assert bundle["metrics"]["macro_f1"] >= 0.8
+
+
+def test_opencv_feature_runtime_returns_resnet_embeddings():
+    image_path = Path("models/inference/normal_reference.png")
+    runtime, preprocess, device = build_opencv_resnet18_feature_extractor()
+
+    features = extract_features(
+        [image_path],
+        feature_extractor=runtime,
+        preprocess=preprocess,
+        device=device,
+    )
+
+    assert features.shape == (1, 512)
+    assert np.isfinite(features).all()
 
 
 def test_classifier_prefers_promoted_cnn_artifact(monkeypatch, tmp_path):

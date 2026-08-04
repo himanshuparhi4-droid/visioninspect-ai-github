@@ -29,8 +29,14 @@ def load_classifier_runtime(path_value: str) -> dict:
 
 @lru_cache(maxsize=1)
 def shared_feature_runtime():
-    from ml.classifier import build_resnet18_feature_extractor
+    from ml.classifier import (
+        DEFAULT_RESNET_ONNX_PATH,
+        build_opencv_resnet18_feature_extractor,
+        build_resnet18_feature_extractor,
+    )
 
+    if DEFAULT_RESNET_ONNX_PATH.exists():
+        return build_opencv_resnet18_feature_extractor()
     return build_resnet18_feature_extractor()
 
 

@@ -69,10 +69,17 @@ def test_every_supported_category_has_portable_runtime_artifacts():
 
 
 def test_render_requirements_include_portable_inference_dependencies():
-    requirements = (Path(__file__).resolve().parents[1] / "backend" / "requirements.txt").read_text(
-        encoding="utf-8"
-    )
+    requirements = (Path(__file__).resolve().parents[1] / "backend" / "requirements.txt").read_text(encoding="utf-8")
 
-    assert "pandas==3.0.3" in requirements
-    assert 'torch==2.11.0+cpu; sys_platform == "linux"' in requirements
-    assert 'torchvision==0.26.0+cpu; sys_platform == "linux"' in requirements
+    assert "opencv-python-headless==5.0.0.93" in requirements
+    assert 'torch==2.11.0; sys_platform != "linux"' in requirements
+    assert 'torchvision==0.26.0; sys_platform != "linux"' in requirements
+    assert 'torch==2.11.0+cpu; sys_platform == "linux"' not in requirements
+    assert "pandas==" not in requirements
+
+
+def test_shared_onnx_feature_model_is_github_safe():
+    model_path = Path("models/inference/resnet18_features.onnx")
+
+    assert model_path.exists()
+    assert 1_000_000 < model_path.stat().st_size < 100_000_000
