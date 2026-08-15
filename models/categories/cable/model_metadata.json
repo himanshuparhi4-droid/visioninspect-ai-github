@@ -23,37 +23,37 @@
     }
   ],
   "defect_classifier": {
-    "accuracy": 0.8587,
-    "macro_f1": 0.8529,
+    "accuracy": 0.9022,
+    "macro_f1": 0.8959,
     "classification_report": {
       "bent_wire": {
-        "precision": 0.8125,
-        "recall": 1.0,
-        "f1-score": 0.896551724137931,
+        "precision": 0.7857142857142857,
+        "recall": 0.8461538461538461,
+        "f1-score": 0.8148148148148148,
         "support": 13.0
       },
       "cable_swap": {
-        "precision": 1.0,
-        "recall": 0.6666666666666666,
-        "f1-score": 0.8,
+        "precision": 0.9230769230769231,
+        "recall": 1.0,
+        "f1-score": 0.96,
         "support": 12.0
       },
       "combined": {
-        "precision": 0.8571428571428571,
-        "recall": 0.5454545454545454,
-        "f1-score": 0.6666666666666666,
+        "precision": 0.8333333333333334,
+        "recall": 0.45454545454545453,
+        "f1-score": 0.5882352941176471,
         "support": 11.0
       },
       "cut_inner_insulation": {
-        "precision": 0.8,
-        "recall": 0.8571428571428571,
-        "f1-score": 0.8275862068965517,
+        "precision": 0.875,
+        "recall": 1.0,
+        "f1-score": 0.9333333333333333,
         "support": 14.0
       },
       "cut_outer_insulation": {
-        "precision": 0.8333333333333334,
+        "precision": 1.0,
         "recall": 1.0,
-        "f1-score": 0.9090909090909091,
+        "f1-score": 1.0,
         "support": 10.0
       },
       "missing_cable": {
@@ -63,9 +63,9 @@
         "support": 12.0
       },
       "missing_wire": {
-        "precision": 0.8,
-        "recall": 0.8,
-        "f1-score": 0.8,
+        "precision": 1.0,
+        "recall": 0.9,
+        "f1-score": 0.9473684210526315,
         "support": 10.0
       },
       "poke_insulation": {
@@ -74,46 +74,46 @@
         "f1-score": 1.0,
         "support": 10.0
       },
-      "accuracy": 0.8586956521739131,
+      "accuracy": 0.9021739130434783,
       "macro avg": {
-        "precision": 0.8700148809523809,
-        "recall": 0.8586580086580087,
-        "f1-score": 0.8528715537336227,
+        "precision": 0.909283424908425,
+        "recall": 0.9000874125874125,
+        "f1-score": 0.8958535982994187,
         "support": 92.0
       },
       "weighted avg": {
-        "precision": 0.8675012939958593,
-        "recall": 0.8586956521739131,
-        "f1-score": 0.8515494001251122,
+        "precision": 0.9021042363433669,
+        "recall": 0.9021739130434783,
+        "f1-score": 0.893483204152204,
         "support": 92.0
       }
     },
     "confusion_matrix": [
       [
-        13,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        8,
-        0,
-        3,
-        0,
+        11,
         0,
         1,
+        1,
+        0,
+        0,
+        0,
         0
       ],
       [
-        3,
         0,
-        6,
+        12,
         0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        2,
+        1,
+        5,
+        1,
         0,
         2,
         0,
@@ -123,10 +123,10 @@
         0,
         0,
         0,
-        12,
-        1,
+        14,
         0,
-        1,
+        0,
+        0,
         0
       ],
       [
@@ -150,13 +150,13 @@
         0
       ],
       [
-        0,
-        0,
         1,
         0,
-        1,
         0,
-        8,
+        0,
+        0,
+        0,
+        9,
         0
       ],
       [
@@ -186,93 +186,97 @@
     "feature_mode": "handcrafted_roi_shape_texture",
     "defect_only": true,
     "evaluation": {
-      "protocol": "stratified cross-validation for model selection; production classifier fitted on all labelled defect images",
+      "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
       "selected_classifier": "random_forest",
       "folds": 5,
       "candidate_scores": {
         "logistic_c0.01": {
-          "mean_accuracy": 0.7269,
-          "std_accuracy": 0.0812,
-          "mean_macro_f1": 0.6993,
-          "std_macro_f1": 0.0893
+          "mean_accuracy": 0.7719,
+          "std_accuracy": 0.1058,
+          "mean_macro_f1": 0.7519,
+          "std_macro_f1": 0.118
         },
         "logistic_c0.1": {
-          "mean_accuracy": 0.7269,
-          "std_accuracy": 0.0812,
-          "mean_macro_f1": 0.6976,
-          "std_macro_f1": 0.0904
+          "mean_accuracy": 0.7719,
+          "std_accuracy": 0.1058,
+          "mean_macro_f1": 0.7494,
+          "std_macro_f1": 0.1195
         },
         "logistic_c1": {
-          "mean_accuracy": 0.7275,
-          "std_accuracy": 0.0526,
-          "mean_macro_f1": 0.696,
-          "std_macro_f1": 0.0622
+          "mean_accuracy": 0.783,
+          "std_accuracy": 0.1028,
+          "mean_macro_f1": 0.7669,
+          "std_macro_f1": 0.1083
         },
         "logistic_c10": {
-          "mean_accuracy": 0.6953,
-          "std_accuracy": 0.0575,
-          "mean_macro_f1": 0.656,
-          "std_macro_f1": 0.0529
+          "mean_accuracy": 0.7825,
+          "std_accuracy": 0.078,
+          "mean_macro_f1": 0.7736,
+          "std_macro_f1": 0.0738
         },
         "lda_shrinkage": {
-          "mean_accuracy": 0.7503,
-          "std_accuracy": 0.042,
-          "mean_macro_f1": 0.7168,
-          "std_macro_f1": 0.0392
+          "mean_accuracy": 0.8386,
+          "std_accuracy": 0.0867,
+          "mean_macro_f1": 0.8146,
+          "std_macro_f1": 0.098
         },
         "extra_trees": {
-          "mean_accuracy": 0.8152,
-          "std_accuracy": 0.075,
-          "mean_macro_f1": 0.798,
-          "std_macro_f1": 0.0839
+          "mean_accuracy": 0.9029,
+          "std_accuracy": 0.0608,
+          "mean_macro_f1": 0.888,
+          "std_macro_f1": 0.0619
         },
         "random_forest": {
-          "mean_accuracy": 0.8591,
-          "std_accuracy": 0.0543,
-          "mean_macro_f1": 0.8401,
-          "std_macro_f1": 0.0677
+          "mean_accuracy": 0.9357,
+          "std_accuracy": 0.0513,
+          "mean_macro_f1": 0.9293,
+          "std_macro_f1": 0.0514
         },
         "gradient_boosting": {
-          "mean_accuracy": 0.5772,
-          "std_accuracy": 0.1562,
-          "mean_macro_f1": 0.5444,
-          "std_macro_f1": 0.1907
+          "mean_accuracy": 0.6193,
+          "std_accuracy": 0.0992,
+          "mean_macro_f1": 0.5942,
+          "std_macro_f1": 0.086
         },
         "svc_rbf_c1": {
-          "mean_accuracy": 0.5749,
-          "std_accuracy": 0.0709,
-          "mean_macro_f1": 0.5084,
-          "std_macro_f1": 0.0729
+          "mean_accuracy": 0.7596,
+          "std_accuracy": 0.1161,
+          "mean_macro_f1": 0.7391,
+          "std_macro_f1": 0.1375
         },
         "svc_rbf_c5": {
-          "mean_accuracy": 0.6304,
-          "std_accuracy": 0.0804,
-          "mean_macro_f1": 0.5781,
-          "std_macro_f1": 0.0778
+          "mean_accuracy": 0.7374,
+          "std_accuracy": 0.0986,
+          "mean_macro_f1": 0.7166,
+          "std_macro_f1": 0.1202
         },
         "svc_rbf_c20": {
-          "mean_accuracy": 0.6304,
-          "std_accuracy": 0.0804,
-          "mean_macro_f1": 0.5781,
-          "std_macro_f1": 0.0778
+          "mean_accuracy": 0.7374,
+          "std_accuracy": 0.0986,
+          "mean_macro_f1": 0.7166,
+          "std_macro_f1": 0.1202
         },
         "knn_3": {
-          "mean_accuracy": 0.5643,
-          "std_accuracy": 0.0551,
-          "mean_macro_f1": 0.5114,
-          "std_macro_f1": 0.062
+          "mean_accuracy": 0.6743,
+          "std_accuracy": 0.0745,
+          "mean_macro_f1": 0.6053,
+          "std_macro_f1": 0.0932
         },
         "knn_5": {
-          "mean_accuracy": 0.5433,
-          "std_accuracy": 0.0273,
-          "mean_macro_f1": 0.4901,
-          "std_macro_f1": 0.05
+          "mean_accuracy": 0.5772,
+          "std_accuracy": 0.0544,
+          "mean_macro_f1": 0.5051,
+          "std_macro_f1": 0.0691
         }
+      },
+      "outer_selection_frequency": {
+        "extra_trees": 3,
+        "random_forest": 2
       }
     },
     "dataset_context": {
       "source": "MVTec AD labelled test folders",
-      "protocol": "defect-only subtype classification with stratified cross-validation using openvino masks; not an official held-out MVTec anomaly-detection benchmark",
+      "protocol": "defect-only subtype classification with stratified cross-validation using ground truth masks; not an official held-out MVTec anomaly-detection benchmark",
       "category": "cable"
     }
   },
@@ -343,20 +347,59 @@
   },
   "openvino_spatial_calibration": {
     "detector": "patchcore_openvino_spatial_calibrator",
-    "protocol": "5-fold stratified out-of-fold evaluation on labelled MVTec test images; production calibrator fitted on all labelled images",
+    "protocol": "nested stratified cross-validation on labelled MVTec test images; each outer fold performs calibrator and threshold selection using only its training partition; production calibrator is fitted on all labelled images after evaluation",
     "folds": 5,
     "samples": 150,
+    "selected_classifier": "extra_trees_sqrt_leaf2",
+    "candidate_scores": {
+      "extra_trees_sqrt_leaf1": {
+        "threshold": 0.5,
+        "balanced_accuracy": 0.9696,
+        "f1": 0.9724,
+        "auroc": 0.9833
+      },
+      "extra_trees_wide_leaf1": {
+        "threshold": 0.525,
+        "balanced_accuracy": 0.9696,
+        "f1": 0.9724,
+        "auroc": 0.9828
+      },
+      "extra_trees_sqrt_leaf2": {
+        "threshold": 0.5,
+        "balanced_accuracy": 0.9696,
+        "f1": 0.9724,
+        "auroc": 0.9859
+      },
+      "random_forest_sqrt_leaf1": {
+        "threshold": 0.6,
+        "balanced_accuracy": 0.9696,
+        "f1": 0.9724,
+        "auroc": 0.9774
+      }
+    },
+    "outer_selection_frequency": {
+      "extra_trees_sqrt_leaf1": 3,
+      "extra_trees_sqrt_leaf2": 2
+    },
+    "outer_thresholds": [
+      0.45,
+      0.5,
+      0.646667,
+      0.613333,
+      0.5
+    ],
     "decision_threshold": 0.5,
-    "accuracy": 0.96,
-    "precision": 0.9778,
+    "accuracy": 0.9667,
+    "precision": 0.9888,
     "recall": 0.9565,
-    "specificity": 0.9655,
-    "balanced_accuracy": 0.961,
-    "f1": 0.967,
+    "specificity": 0.9828,
+    "balanced_accuracy": 0.9696,
+    "f1": 0.9724,
+    "auroc": 0.9849,
     "confusion_matrix": [
       [
-        56,
-        2
+        57,
+        1
       ],
       [
         4,

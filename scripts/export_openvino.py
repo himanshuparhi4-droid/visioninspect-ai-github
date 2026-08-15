@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import sys
@@ -16,10 +17,11 @@ from ml.model_registry import SUPPORTED_CATEGORIES, _registry_overrides, categor
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-def export_models():
+def export_models(categories: list[str] | None = None):
     registry = _registry_overrides()
 
-    for category in SUPPORTED_CATEGORIES:
+    selected_categories = categories or list(SUPPORTED_CATEGORIES)
+    for category in selected_categories:
         spec = category_model_spec(category)
         if not spec.is_trained:
             logger.info(f"Skipping {category} - not trained")
@@ -59,7 +61,10 @@ def export_models():
 
             if category not in registry:
                 registry[category] = {}
-            registry[category]["openvino_path"] = str(exported_path)
+            exported_path = Path(exported_path).resolve()
+            registry[category]["openvino_path"] = str(
+                exported_path.relative_to(PROJECT_ROOT)
+            ).replace("\\", "/")
 
         except Exception as e:
             logger.error(f"Failed to export {category}: {e}")
@@ -72,4 +77,19 @@ def export_models():
     logger.info("Export process complete.")
 
 if __name__ == "__main__":
-    export_models()
+    parser = argparse.ArgumentParser(description="Export trained anomaly models to OpenVINO.")
+    parser.add_argument(
+        "--categories",
+        default=",".join(SUPPORTED_CATEGORIES),
+        help="Comma-separated categories to export.",
+    )
+    args = parser.parse_args()
+    categories = [
+        item.strip().lower().replace("-", "_")
+        for item in args.categories.split(",")
+        if item.strip()
+    ]
+    unsupported = sorted(set(categories) - set(SUPPORTED_CATEGORIES))
+    if unsupported:
+        raise ValueError(f"Unsupported categories: {', '.join(unsupported)}")
+    export_models(categories)

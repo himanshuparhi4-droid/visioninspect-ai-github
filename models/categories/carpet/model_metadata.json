@@ -222,5 +222,267 @@
     "detector": "resnet18_normal_memory",
     "localization": "opencv_normalized_residual",
     "residual_threshold": 1.045642
+  },
+  "openvino_spatial_calibration": {
+    "detector": "padim_openvino_spatial_calibrator",
+    "protocol": "nested stratified cross-validation on labelled MVTec test images; each outer fold performs calibrator and threshold selection using only its training partition; production calibrator is fitted on all labelled images after evaluation",
+    "folds": 5,
+    "samples": 117,
+    "selected_classifier": "extra_trees_sqrt_leaf2",
+    "candidate_scores": {
+      "extra_trees_sqrt_leaf1": {
+        "threshold": 0.443333,
+        "balanced_accuracy": 0.9765,
+        "f1": 0.9888,
+        "auroc": 0.9946
+      },
+      "extra_trees_wide_leaf1": {
+        "threshold": 0.525,
+        "balanced_accuracy": 0.9765,
+        "f1": 0.9888,
+        "auroc": 0.9912
+      },
+      "extra_trees_sqrt_leaf2": {
+        "threshold": 0.341856,
+        "balanced_accuracy": 0.9821,
+        "f1": 0.9944,
+        "auroc": 0.9948
+      },
+      "random_forest_sqrt_leaf1": {
+        "threshold": 0.575,
+        "balanced_accuracy": 0.9653,
+        "f1": 0.9773,
+        "auroc": 0.9912
+      }
+    },
+    "outer_selection_frequency": {
+      "extra_trees_sqrt_leaf1": 5
+    },
+    "outer_thresholds": [
+      0.343333,
+      0.44,
+      0.463333,
+      0.5,
+      0.496667
+    ],
+    "decision_threshold": 0.341856,
+    "accuracy": 0.9658,
+    "precision": 0.9775,
+    "recall": 0.9775,
+    "specificity": 0.9286,
+    "balanced_accuracy": 0.953,
+    "f1": 0.9775,
+    "auroc": 0.9944,
+    "confusion_matrix": [
+      [
+        26,
+        2
+      ],
+      [
+        2,
+        87
+      ]
+    ],
+    "defect_subtype_recall": {
+      "color": 0.9474,
+      "cut": 1.0,
+      "hole": 1.0,
+      "metal_contamination": 1.0,
+      "thread": 0.9474
+    },
+    "artifact": "models/categories/carpet/openvino_calibrator.npz"
+  },
+  "defect_classifier_revalidation": {
+    "accuracy": 0.8764,
+    "macro_f1": 0.8786,
+    "classification_report": {
+      "color": {
+        "precision": 0.8947368421052632,
+        "recall": 0.8947368421052632,
+        "f1-score": 0.8947368421052632,
+        "support": 19.0
+      },
+      "cut": {
+        "precision": 0.8421052631578947,
+        "recall": 0.9411764705882353,
+        "f1-score": 0.8888888888888888,
+        "support": 17.0
+      },
+      "hole": {
+        "precision": 1.0,
+        "recall": 0.8823529411764706,
+        "f1-score": 0.9375,
+        "support": 17.0
+      },
+      "metal_contamination": {
+        "precision": 0.8823529411764706,
+        "recall": 0.8823529411764706,
+        "f1-score": 0.8823529411764706,
+        "support": 17.0
+      },
+      "thread": {
+        "precision": 0.7894736842105263,
+        "recall": 0.7894736842105263,
+        "f1-score": 0.7894736842105263,
+        "support": 19.0
+      },
+      "accuracy": 0.8764044943820225,
+      "macro avg": {
+        "precision": 0.881733746130031,
+        "recall": 0.8780185758513932,
+        "f1-score": 0.8785904712762298,
+        "support": 89.0
+      },
+      "weighted avg": {
+        "precision": 0.8799526907155528,
+        "recall": 0.8764044943820225,
+        "f1-score": 0.876950686641698,
+        "support": 89.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        17,
+        0,
+        0,
+        1,
+        1
+      ],
+      [
+        0,
+        16,
+        0,
+        0,
+        1
+      ],
+      [
+        1,
+        1,
+        15,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        15,
+        2
+      ],
+      [
+        1,
+        2,
+        0,
+        1,
+        15
+      ]
+    ],
+    "labels": [
+      "color",
+      "cut",
+      "hole",
+      "metal_contamination",
+      "thread"
+    ],
+    "train_size": 89,
+    "eval_size": 89,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
+    "feature_mode": "global_roi_texture",
+    "defect_only": true,
+    "evaluation": {
+      "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
+      "selected_classifier": "random_forest",
+      "folds": 5,
+      "candidate_scores": {
+        "logistic_c0.01": {
+          "mean_accuracy": 0.8745,
+          "std_accuracy": 0.0947,
+          "mean_macro_f1": 0.8576,
+          "std_macro_f1": 0.1292
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.8745,
+          "std_accuracy": 0.0947,
+          "mean_macro_f1": 0.8576,
+          "std_macro_f1": 0.1292
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.8863,
+          "std_accuracy": 0.0657,
+          "mean_macro_f1": 0.8796,
+          "std_macro_f1": 0.0771
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.8856,
+          "std_accuracy": 0.0989,
+          "mean_macro_f1": 0.8659,
+          "std_macro_f1": 0.1314
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.8752,
+          "std_accuracy": 0.0689,
+          "mean_macro_f1": 0.8675,
+          "std_macro_f1": 0.0724
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.898,
+          "std_accuracy": 0.0669,
+          "mean_macro_f1": 0.8977,
+          "std_macro_f1": 0.0712
+        },
+        "random_forest": {
+          "mean_accuracy": 0.8987,
+          "std_accuracy": 0.0651,
+          "mean_macro_f1": 0.9,
+          "std_macro_f1": 0.0658
+        },
+        "gradient_boosting": {
+          "mean_accuracy": 0.7281,
+          "std_accuracy": 0.1361,
+          "mean_macro_f1": 0.7303,
+          "std_macro_f1": 0.1318
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.7386,
+          "std_accuracy": 0.145,
+          "mean_macro_f1": 0.7297,
+          "std_macro_f1": 0.1649
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.7386,
+          "std_accuracy": 0.1612,
+          "mean_macro_f1": 0.7322,
+          "std_macro_f1": 0.1769
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.7386,
+          "std_accuracy": 0.1612,
+          "mean_macro_f1": 0.7322,
+          "std_macro_f1": 0.1769
+        },
+        "knn_3": {
+          "mean_accuracy": 0.7961,
+          "std_accuracy": 0.1191,
+          "mean_macro_f1": 0.7947,
+          "std_macro_f1": 0.1261
+        },
+        "knn_5": {
+          "mean_accuracy": 0.8294,
+          "std_accuracy": 0.106,
+          "mean_macro_f1": 0.8237,
+          "std_macro_f1": 0.1201
+        }
+      },
+      "outer_selection_frequency": {
+        "extra_trees": 1,
+        "lda_shrinkage": 3,
+        "logistic_c0.01": 1
+      }
+    },
+    "dataset_context": {
+      "source": "MVTec AD labelled test folders",
+      "protocol": "defect-only subtype classification with stratified cross-validation using ground truth masks; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "carpet"
+    }
   }
 }

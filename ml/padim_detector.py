@@ -79,10 +79,11 @@ def load_openvino_runtime(model_path: str, device: str = "CPU") -> object:
 
         compile_config = {}
         if device.upper() == "CPU":
+            cpu_threads = max(1, int(os.getenv("OPENVINO_CPU_THREADS", "1")))
             compile_config = {
                 "PERFORMANCE_HINT": "LATENCY",
                 "NUM_STREAMS": "1",
-                "INFERENCE_NUM_THREADS": 1,
+                "INFERENCE_NUM_THREADS": cpu_threads,
                 "ENABLE_CPU_PINNING": False,
             }
         return ov.Core().compile_model(str(path), device, compile_config)

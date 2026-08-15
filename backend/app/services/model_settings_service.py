@@ -143,6 +143,8 @@ def build_model_metrics_payload() -> dict:
         portable_metrics = category_metadata.get("baseline_threshold_calibration") or {}
         openvino_metrics = category_metadata.get("openvino_spatial_calibration") or {}
         threshold_metrics = category_metadata.get("threshold_calibration") or {}
+        active_classifier_metrics = category_metadata.get("defect_classifier") or {}
+        classifier_metrics = category_metadata.get("defect_classifier_revalidation") or active_classifier_metrics
         baseline_metrics.append(
             {
                 "category": status["category"],
@@ -180,10 +182,15 @@ def build_model_metrics_payload() -> dict:
                 "calibration_holdout_f1": threshold_metrics.get("holdout_f1"),
                 "portable_cv_f1": portable_metrics.get("cv_f1"),
                 "portable_cv_balanced_accuracy": portable_metrics.get("cv_balanced_accuracy"),
-                "classifier_macro_f1": category_metadata.get("defect_classifier", {}).get("macro_f1"),
-                "classifier_accuracy": category_metadata.get("defect_classifier", {}).get("accuracy"),
+                "classifier_macro_f1": classifier_metrics.get("macro_f1"),
+                "classifier_accuracy": classifier_metrics.get("accuracy"),
+                "classifier_evaluation_protocol": classifier_metrics.get("evaluation", {}).get("protocol"),
+                "active_classifier_macro_f1": active_classifier_metrics.get("macro_f1"),
+                "active_classifier_accuracy": active_classifier_metrics.get("accuracy"),
                 "openvino_accuracy": openvino_metrics.get("accuracy"),
+                "openvino_balanced_accuracy": openvino_metrics.get("balanced_accuracy"),
                 "openvino_f1": openvino_metrics.get("f1"),
+                "openvino_auroc": openvino_metrics.get("auroc"),
                 "openvino_recall": openvino_metrics.get("recall"),
                 "openvino_specificity": openvino_metrics.get("specificity"),
                 "trained_at": category_metadata.get("trained_at"),

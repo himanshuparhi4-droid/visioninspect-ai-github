@@ -190,8 +190,12 @@ def classify_defect_type(
         }
 
     bundle = load_classifier_runtime(str(classifier_model_path))
-    feature_extractor, preprocess, device = shared_feature_runtime()
-    if bundle.get("feature_mode") == ROI_PIXEL_TEXTURE_FEATURE_MODE:
+    feature_mode = bundle.get("feature_mode")
+    if feature_mode == HANDCRAFTED_ROI_SHAPE_FEATURE_MODE:
+        features = extract_handcrafted_roi_shape_features([image_path], masks=[defect_mask])
+    else:
+        feature_extractor, preprocess, device = shared_feature_runtime()
+    if feature_mode == ROI_PIXEL_TEXTURE_FEATURE_MODE:
         features = extract_roi_pixel_texture_features(
             [image_path],
             masks=[defect_mask],
@@ -200,7 +204,7 @@ def classify_defect_type(
             device=device,
             global_features=global_features,
         )
-    elif bundle.get("feature_mode") == ROI_SHAPE_TEXTURE_FEATURE_MODE:
+    elif feature_mode == ROI_SHAPE_TEXTURE_FEATURE_MODE:
         features = extract_roi_shape_texture_features(
             [image_path],
             masks=[defect_mask],
@@ -209,7 +213,7 @@ def classify_defect_type(
             device=device,
             global_features=global_features,
         )
-    elif bundle.get("feature_mode") == ROI_TEXTURE_FEATURE_MODE:
+    elif feature_mode == ROI_TEXTURE_FEATURE_MODE:
         features = extract_roi_texture_features(
             [image_path],
             masks=[defect_mask],
@@ -218,7 +222,7 @@ def classify_defect_type(
             device=device,
             global_features=global_features,
         )
-    elif bundle.get("feature_mode") == GLOBAL_TEXTURE_FEATURE_MODE:
+    elif feature_mode == GLOBAL_TEXTURE_FEATURE_MODE:
         features = extract_global_texture_features(
             [image_path],
             feature_extractor=feature_extractor,
@@ -226,7 +230,7 @@ def classify_defect_type(
             device=device,
             global_features=global_features,
         )
-    else:
+    elif feature_mode != HANDCRAFTED_ROI_SHAPE_FEATURE_MODE:
         features = global_features
         if features is None:
             features = extract_features(

@@ -4,6 +4,7 @@ import numpy as np
 
 from ml.classifier import (
     GLOBAL_TEXTURE_FEATURE_MODE,
+    HANDCRAFTED_ROI_SHAPE_FEATURE_MODE,
     ROI_PIXEL_TEXTURE_FEATURE_MODE,
     ROI_SHAPE_TEXTURE_FEATURE_MODE,
     ROI_TEXTURE_FEATURE_MODE,
@@ -13,7 +14,7 @@ from ml.classifier import (
     load_classifier_bundle,
     predict_portable_forest,
 )
-from ml.defect_classifier import classify_defect_type, predict_portable_cnn_defect_type
+from ml.defect_classifier import classify_defect_type
 
 
 def test_defect_classifier_artifact_loads():
@@ -30,6 +31,7 @@ def test_defect_classifier_artifact_loads():
         ROI_TEXTURE_FEATURE_MODE,
         ROI_SHAPE_TEXTURE_FEATURE_MODE,
         ROI_PIXEL_TEXTURE_FEATURE_MODE,
+        HANDCRAFTED_ROI_SHAPE_FEATURE_MODE,
     }
     assert bundle["metrics"]["macro_f1"] >= 0.8
 
@@ -47,6 +49,17 @@ def test_opencv_feature_runtime_returns_resnet_embeddings():
 
     assert features.shape == (1, 512)
     assert np.isfinite(features).all()
+
+
+def test_handcrafted_bottle_classifier_uses_matching_runtime_features():
+    result = classify_defect_type(
+        Path("models/inference/normal_reference.png"),
+        Path("models/defect_classifier.pkl"),
+        defect_mask=np.ones((256, 256), dtype=bool),
+    )
+
+    assert result["defect_type"] in {"broken_large", "broken_small", "contamination"}
+    assert 0.0 <= result["confidence"] <= 1.0
 
 
 def test_classifier_prefers_portable_cnn_artifact(monkeypatch, tmp_path):
@@ -81,21 +94,6 @@ def test_classifier_prefers_portable_cnn_artifact(monkeypatch, tmp_path):
 
     assert result["defect_type"] == "crack"
     assert result["classifier_engine"] == "fine_tuned_resnet18_onnx"
-
-
-def test_portable_cnn_artifacts_run_without_pytorch():
-    image_path = Path("models/inference/normal_reference.png")
-    for category in ("capsule", "wood"):
-        model_dir = Path("models/categories") / category
-        result = predict_portable_cnn_defect_type(
-            image_path,
-            model_dir / "cnn_defect_classifier.onnx",
-            model_dir / "cnn_defect_classifier.json",
-        )
-
-        assert result["defect_type"]
-        assert 0.0 <= result["confidence"] <= 1.0
-        assert result["classifier_engine"] == "fine_tuned_resnet18_onnx"
 
 
 def test_compact_classifier_reuses_precomputed_global_features(monkeypatch, tmp_path):

@@ -107,5 +107,71 @@
     "detector": "resnet18_normal_memory",
     "localization": "opencv_normalized_residual",
     "residual_threshold": 0.798744
+  },
+  "openvino_spatial_calibration": {
+    "detector": "padim_openvino_spatial_calibrator",
+    "protocol": "nested stratified cross-validation on labelled MVTec test images; each outer fold performs calibrator and threshold selection using only its training partition; production calibrator is fitted on all labelled images after evaluation",
+    "folds": 5,
+    "samples": 42,
+    "selected_classifier": "extra_trees_sqrt_leaf1",
+    "candidate_scores": {
+      "extra_trees_sqrt_leaf1": {
+        "threshold": 0.443333,
+        "balanced_accuracy": 0.925,
+        "f1": 0.9492,
+        "auroc": 0.9736
+      },
+      "extra_trees_wide_leaf1": {
+        "threshold": 0.416667,
+        "balanced_accuracy": 0.8833,
+        "f1": 0.9333,
+        "auroc": 0.9639
+      },
+      "extra_trees_sqrt_leaf2": {
+        "threshold": 0.426858,
+        "balanced_accuracy": 0.9083,
+        "f1": 0.931,
+        "auroc": 0.9694
+      },
+      "random_forest_sqrt_leaf1": {
+        "threshold": 0.376667,
+        "balanced_accuracy": 0.875,
+        "f1": 0.9524,
+        "auroc": 0.9417
+      }
+    },
+    "outer_selection_frequency": {
+      "extra_trees_sqrt_leaf1": 3,
+      "extra_trees_wide_leaf1": 2
+    },
+    "outer_thresholds": [
+      0.675,
+      0.5,
+      0.516667,
+      0.6,
+      0.37
+    ],
+    "decision_threshold": 0.443333,
+    "accuracy": 0.9762,
+    "precision": 0.9677,
+    "recall": 1.0,
+    "specificity": 0.9167,
+    "balanced_accuracy": 0.9583,
+    "f1": 0.9836,
+    "auroc": 0.9639,
+    "confusion_matrix": [
+      [
+        11,
+        1
+      ],
+      [
+        0,
+        30
+      ]
+    ],
+    "defect_subtype_recall": {
+      "defective": 1.0
+    },
+    "artifact": "models/categories/toothbrush/openvino_calibrator.npz"
   }
 }

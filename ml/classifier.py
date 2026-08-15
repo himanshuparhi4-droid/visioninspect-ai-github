@@ -703,20 +703,16 @@ def classifier_candidates(feature_count: int | None = None) -> dict[str, Pipelin
     }
 
 
-def select_classifier(features: np.ndarray, labels: np.ndarray, random_state: int = 42) -> tuple[str, Pipeline, dict]:
-    import pandas as pd
-    from sklearn.model_selection import StratifiedKFold, cross_val_predict, cross_validate
+def _cross_validated_candidate_scores(
+    candidates: dict[str, Pipeline],
+    features: np.ndarray,
+    labels: np.ndarray,
+    splitter,
+) -> dict[str, dict[str, float]]:
+    from sklearn.model_selection import cross_validate
 
-    class_counts = pd.Series(labels).value_counts()
-    folds = min(5, int(class_counts.min()))
-    if folds < 2:
-        raise ValueError("At least two labelled images per defect subtype are required.")
-    splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=random_state)
-
-    candidate_scores = {}
-    best_name = ""
-    best_score = -1.0
-    candidates = classifier_candidates(features.shape[1])
+    fold_workers = min(4, splitter.get_n_splits())
+    scores_by_name: dict[str, dict[str, float]] = {}
     for name, candidate in candidates.items():
         scores = cross_validate(
             candidate,
@@ -724,26 +720,85 @@ def select_classifier(features: np.ndarray, labels: np.ndarray, random_state: in
             labels,
             cv=splitter,
             scoring={"accuracy": "accuracy", "macro_f1": "f1_macro"},
-            n_jobs=1,
+            n_jobs=fold_workers,
+            pre_dispatch=fold_workers,
         )
-        candidate_scores[name] = {
+        scores_by_name[name] = {
             "mean_accuracy": round(float(np.mean(scores["test_accuracy"])), 4),
             "std_accuracy": round(float(np.std(scores["test_accuracy"])), 4),
             "mean_macro_f1": round(float(np.mean(scores["test_macro_f1"])), 4),
             "std_macro_f1": round(float(np.std(scores["test_macro_f1"])), 4),
         }
-        if candidate_scores[name]["mean_macro_f1"] > best_score:
-            best_name = name
-            best_score = candidate_scores[name]["mean_macro_f1"]
+    return scores_by_name
 
+
+def _best_candidate_name(candidate_scores: dict[str, dict[str, float]]) -> str:
+    return max(
+        candidate_scores,
+        key=lambda name: (
+            candidate_scores[name]["mean_macro_f1"],
+            candidate_scores[name]["mean_accuracy"],
+            -candidate_scores[name]["std_macro_f1"],
+        ),
+    )
+
+
+def select_classifier(features: np.ndarray, labels: np.ndarray, random_state: int = 42) -> tuple[str, Pipeline, dict]:
+    import pandas as pd
+    from sklearn.base import clone
+    from sklearn.model_selection import StratifiedKFold
+
+    class_counts = pd.Series(labels).value_counts()
+    folds = min(5, int(class_counts.min()))
+    if folds < 2:
+        raise ValueError("At least two labelled images per defect subtype are required.")
+    candidates = classifier_candidates(features.shape[1])
+    outer_splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=random_state)
+    oof_predictions = np.empty(len(labels), dtype=object)
+    outer_selections: list[str] = []
+
+    # Model choice happens only inside each outer training fold. The held-out
+    # outer fold therefore remains unseen until its final prediction.
+    for outer_fold, (train_index, test_index) in enumerate(outer_splitter.split(features, labels), start=1):
+        train_labels = labels[train_index]
+        inner_minimum = int(pd.Series(train_labels).value_counts().min())
+        inner_folds = min(4, inner_minimum)
+        if inner_folds < 2:
+            fold_name = "logistic_c1"
+        else:
+            inner_splitter = StratifiedKFold(
+                n_splits=inner_folds,
+                shuffle=True,
+                random_state=random_state + outer_fold,
+            )
+            inner_scores = _cross_validated_candidate_scores(
+                candidates,
+                features[train_index],
+                train_labels,
+                inner_splitter,
+            )
+            fold_name = _best_candidate_name(inner_scores)
+        fold_classifier = clone(candidates[fold_name])
+        fold_classifier.fit(features[train_index], train_labels)
+        oof_predictions[test_index] = fold_classifier.predict(features[test_index])
+        outer_selections.append(fold_name)
+
+    # Select the production estimator on all available labelled data after
+    # nested evaluation has finished, then fit it once for runtime use.
+    production_splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=random_state + 101)
+    candidate_scores = _cross_validated_candidate_scores(candidates, features, labels, production_splitter)
+    best_name = _best_candidate_name(candidate_scores)
     selected = candidates[best_name]
-    oof_predictions = cross_val_predict(selected, features, labels, cv=splitter, n_jobs=1)
+    selection_frequency = {
+        name: outer_selections.count(name) for name in sorted(set(outer_selections))
+    }
     return (
         best_name,
         selected,
         {
             "folds": folds,
             "candidate_scores": candidate_scores,
+            "outer_selection_frequency": selection_frequency,
             "oof_predictions": oof_predictions,
         },
     )
@@ -884,7 +939,10 @@ def train_defect_classifier(
         train_df = data
         eval_df = data
         evaluation = {
-            "protocol": "stratified cross-validation for model selection; production classifier fitted on all labelled defect images",
+            "protocol": (
+                "nested stratified cross-validation; model selection occurs inside each outer training fold, "
+                "and the production classifier is fitted on all labelled defect images only after evaluation"
+            ),
             "selected_classifier": selected_name,
             **selection,
         }
@@ -968,7 +1026,7 @@ def export_portable_forest(
     feature_mode: str,
     decision_threshold: float = 0.5,
 ) -> Path:
-    """Export a fitted sklearn tree ensemble to a NumPy-only inference artifact."""
+    """Export a fitted sklearn forest or logistic model for NumPy-only inference."""
     estimator = classifier
     scaler_mean = np.empty(0, dtype=np.float32)
     scaler_scale = np.empty(0, dtype=np.float32)
@@ -980,8 +1038,23 @@ def export_portable_forest(
         if scaler is not None:
             scaler_mean = np.asarray(scaler.mean_, dtype=np.float32)
             scaler_scale = np.asarray(scaler.scale_, dtype=np.float32)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if hasattr(estimator, "coef_") and hasattr(estimator, "intercept_"):
+        np.savez_compressed(
+            output_path,
+            model_type=np.asarray("logistic"),
+            coefficients=np.asarray(estimator.coef_, dtype=np.float32),
+            intercept=np.asarray(estimator.intercept_, dtype=np.float32),
+            classes=np.asarray(estimator.classes_),
+            scaler_mean=scaler_mean,
+            scaler_scale=scaler_scale,
+            feature_mode=np.asarray(feature_mode),
+            decision_threshold=np.asarray(decision_threshold, dtype=np.float32),
+        )
+        return output_path
     if not hasattr(estimator, "estimators_"):
-        raise ValueError("Portable forest export requires a fitted tree ensemble")
+        raise ValueError("Portable export requires a fitted tree ensemble or logistic model")
 
     offsets = [0]
     children_left = []
@@ -1001,10 +1074,9 @@ def export_portable_forest(
         values.append(tree.value[:, 0, :].astype(np.float32))
         offsets.append(offsets[-1] + tree.node_count)
 
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         output_path,
+        model_type=np.asarray("forest"),
         tree_offsets=np.asarray(offsets, dtype=np.int32),
         children_left=np.concatenate(children_left),
         children_right=np.concatenate(children_right),
@@ -1037,24 +1109,35 @@ def predict_portable_forest(path_value: str | Path, features: np.ndarray) -> dic
     if runtime["scaler_mean"].size:
         matrix = (matrix - runtime["scaler_mean"]) / np.maximum(runtime["scaler_scale"], 1e-12)
 
-    offsets = runtime["tree_offsets"]
-    probabilities = np.zeros((len(matrix), len(runtime["classes"])), dtype=np.float64)
-    for row_index, row in enumerate(matrix):
-        for tree_index in range(len(offsets) - 1):
-            node = int(offsets[tree_index])
-            tree_end = int(offsets[tree_index + 1])
-            while runtime["children_left"][node] >= 0:
-                feature = int(runtime["split_features"][node])
-                node = int(
-                    runtime["children_left"][node]
-                    if row[feature] <= runtime["thresholds"][node]
-                    else runtime["children_right"][node]
-                )
-                if node < offsets[tree_index] or node >= tree_end:
-                    raise ValueError("Portable forest contains an invalid node reference")
-            leaf_values = runtime["values"][node]
-            probabilities[row_index] += leaf_values / max(float(leaf_values.sum()), 1.0)
-    probabilities /= max(len(offsets) - 1, 1)
+    model_type = str(runtime.get("model_type", np.asarray("forest")))
+    if model_type == "logistic":
+        logits = matrix @ runtime["coefficients"].T + runtime["intercept"]
+        if logits.shape[1] == 1 and len(runtime["classes"]) == 2:
+            positive = 1.0 / (1.0 + np.exp(-np.clip(logits[:, 0], -50.0, 50.0)))
+            probabilities = np.column_stack([1.0 - positive, positive])
+        else:
+            shifted = logits - logits.max(axis=1, keepdims=True)
+            exponentials = np.exp(shifted)
+            probabilities = exponentials / exponentials.sum(axis=1, keepdims=True)
+    else:
+        offsets = runtime["tree_offsets"]
+        probabilities = np.zeros((len(matrix), len(runtime["classes"])), dtype=np.float64)
+        for row_index, row in enumerate(matrix):
+            for tree_index in range(len(offsets) - 1):
+                node = int(offsets[tree_index])
+                tree_end = int(offsets[tree_index + 1])
+                while runtime["children_left"][node] >= 0:
+                    feature = int(runtime["split_features"][node])
+                    node = int(
+                        runtime["children_left"][node]
+                        if row[feature] <= runtime["thresholds"][node]
+                        else runtime["children_right"][node]
+                    )
+                    if node < offsets[tree_index] or node >= tree_end:
+                        raise ValueError("Portable forest contains an invalid node reference")
+                leaf_values = runtime["values"][node]
+                probabilities[row_index] += leaf_values / max(float(leaf_values.sum()), 1.0)
+        probabilities /= max(len(offsets) - 1, 1)
     labels = runtime["classes"][np.argmax(probabilities, axis=1)]
     return {
         "labels": labels,

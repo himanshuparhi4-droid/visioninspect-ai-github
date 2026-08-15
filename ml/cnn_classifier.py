@@ -13,7 +13,7 @@ from PIL import Image
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 from sklearn.model_selection import train_test_split
 from torch import nn
-from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
+from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
 
 from ml.config import MODELS_DIR
@@ -76,6 +76,8 @@ def build_transforms(image_size: int, *, train: bool) -> transforms.Compose:
     if train:
         return transforms.Compose(
             [
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomVerticalFlip(p=0.2),
                 transforms.RandomApply([transforms.ColorJitter(brightness=0.15, contrast=0.15)], p=0.55),
                 transforms.RandomAffine(degrees=7, translate=(0.03, 0.03), scale=(0.95, 1.05)),
                 transforms.Resize((image_size, image_size), antialias=True),
@@ -137,11 +139,6 @@ def class_weights(labels: list[str], label_to_index: dict[str, int]) -> torch.Te
     return weights
 
 
-def sample_weights(labels: list[str], label_to_index: dict[str, int]) -> list[float]:
-    weights = class_weights(labels, label_to_index)
-    return [float(weights[label_to_index[label]]) for label in labels]
-
-
 def evaluate_model(
     model: nn.Module,
     loader: DataLoader,
@@ -200,15 +197,30 @@ def train_cnn_defect_classifier(
     if (counts < 2).any():
         raise ValueError("At least two labelled images per defect subtype are required.")
 
-    train_index, eval_index = train_test_split(
+    development_index, test_index = train_test_split(
         np.arange(len(data)),
-        test_size=0.30,
+        test_size=0.20,
         stratify=data["label"].to_numpy(),
         random_state=random_state,
     )
+    relative_train_index, relative_validation_index = train_test_split(
+        np.arange(len(development_index)),
+        test_size=0.25,
+        stratify=data.iloc[development_index]["label"].to_numpy(),
+        random_state=random_state + 1,
+    )
+    train_index = development_index[relative_train_index]
+    validation_index = development_index[relative_validation_index]
     train_df = data.iloc[train_index].reset_index(drop=True)
-    eval_df = data.iloc[eval_index].reset_index(drop=True)
+    validation_df = data.iloc[validation_index].reset_index(drop=True)
+    development_df = data.iloc[development_index].reset_index(drop=True)
+    test_df = data.iloc[test_index].reset_index(drop=True)
     label_to_index = {label: index for index, label in enumerate(labels)}
+
+    torch.manual_seed(random_state)
+    np.random.seed(random_state)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(random_state)
 
     train_dataset = DefectCropDataset(
         train_df,
@@ -217,20 +229,30 @@ def train_cnn_defect_classifier(
         train=True,
         crop_mode=crop_mode,
     )
-    eval_dataset = DefectCropDataset(
-        eval_df,
+    validation_dataset = DefectCropDataset(
+        validation_df,
         label_to_index,
         image_size=image_size,
         train=False,
         crop_mode=crop_mode,
     )
-    sampler = WeightedRandomSampler(
-        sample_weights(train_df["label"].tolist(), label_to_index),
-        num_samples=len(train_df),
-        replacement=True,
+    test_dataset = DefectCropDataset(
+        test_df,
+        label_to_index,
+        image_size=image_size,
+        train=False,
+        crop_mode=crop_mode,
     )
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler, num_workers=0)
-    eval_loader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    loader_generator = torch.Generator().manual_seed(random_state)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=0,
+        generator=loader_generator,
+    )
+    validation_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
     device = torch.device(device_name())
     model = build_resnet18_classifier(len(labels)).to(device)
@@ -243,7 +265,6 @@ def train_cnn_defect_classifier(
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(epochs, 1))
 
-    best_state = deepcopy(model.state_dict())
     best_metrics = {"accuracy": 0.0, "macro_f1": 0.0}
     best_epoch = 0
     stale_epochs = 0
@@ -261,13 +282,12 @@ def train_cnn_defect_classifier(
             losses.append(float(loss.detach().cpu()))
         scheduler.step()
 
-        metrics, _, _ = evaluate_model(model, eval_loader, labels=labels, device=device)
+        metrics, _, _ = evaluate_model(model, validation_loader, labels=labels, device=device)
         metrics["epoch"] = epoch
         metrics["train_loss"] = round(float(np.mean(losses)), 4) if losses else 0.0
         history.append(metrics)
         if metrics["macro_f1"] > best_metrics["macro_f1"]:
             best_metrics = metrics
-            best_state = deepcopy(model.state_dict())
             best_epoch = epoch
             stale_epochs = 0
         else:
@@ -275,23 +295,70 @@ def train_cnn_defect_classifier(
         if stale_epochs >= patience:
             break
 
-    model.load_state_dict(best_state)
-    final_metrics, y_eval, y_pred = evaluate_model(model, eval_loader, labels=labels, device=device)
+    # Refit from the same pretrained initialization on train + validation for
+    # the selected epoch count. The held-out test images remain untouched.
+    selected_epochs = max(best_epoch, 1)
+    torch.manual_seed(random_state + 2)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(random_state + 2)
+    development_dataset = DefectCropDataset(
+        development_df,
+        label_to_index,
+        image_size=image_size,
+        train=True,
+        crop_mode=crop_mode,
+    )
+    development_loader = DataLoader(
+        development_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=0,
+        generator=torch.Generator().manual_seed(random_state + 2),
+    )
+    model = build_resnet18_classifier(len(labels)).to(device)
+    development_weights = class_weights(development_df["label"].tolist(), label_to_index).to(device)
+    criterion = nn.CrossEntropyLoss(weight=development_weights, label_smoothing=0.05)
+    optimizer = torch.optim.AdamW(
+        [parameter for parameter in model.parameters() if parameter.requires_grad],
+        lr=learning_rate,
+        weight_decay=1e-4,
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=selected_epochs)
+    for _ in range(selected_epochs):
+        model.train()
+        for images, targets in development_loader:
+            images = images.to(device)
+            targets = targets.to(device)
+            optimizer.zero_grad(set_to_none=True)
+            loss = criterion(model(images), targets)
+            loss.backward()
+            optimizer.step()
+        scheduler.step()
+
+    best_state = deepcopy(model.state_dict())
+    final_metrics, y_eval, y_pred = evaluate_model(model, test_loader, labels=labels, device=device)
     final_metrics.update(
         {
             "labels": labels,
             "train_size": int(len(train_df)),
-            "eval_size": int(len(eval_df)),
+            "validation_size": int(len(validation_df)),
+            "production_train_size": int(len(development_df)),
+            "eval_size": int(len(test_df)),
             "feature_extractor": "resnet18_finetuned",
             "feature_mode": "cnn_heatmap_object_crop",
             "defect_only": True,
             "best_epoch": best_epoch,
             "history": history,
             "evaluation": {
-                "protocol": "stratified holdout validation; best epoch selected by macro F1",
+                "protocol": (
+                    "stratified train/validation/test evaluation; best epoch selected on validation, "
+                    "model refitted on train plus validation, and final metrics measured once on untouched test data"
+                ),
                 "selected_classifier": "resnet18_finetuned_weighted_cross_entropy",
                 "loss": "weighted_cross_entropy_label_smoothing_0.05",
-                "augmentation": "small affine plus brightness/contrast jitter",
+                "augmentation": "horizontal/vertical flips, small affine, and brightness/contrast jitter",
+                "best_validation_accuracy": round(float(best_metrics.get("accuracy", 0.0)), 4),
+                "best_validation_macro_f1": round(float(best_metrics.get("macro_f1", 0.0)), 4),
             },
             "dataset_context": {
                 "source": "MVTec AD labelled test folders",

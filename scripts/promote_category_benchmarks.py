@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -41,10 +43,37 @@ def latest_checkpoint(training_dir: Path) -> Path:
 
 WINNERS = {
     "cable": {"model_kind": "patchcore", "roi_scale": 1.0},
+    "capsule": {"model_kind": "patchcore", "roi_scale": 1.0},
     "grid": {"model_kind": "padim", "roi_scale": 1.15},
     "hazelnut": {"model_kind": "patchcore", "roi_scale": 1.0},
     "screw": {"model_kind": "patchcore", "roi_scale": 1.0},
+    "pill": {
+        "model_kind": "patchcore",
+        "roi_scale": 1.0,
+        "image_size": 256,
+        "backbone": "wide_resnet50_2",
+        "coreset_sampling_ratio": 0.05,
+        "num_neighbors": 9,
+    },
+    "transistor": {"model_kind": "patchcore", "roi_scale": 1.0},
+    "zipper": {
+        "model_kind": "patchcore",
+        "roi_scale": 1.0,
+        "image_size": 256,
+        "backbone": "wide_resnet50_2",
+        "coreset_sampling_ratio": 0.05,
+        "num_neighbors": 9,
+    },
 }
+RANDOM_SEED = 42
+
+
+def seed_everything() -> None:
+    random.seed(RANDOM_SEED)
+    np.random.seed(RANDOM_SEED)
+    torch.manual_seed(RANDOM_SEED)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(RANDOM_SEED)
 
 
 def promoted_checkpoint_path(category: str, model_kind: str) -> Path:
@@ -52,9 +81,14 @@ def promoted_checkpoint_path(category: str, model_kind: str) -> Path:
 
 
 def promote(category: str, dataset_root: Path) -> dict:
+    seed_everything()
     winner = WINNERS[category]
     model_kind = winner["model_kind"]
     roi_scale = winner["roi_scale"]
+    image_size = int(winner.get("image_size", 256))
+    backbone = winner.get("backbone")
+    coreset_sampling_ratio = float(winner.get("coreset_sampling_ratio", 0.05))
+    num_neighbors = int(winner.get("num_neighbors", 5))
     spec = category_model_spec(category)
     train_dir = dataset_root / category / "train" / "good"
     if not any(train_dir.glob("*.png")):
@@ -66,13 +100,20 @@ def promote(category: str, dataset_root: Path) -> dict:
         data = build_mvtec_datamodule(
             root=dataset_root,
             category=category,
-            image_size=(256, 256),
-            train_batch_size=4,
-            eval_batch_size=4,
+            image_size=(image_size, image_size),
+            train_batch_size=2 if backbone == "wide_resnet50_2" or image_size > 256 else 4,
+            eval_batch_size=2 if backbone == "wide_resnet50_2" or image_size > 256 else 4,
             num_workers=0,
             apply_resize_augmentation=False,
         )
-        model = build_anomalib_model(model_kind, image_size=(256, 256), roi_scale=roi_scale)
+        model = build_anomalib_model(
+            model_kind,
+            image_size=(image_size, image_size),
+            roi_scale=roi_scale,
+            backbone=backbone,
+            coreset_sampling_ratio=coreset_sampling_ratio,
+            num_neighbors=num_neighbors,
+        )
         engine = build_engine(run_dir, accelerator="gpu" if torch.cuda.is_available() else "cpu", logger=False)
         engine.fit(model=model, datamodule=data)
         destination = promoted_checkpoint_path(category, model_kind)
@@ -90,6 +131,10 @@ def promote(category: str, dataset_root: Path) -> dict:
             "model_version": "v1",
             "checkpoint_path": str(destination),
             "roi_scale": roi_scale,
+            "image_size": [image_size, image_size],
+            "backbone": backbone or "resnet18",
+            "coreset_sampling_ratio": coreset_sampling_ratio if model_kind == "patchcore" else None,
+            "num_neighbors": num_neighbors if model_kind == "patchcore" else None,
             "selected_from_benchmark": True,
             "trained_at": datetime.now(timezone.utc).isoformat(),
             "metrics": metrics,

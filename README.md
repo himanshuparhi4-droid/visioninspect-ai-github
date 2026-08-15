@@ -188,6 +188,18 @@ Manual upload works from the bundled compact runtime assets. Camera simulation s
 
 ## Advanced Model Setup
 
+The active category registry selects PaDiM for `bottle`, `carpet`, `grid`,
+`leather`, `metal_nut`, `tile`, `toothbrush`, and `wood`. PatchCore is selected
+for `cable`, `capsule`, `hazelnut`, `pill`, `screw`, `transistor`, and `zipper`.
+The portable CPU path uses the shared ONNX feature extractor and a calibrated
+OpenVINO-compatible runtime for every category; full checkpoints remain optional
+for local or accelerator-backed serving.
+
+Current category evaluations exceed 90% image-level accuracy, F1, and AUROC for
+Good/Defective detection in all 15 categories. Defect-subtype classification is
+a separate, harder task and varies by category because several MVTec defect
+subtypes contain only a small number of labeled examples.
+
 Advanced models are optional. For a category, place its checkpoint in the path specified by `models/category_model_registry.json`, install the development/ML dependencies, and enable:
 
 ```env
@@ -258,6 +270,6 @@ npx playwright test
 
 - Camera acquisition is a simulation, not a direct industrial camera/PLC connection.
 - MES, ERP, and PLC integrations are API-ready future integrations.
-- The compact hybrid runtime is portable but remains less accurate than a fully served PaDiM/PatchCore checkpoint.
+- The portable runtime is calibrated per category, while full PaDiM/PatchCore checkpoints remain available for higher-capacity local serving and future factory-specific tuning.
 - Model quality varies by category and should be recalibrated on the target factory's own images before production use.
 - The MVTec dataset is not redistributed by this repository.

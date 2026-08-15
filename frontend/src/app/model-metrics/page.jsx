@@ -92,13 +92,13 @@ export default function ModelMetricsPage() {
               <tr>
                 <th>Category</th>
                 <th>Runtime</th>
-                <th>Type classifier</th>
-                <th>Advanced threshold</th>
-                <th>Image AUROC</th>
-                <th>Live detector F1</th>
+                <th>Detector accuracy</th>
+                <th>Balanced accuracy</th>
+                <th>Detector F1</th>
+                <th>Detector AUROC</th>
                 <th>Pixel AUROC</th>
-                <th>Classifier accuracy</th>
-                <th>Classifier macro F1</th>
+                <th>Subtype accuracy</th>
+                <th>Subtype macro F1</th>
               </tr>
             </thead>
             <tbody>
@@ -112,10 +112,10 @@ export default function ModelMetricsPage() {
                         ? "Portable baseline"
                         : "Unavailable"}
                   </td>
-                  <td>{model.classification_trained ? "Ready" : "Pending"}</td>
-                  <td>{formatMetric(model.advanced_decision_threshold)}</td>
-                  <td>{formatMetric(model.image_auroc)}</td>
+                  <td>{formatMetric(model.openvino_accuracy)}</td>
+                  <td>{formatMetric(model.openvino_balanced_accuracy)}</td>
                   <td>{formatMetric(model.openvino_f1 ?? model.portable_cv_f1 ?? model.image_f1)}</td>
+                  <td>{formatMetric(model.openvino_auroc ?? model.image_auroc)}</td>
                   <td>{formatMetric(model.pixel_auroc)}</td>
                   <td>{formatMetric(model.classifier_accuracy)}</td>
                   <td>{formatMetric(model.classifier_macro_f1)}</td>

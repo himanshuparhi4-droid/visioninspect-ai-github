@@ -51,12 +51,15 @@ def build_anomalib_model(
     padim_n_features: int = 256,
     image_size: tuple[int, int] = (256, 256),
     roi_scale: float = 1.0,
+    backbone: str | None = None,
+    coreset_sampling_ratio: float = 0.05,
+    num_neighbors: int = 5,
 ):
     model_name = model_name.lower()
     pre_processor = build_inspection_preprocessor(image_size=image_size, roi_scale=roi_scale)
     if model_name == "padim":
         return Padim(
-            backbone="resnet18",
+            backbone=backbone or "resnet18",
             layers=["layer1", "layer2", "layer3"],
             pre_trained=True,
             n_features=padim_n_features,
@@ -64,11 +67,11 @@ def build_anomalib_model(
         )
     if model_name == "patchcore":
         return Patchcore(
-            backbone="resnet18",
+            backbone=backbone or "resnet18",
             layers=("layer2", "layer3"),
             pre_trained=True,
-            coreset_sampling_ratio=0.05,
-            num_neighbors=5,
+            coreset_sampling_ratio=coreset_sampling_ratio,
+            num_neighbors=num_neighbors,
             pre_processor=pre_processor,
         )
     raise ValueError(f"Unsupported model_name: {model_name}")

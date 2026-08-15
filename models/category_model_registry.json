@@ -13,16 +13,18 @@
     "compact_classifier_path": "models/categories/cable/defect_classifier_runtime.npz"
   },
   "capsule": {
-    "checkpoint_path": "models/categories/capsule/padim_v1.ckpt",
+    "checkpoint_path": "models/categories/capsule/patchcore_v1.ckpt",
     "classifier_path": "models/categories/capsule/defect_classifier.pkl",
     "baseline_profile_path": "models/categories/capsule/normal_profile.npz",
     "metadata_path": "models/categories/capsule/model_metadata.json",
     "padim_score_threshold": 0.500863,
     "openvino_path": "models/exported/capsule/weights/openvino/model.xml",
-    "model_kind": "padim",
+    "model_kind": "patchcore",
     "baseline_score_threshold": 0.008157,
     "baseline_residual_threshold": 0.542293,
-    "cnn_classifier_path": "models/categories/capsule/cnn_defect_classifier.onnx"
+    "openvino_calibrator_path": "models/categories/capsule/openvino_calibrator.npz",
+    "cnn_classifier_path": null,
+    "compact_classifier_path": null
   },
   "carpet": {
     "checkpoint_path": "models/categories/carpet/padim_v1.ckpt",
@@ -33,7 +35,8 @@
     "openvino_path": "models/exported/carpet/weights/openvino/model.xml",
     "model_kind": "padim",
     "baseline_score_threshold": 0.011741,
-    "baseline_residual_threshold": 1.045642
+    "baseline_residual_threshold": 1.045642,
+    "openvino_calibrator_path": "models/categories/carpet/openvino_calibrator.npz"
   },
   "grid": {
     "checkpoint_path": "models/categories/grid/padim_v1.ckpt",
@@ -44,7 +47,8 @@
     "model_kind": "padim",
     "openvino_path": "models/exported/grid/weights/openvino/model.xml",
     "baseline_score_threshold": 0.016833,
-    "baseline_residual_threshold": 1.079766
+    "baseline_residual_threshold": 1.079766,
+    "openvino_calibrator_path": "models/categories/grid/openvino_calibrator.npz"
   },
   "hazelnut": {
     "checkpoint_path": "models/categories/hazelnut/patchcore_v1.ckpt",
@@ -55,7 +59,8 @@
     "model_kind": "patchcore",
     "openvino_path": "models/exported/hazelnut/weights/openvino/model.xml",
     "baseline_score_threshold": 0.06351,
-    "baseline_residual_threshold": 0.607121
+    "baseline_residual_threshold": 0.607121,
+    "openvino_calibrator_path": "models/categories/hazelnut/openvino_calibrator.npz"
   },
   "leather": {
     "checkpoint_path": "models/categories/leather/padim_v1.ckpt",
@@ -66,7 +71,8 @@
     "openvino_path": "models/exported/leather/weights/openvino/model.xml",
     "model_kind": "padim",
     "baseline_score_threshold": 0.013332,
-    "baseline_residual_threshold": 0.736192
+    "baseline_residual_threshold": 0.736192,
+    "openvino_calibrator_path": "models/categories/leather/openvino_calibrator.npz"
   },
   "metal_nut": {
     "checkpoint_path": "models/categories/metal_nut/padim_v1.ckpt",
@@ -77,18 +83,20 @@
     "openvino_path": "models/exported/metal_nut/weights/openvino/model.xml",
     "model_kind": "padim",
     "baseline_score_threshold": 0.028916,
-    "baseline_residual_threshold": 0.596241
+    "baseline_residual_threshold": 0.596241,
+    "openvino_calibrator_path": "models/categories/metal_nut/openvino_calibrator.npz"
   },
   "pill": {
-    "checkpoint_path": "models/categories/pill/padim_v1.ckpt",
+    "checkpoint_path": "models/categories/pill/patchcore_v1.ckpt",
     "classifier_path": "models/categories/pill/defect_classifier.pkl",
     "baseline_profile_path": "models/categories/pill/normal_profile.npz",
     "metadata_path": "models/categories/pill/model_metadata.json",
     "padim_score_threshold": 0.523497,
     "openvino_path": "models/exported/pill/weights/openvino/model.xml",
-    "model_kind": "padim",
+    "model_kind": "patchcore",
     "baseline_score_threshold": 0.026076,
-    "baseline_residual_threshold": 0.266804
+    "baseline_residual_threshold": 0.266804,
+    "openvino_calibrator_path": "models/categories/pill/openvino_calibrator.npz"
   },
   "screw": {
     "checkpoint_path": "models/categories/screw/patchcore_v1.ckpt",
@@ -99,7 +107,8 @@
     "model_kind": "patchcore",
     "openvino_path": "models/exported/screw/weights/openvino/model.xml",
     "baseline_score_threshold": 0.017529,
-    "baseline_residual_threshold": 2.178845
+    "baseline_residual_threshold": 2.178845,
+    "openvino_calibrator_path": "models/categories/screw/openvino_calibrator.npz"
   },
   "tile": {
     "checkpoint_path": "models/categories/tile/padim_v1.ckpt",
@@ -110,7 +119,8 @@
     "openvino_path": "models/exported/tile/weights/openvino/model.xml",
     "model_kind": "padim",
     "baseline_score_threshold": 0.047957,
-    "baseline_residual_threshold": 1.296797
+    "baseline_residual_threshold": 1.296797,
+    "openvino_calibrator_path": "models/categories/tile/openvino_calibrator.npz"
   },
   "toothbrush": {
     "checkpoint_path": "models/categories/toothbrush/padim_v1.ckpt",
@@ -121,18 +131,20 @@
     "openvino_path": "models/exported/toothbrush/weights/openvino/model.xml",
     "model_kind": "padim",
     "baseline_score_threshold": 0.015306,
-    "baseline_residual_threshold": 0.798744
+    "baseline_residual_threshold": 0.798744,
+    "openvino_calibrator_path": "models/categories/toothbrush/openvino_calibrator.npz"
   },
   "transistor": {
-    "checkpoint_path": "models/categories/transistor/padim_v1.ckpt",
+    "checkpoint_path": "models/categories/transistor/patchcore_v1.ckpt",
     "classifier_path": "models/categories/transistor/defect_classifier.pkl",
     "baseline_profile_path": "models/categories/transistor/normal_profile.npz",
     "metadata_path": "models/categories/transistor/model_metadata.json",
     "padim_score_threshold": 0.50003,
     "openvino_path": "models/exported/transistor/weights/openvino/model.xml",
-    "model_kind": "padim",
+    "model_kind": "patchcore",
     "baseline_score_threshold": 0.032319,
-    "baseline_residual_threshold": 2.115497
+    "baseline_residual_threshold": 2.115497,
+    "openvino_calibrator_path": "models/categories/transistor/openvino_calibrator.npz"
   },
   "wood": {
     "checkpoint_path": "models/categories/wood/padim_v1.ckpt",
@@ -144,18 +156,21 @@
     "model_kind": "padim",
     "baseline_score_threshold": 0.058633,
     "baseline_residual_threshold": 1.21693,
-    "cnn_classifier_path": "models/categories/wood/cnn_defect_classifier.onnx"
+    "openvino_calibrator_path": "models/categories/wood/openvino_calibrator.npz",
+    "cnn_classifier_path": null,
+    "compact_classifier_path": null
   },
   "zipper": {
-    "checkpoint_path": "models/categories/zipper/padim_v1.ckpt",
+    "checkpoint_path": "models/categories/zipper/patchcore_v1.ckpt",
     "classifier_path": "models/categories/zipper/defect_classifier.pkl",
     "baseline_profile_path": "models/categories/zipper/normal_profile.npz",
     "metadata_path": "models/categories/zipper/model_metadata.json",
     "padim_score_threshold": 0.500006,
     "openvino_path": "models/exported/zipper/weights/openvino/model.xml",
-    "model_kind": "padim",
+    "model_kind": "patchcore",
     "baseline_score_threshold": 0.010643,
-    "baseline_residual_threshold": 0.790813
+    "baseline_residual_threshold": 0.790813,
+    "openvino_calibrator_path": "models/categories/zipper/openvino_calibrator.npz"
   },
   "bottle": {
     "model_kind": "padim",
@@ -166,6 +181,7 @@
     "padim_score_threshold": 0.500053,
     "openvino_path": "models/exported/bottle/weights/openvino/model.xml",
     "baseline_score_threshold": 0.00911,
-    "baseline_residual_threshold": 1.459192
+    "baseline_residual_threshold": 1.459192,
+    "openvino_calibrator_path": "models/inference/openvino_calibrator.npz"
   }
 }

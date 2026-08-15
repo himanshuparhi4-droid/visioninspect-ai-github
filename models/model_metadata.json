@@ -23,19 +23,19 @@
     }
   ],
   "defect_classifier": {
-    "accuracy": 0.873,
-    "macro_f1": 0.8719,
+    "accuracy": 0.8889,
+    "macro_f1": 0.8883,
     "classification_report": {
       "broken_large": {
-        "precision": 0.8333333333333334,
-        "recall": 0.75,
-        "f1-score": 0.7894736842105263,
+        "precision": 0.8421052631578947,
+        "recall": 0.8,
+        "f1-score": 0.8205128205128205,
         "support": 20.0
       },
       "broken_small": {
-        "precision": 0.7916666666666666,
+        "precision": 0.8260869565217391,
         "recall": 0.8636363636363636,
-        "f1-score": 0.8260869565217391,
+        "f1-score": 0.8444444444444444,
         "support": 22.0
       },
       "contamination": {
@@ -44,24 +44,24 @@
         "f1-score": 1.0,
         "support": 21.0
       },
-      "accuracy": 0.873015873015873,
+      "accuracy": 0.8888888888888888,
       "macro avg": {
-        "precision": 0.875,
-        "recall": 0.8712121212121212,
-        "f1-score": 0.8718535469107551,
+        "precision": 0.889397406559878,
+        "recall": 0.8878787878787878,
+        "f1-score": 0.8883190883190882,
         "support": 63.0
       },
       "weighted avg": {
-        "precision": 0.8743386243386243,
-        "recall": 0.873015873015873,
-        "f1-score": 0.8724347099633141,
+        "precision": 0.8891431477243834,
+        "recall": 0.8888888888888888,
+        "f1-score": 0.888698955365622,
         "support": 63.0
       }
     },
     "confusion_matrix": [
       [
-        15,
-        5,
+        16,
+        4,
         0
       ],
       [
@@ -82,73 +82,101 @@
     ],
     "train_size": 63,
     "eval_size": 63,
-    "feature_extractor": "resnet18_imagenet1k_v1_plus_texture",
-    "feature_mode": "global_texture",
+    "feature_extractor": "opencv_texture_gradient_color_mask_shape",
+    "feature_mode": "handcrafted_roi_shape_texture",
     "defect_only": true,
     "evaluation": {
-      "protocol": "stratified cross-validation for model selection; production classifier fitted on all labelled defect images",
-      "selected_classifier": "extra_trees",
+      "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
+      "selected_classifier": "random_forest",
       "folds": 5,
       "candidate_scores": {
         "logistic_c0.01": {
-          "mean_accuracy": 0.7974,
-          "std_accuracy": 0.1124,
-          "mean_macro_f1": 0.7987,
-          "std_macro_f1": 0.1108
+          "mean_accuracy": 0.7782,
+          "std_accuracy": 0.1161,
+          "mean_macro_f1": 0.7775,
+          "std_macro_f1": 0.1156
         },
         "logistic_c0.1": {
-          "mean_accuracy": 0.8282,
-          "std_accuracy": 0.0722,
-          "mean_macro_f1": 0.8283,
-          "std_macro_f1": 0.0712
+          "mean_accuracy": 0.7782,
+          "std_accuracy": 0.1161,
+          "mean_macro_f1": 0.7779,
+          "std_macro_f1": 0.1151
         },
         "logistic_c1": {
-          "mean_accuracy": 0.8282,
-          "std_accuracy": 0.0722,
-          "mean_macro_f1": 0.8283,
-          "std_macro_f1": 0.0712
+          "mean_accuracy": 0.7782,
+          "std_accuracy": 0.1161,
+          "mean_macro_f1": 0.7787,
+          "std_macro_f1": 0.1146
         },
         "logistic_c10": {
-          "mean_accuracy": 0.8282,
-          "std_accuracy": 0.0722,
-          "mean_macro_f1": 0.8283,
-          "std_macro_f1": 0.0712
-        },
-        "svc_rbf_c1": {
-          "mean_accuracy": 0.7962,
-          "std_accuracy": 0.1018,
-          "mean_macro_f1": 0.7836,
-          "std_macro_f1": 0.1077
-        },
-        "svc_rbf_c5": {
-          "mean_accuracy": 0.8449,
-          "std_accuracy": 0.1079,
-          "mean_macro_f1": 0.8349,
-          "std_macro_f1": 0.1224
-        },
-        "svc_rbf_c20": {
-          "mean_accuracy": 0.8449,
-          "std_accuracy": 0.1079,
-          "mean_macro_f1": 0.8349,
-          "std_macro_f1": 0.1224
+          "mean_accuracy": 0.7782,
+          "std_accuracy": 0.1161,
+          "mean_macro_f1": 0.7779,
+          "std_macro_f1": 0.1151
         },
         "lda_shrinkage": {
-          "mean_accuracy": 0.8269,
-          "std_accuracy": 0.055,
-          "mean_macro_f1": 0.8274,
-          "std_macro_f1": 0.0541
+          "mean_accuracy": 0.809,
+          "std_accuracy": 0.1094,
+          "mean_macro_f1": 0.8118,
+          "std_macro_f1": 0.1058
         },
         "extra_trees": {
-          "mean_accuracy": 0.8744,
-          "std_accuracy": 0.0597,
-          "mean_macro_f1": 0.8725,
-          "std_macro_f1": 0.0588
+          "mean_accuracy": 0.8077,
+          "std_accuracy": 0.1253,
+          "mean_macro_f1": 0.8059,
+          "std_macro_f1": 0.1312
+        },
+        "random_forest": {
+          "mean_accuracy": 0.8577,
+          "std_accuracy": 0.0571,
+          "mean_macro_f1": 0.8607,
+          "std_macro_f1": 0.0533
+        },
+        "gradient_boosting": {
+          "mean_accuracy": 0.7462,
+          "std_accuracy": 0.0771,
+          "mean_macro_f1": 0.732,
+          "std_macro_f1": 0.0873
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.7615,
+          "std_accuracy": 0.0723,
+          "mean_macro_f1": 0.7453,
+          "std_macro_f1": 0.0797
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.7449,
+          "std_accuracy": 0.1193,
+          "mean_macro_f1": 0.7371,
+          "std_macro_f1": 0.1233
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.7449,
+          "std_accuracy": 0.1193,
+          "mean_macro_f1": 0.7371,
+          "std_macro_f1": 0.1233
+        },
+        "knn_3": {
+          "mean_accuracy": 0.7615,
+          "std_accuracy": 0.1165,
+          "mean_macro_f1": 0.7533,
+          "std_macro_f1": 0.1231
+        },
+        "knn_5": {
+          "mean_accuracy": 0.7462,
+          "std_accuracy": 0.1616,
+          "mean_macro_f1": 0.7356,
+          "std_macro_f1": 0.1717
         }
+      },
+      "outer_selection_frequency": {
+        "extra_trees": 3,
+        "random_forest": 2
       }
     },
     "dataset_context": {
       "source": "MVTec AD labelled test folders",
-      "protocol": "defect-only subtype classification with stratified cross-validation; not an official held-out MVTec anomaly-detection benchmark",
+      "protocol": "defect-only subtype classification with stratified cross-validation using ground truth masks; not an official held-out MVTec anomaly-detection benchmark",
       "category": "bottle"
     }
   },
@@ -176,5 +204,73 @@
     "detector": "resnet18_normal_memory",
     "localization": "opencv_normalized_residual",
     "residual_threshold": 1.459192
+  },
+  "openvino_spatial_calibration": {
+    "detector": "padim_openvino_spatial_calibrator",
+    "protocol": "nested stratified cross-validation on labelled MVTec test images; each outer fold performs calibrator and threshold selection using only its training partition; production calibrator is fitted on all labelled images after evaluation",
+    "folds": 5,
+    "samples": 83,
+    "selected_classifier": "extra_trees_sqrt_leaf1",
+    "candidate_scores": {
+      "extra_trees_sqrt_leaf1": {
+        "threshold": 0.763333,
+        "balanced_accuracy": 0.9841,
+        "f1": 0.9839,
+        "auroc": 0.9984
+      },
+      "extra_trees_wide_leaf1": {
+        "threshold": 0.775,
+        "balanced_accuracy": 0.9841,
+        "f1": 0.9839,
+        "auroc": 0.9984
+      },
+      "extra_trees_sqrt_leaf2": {
+        "threshold": 0.625,
+        "balanced_accuracy": 0.9841,
+        "f1": 0.9839,
+        "auroc": 0.9984
+      },
+      "random_forest_sqrt_leaf1": {
+        "threshold": 0.75,
+        "balanced_accuracy": 0.9841,
+        "f1": 0.9839,
+        "auroc": 0.9984
+      }
+    },
+    "outer_selection_frequency": {
+      "extra_trees_sqrt_leaf1": 4,
+      "extra_trees_sqrt_leaf2": 1
+    },
+    "outer_thresholds": [
+      0.93,
+      0.35,
+      0.227679,
+      0.893333,
+      0.625
+    ],
+    "decision_threshold": 0.763333,
+    "accuracy": 0.9518,
+    "precision": 0.9836,
+    "recall": 0.9524,
+    "specificity": 0.95,
+    "balanced_accuracy": 0.9512,
+    "f1": 0.9677,
+    "auroc": 0.9968,
+    "confusion_matrix": [
+      [
+        19,
+        1
+      ],
+      [
+        3,
+        60
+      ]
+    ],
+    "defect_subtype_recall": {
+      "broken_large": 1.0,
+      "broken_small": 0.9545,
+      "contamination": 0.9048
+    },
+    "artifact": "models/inference/openvino_calibrator.npz"
   }
 }

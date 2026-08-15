@@ -1,10 +1,15 @@
 from pathlib import Path
 
 import joblib
+import numpy as np
 from app.models.inspection_model import Inspection
 from app.models.production_model import BatchRecord
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from ml.baseline_detector import load_reference_profile
+from ml.classifier import export_portable_forest, predict_portable_forest
 from ml.model_registry import (
     SUPPORTED_CATEGORIES,
     CategoryModelSpec,
@@ -87,12 +92,30 @@ def test_shared_onnx_feature_model_is_github_safe():
     assert not pytorch_weights_path.exists()
 
 
-def test_promoted_cnn_classifiers_are_portable_onnx_artifacts():
+def test_weaker_cnn_classifiers_are_not_selected_over_revalidated_models():
     for category in ("capsule", "wood"):
         spec = category_model_spec(category)
 
-        assert spec.cnn_classifier_path is not None
-        assert spec.cnn_classifier_path.exists()
-        assert 1_000_000 < spec.cnn_classifier_path.stat().st_size < 100_000_000
-        assert spec.cnn_classifier_path.with_suffix(".json").exists()
-        assert not spec.cnn_classifier_path.with_suffix(".pt").exists()
+        assert spec.cnn_classifier_path is None
+        assert spec.classifier_path.exists()
+
+
+def test_portable_logistic_runtime_matches_sklearn(tmp_path):
+    features = np.asarray(
+        [[-2.0, -1.0], [-1.0, -0.5], [1.0, 0.5], [2.0, 1.0]],
+        dtype=np.float32,
+    )
+    targets = np.asarray([0, 0, 1, 1])
+    classifier = make_pipeline(StandardScaler(), LogisticRegression(random_state=42)).fit(features, targets)
+    artifact = tmp_path / "calibrator.npz"
+
+    export_portable_forest(
+        classifier,
+        artifact,
+        feature_mode="openvino_spatial_v1",
+        decision_threshold=0.4,
+    )
+    result = predict_portable_forest(artifact, features)
+
+    assert np.allclose(result["probabilities"], classifier.predict_proba(features), atol=1e-6)
+    assert result["decision_threshold"] == np.float32(0.4)

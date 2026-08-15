@@ -143,6 +143,7 @@ def main() -> None:
 
         assert best_result is not None and best_candidate_path is not None
         metrics = best_result["metrics"]
+        metadata["defect_classifier_revalidation"] = metrics
         print(
             f"  Best CNN result: accuracy={metrics['accuracy']}, macro_f1={metrics['macro_f1']}, "
             f"crop_mode={metrics['dataset_context']['crop_mode']}",
@@ -163,6 +164,7 @@ def main() -> None:
                 f"(current accuracy={current_metrics.get('accuracy')}, macro_f1={current_metrics.get('macro_f1')})",
                 flush=True,
             )
+        spec.metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         for candidate_path in candidate_paths:
             if candidate_path.exists():
                 candidate_path.unlink()

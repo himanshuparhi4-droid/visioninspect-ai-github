@@ -232,5 +232,250 @@
     "detector": "resnet18_normal_memory",
     "localization": "opencv_normalized_residual",
     "residual_threshold": 0.607121
+  },
+  "openvino_spatial_calibration": {
+    "detector": "patchcore_openvino_spatial_calibrator",
+    "protocol": "nested stratified cross-validation on labelled MVTec test images; each outer fold performs calibrator and threshold selection using only its training partition; production calibrator is fitted on all labelled images after evaluation",
+    "folds": 5,
+    "samples": 110,
+    "selected_classifier": "extra_trees_sqrt_leaf2",
+    "candidate_scores": {
+      "extra_trees_sqrt_leaf1": {
+        "threshold": 0.84,
+        "balanced_accuracy": 0.9714,
+        "f1": 0.9706,
+        "auroc": 0.9961
+      },
+      "extra_trees_wide_leaf1": {
+        "threshold": 0.65,
+        "balanced_accuracy": 0.9732,
+        "f1": 0.9784,
+        "auroc": 0.9959
+      },
+      "extra_trees_sqrt_leaf2": {
+        "threshold": 0.641818,
+        "balanced_accuracy": 0.9732,
+        "f1": 0.9784,
+        "auroc": 0.9971
+      },
+      "random_forest_sqrt_leaf1": {
+        "threshold": 0.775,
+        "balanced_accuracy": 0.9714,
+        "f1": 0.9706,
+        "auroc": 0.9968
+      }
+    },
+    "outer_selection_frequency": {
+      "extra_trees_sqrt_leaf1": 2,
+      "extra_trees_sqrt_leaf2": 2,
+      "extra_trees_wide_leaf1": 1
+    },
+    "outer_thresholds": [
+      0.7,
+      0.6,
+      0.55,
+      0.575,
+      0.625
+    ],
+    "decision_threshold": 0.641818,
+    "accuracy": 0.9636,
+    "precision": 0.9714,
+    "recall": 0.9714,
+    "specificity": 0.95,
+    "balanced_accuracy": 0.9607,
+    "f1": 0.9714,
+    "auroc": 0.9957,
+    "confusion_matrix": [
+      [
+        38,
+        2
+      ],
+      [
+        2,
+        68
+      ]
+    ],
+    "defect_subtype_recall": {
+      "crack": 1.0,
+      "cut": 0.8824,
+      "hole": 1.0,
+      "print": 1.0
+    },
+    "artifact": "models/categories/hazelnut/openvino_calibrator.npz"
+  },
+  "defect_classifier_revalidation": {
+    "accuracy": 0.9143,
+    "macro_f1": 0.9157,
+    "classification_report": {
+      "crack": {
+        "precision": 0.8421052631578947,
+        "recall": 0.8888888888888888,
+        "f1-score": 0.8648648648648649,
+        "support": 18.0
+      },
+      "cut": {
+        "precision": 0.9375,
+        "recall": 0.8823529411764706,
+        "f1-score": 0.9090909090909091,
+        "support": 17.0
+      },
+      "hole": {
+        "precision": 0.8888888888888888,
+        "recall": 0.8888888888888888,
+        "f1-score": 0.8888888888888888,
+        "support": 18.0
+      },
+      "print": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 17.0
+      },
+      "accuracy": 0.9142857142857143,
+      "macro avg": {
+        "precision": 0.9171235380116959,
+        "recall": 0.9150326797385621,
+        "f1-score": 0.9157111657111657,
+        "support": 70.0
+      },
+      "weighted avg": {
+        "precision": 0.9156484962406015,
+        "recall": 0.9142857142857143,
+        "f1-score": 0.9146016146016146,
+        "support": 70.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        16,
+        1,
+        1,
+        0
+      ],
+      [
+        1,
+        15,
+        1,
+        0
+      ],
+      [
+        2,
+        0,
+        16,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        17
+      ]
+    ],
+    "labels": [
+      "crack",
+      "cut",
+      "hole",
+      "print"
+    ],
+    "train_size": 70,
+    "eval_size": 70,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
+    "feature_mode": "global_roi_texture",
+    "defect_only": true,
+    "evaluation": {
+      "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
+      "selected_classifier": "random_forest",
+      "folds": 5,
+      "candidate_scores": {
+        "logistic_c0.01": {
+          "mean_accuracy": 0.9143,
+          "std_accuracy": 0.0535,
+          "mean_macro_f1": 0.9113,
+          "std_macro_f1": 0.0531
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.9143,
+          "std_accuracy": 0.0535,
+          "mean_macro_f1": 0.9113,
+          "std_macro_f1": 0.0531
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.9143,
+          "std_accuracy": 0.0535,
+          "mean_macro_f1": 0.9113,
+          "std_macro_f1": 0.0531
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.9,
+          "std_accuracy": 0.0728,
+          "mean_macro_f1": 0.8971,
+          "std_macro_f1": 0.0726
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.9,
+          "std_accuracy": 0.035,
+          "mean_macro_f1": 0.8975,
+          "std_macro_f1": 0.0361
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.9143,
+          "std_accuracy": 0.07,
+          "mean_macro_f1": 0.9125,
+          "std_macro_f1": 0.0651
+        },
+        "random_forest": {
+          "mean_accuracy": 0.9143,
+          "std_accuracy": 0.07,
+          "mean_macro_f1": 0.9138,
+          "std_macro_f1": 0.0628
+        },
+        "gradient_boosting": {
+          "mean_accuracy": 0.7571,
+          "std_accuracy": 0.0969,
+          "mean_macro_f1": 0.7375,
+          "std_macro_f1": 0.1073
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.8571,
+          "std_accuracy": 0.0904,
+          "mean_macro_f1": 0.8595,
+          "std_macro_f1": 0.0834
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.8571,
+          "std_accuracy": 0.0904,
+          "mean_macro_f1": 0.8595,
+          "std_macro_f1": 0.0834
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.8571,
+          "std_accuracy": 0.0904,
+          "mean_macro_f1": 0.8595,
+          "std_macro_f1": 0.0834
+        },
+        "knn_3": {
+          "mean_accuracy": 0.7429,
+          "std_accuracy": 0.1069,
+          "mean_macro_f1": 0.749,
+          "std_macro_f1": 0.1065
+        },
+        "knn_5": {
+          "mean_accuracy": 0.7714,
+          "std_accuracy": 0.1229,
+          "mean_macro_f1": 0.7742,
+          "std_macro_f1": 0.1206
+        }
+      },
+      "outer_selection_frequency": {
+        "extra_trees": 3,
+        "lda_shrinkage": 1,
+        "random_forest": 1
+      }
+    },
+    "dataset_context": {
+      "source": "MVTec AD labelled test folders",
+      "protocol": "defect-only subtype classification with stratified cross-validation using ground truth masks; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "hazelnut"
+    }
   }
 }

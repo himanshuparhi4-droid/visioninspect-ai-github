@@ -184,26 +184,32 @@ def main() -> None:
                 best_path = candidate_path
 
         assert best_result is not None and best_path is not None
+        metadata["defect_classifier_revalidation"] = best_result["metrics"]
         should_promote = args.force or not current_metrics or is_better(best_result["metrics"], current_metrics)
         if should_promote:
             best_path.replace(spec.classifier_path)
+            registry_path = registry_file()
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            registry_entry = registry.setdefault(category, {})
+            registry_entry["cnn_classifier_path"] = None
             if spec.compact_classifier_path is not None and best_result["metrics"]["feature_mode"] == HANDCRAFTED_ROI_SHAPE_FEATURE_MODE:
                 export_portable_forest(
                     best_result["bundle"]["classifier"],
                     spec.compact_classifier_path,
                     feature_mode=HANDCRAFTED_ROI_SHAPE_FEATURE_MODE,
                 )
-                registry_path = registry_file()
-                registry = json.loads(registry_path.read_text(encoding="utf-8"))
                 registry.setdefault(category, {})["compact_classifier_path"] = str(
                     spec.compact_classifier_path.relative_to(PROJECT_ROOT)
                 ).replace("\\", "/")
-                registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+            else:
+                registry_entry["compact_classifier_path"] = None
+            registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
             metadata["defect_classifier"] = best_result["metrics"]
-            spec.metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
             status = "promoted"
         else:
             status = "kept-existing"
+
+        spec.metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
 
         for candidate_path in candidate_paths:
             if candidate_path != best_path or not should_promote:

@@ -8,7 +8,9 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.base import clone
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
@@ -21,6 +23,8 @@ from sklearn.metrics import (
     roc_curve,
 )
 from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -29,7 +33,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from ml.classifier import export_portable_forest
 from ml.config import MODELS_DIR, MVTEC_DATASET_ROOT
 from ml.model_registry import SUPPORTED_CATEGORIES, category_model_spec
-from ml.padim_detector import load_openvino_runtime, openvino_spatial_features
+from ml.padim_detector import load_openvino_calibrator, load_openvino_runtime, openvino_spatial_features
 
 
 def baseline_score_rows(category: str, dataset_root: Path) -> list[dict]:
@@ -238,21 +242,181 @@ def calibrate_category(category: str, dataset_root: Path, objective: str) -> dic
     }
 
 
-def calibrate_openvino_category(category: str, dataset_root: Path) -> dict:
+def openvino_calibrator_candidates(*, include_linear: bool = False) -> dict[str, object]:
+    common = {
+        "n_estimators": 300,
+        "class_weight": "balanced",
+        "random_state": 42,
+        "n_jobs": -1,
+    }
+    candidates = {
+        "extra_trees_sqrt_leaf1": ExtraTreesClassifier(
+            min_samples_leaf=1,
+            max_features="sqrt",
+            **common,
+        ),
+        "extra_trees_wide_leaf1": ExtraTreesClassifier(
+            min_samples_leaf=1,
+            max_features=0.75,
+            **common,
+        ),
+        "extra_trees_sqrt_leaf2": ExtraTreesClassifier(
+            min_samples_leaf=2,
+            max_features="sqrt",
+            **common,
+        ),
+        "random_forest_sqrt_leaf1": RandomForestClassifier(
+            min_samples_leaf=1,
+            max_features="sqrt",
+            **common,
+        ),
+    }
+    if include_linear:
+        candidates = {
+            "logistic_c0.1": make_pipeline(
+                StandardScaler(),
+                LogisticRegression(C=0.1, class_weight="balanced", max_iter=2000, random_state=42),
+            ),
+            "logistic_c1": make_pipeline(
+                StandardScaler(),
+                LogisticRegression(C=1.0, class_weight="balanced", max_iter=2000, random_state=42),
+            ),
+            "logistic_c10": make_pipeline(
+                StandardScaler(),
+                LogisticRegression(C=10.0, class_weight="balanced", max_iter=2000, random_state=42),
+            ),
+            **candidates,
+        }
+    return candidates
+
+
+def best_joint_threshold(probabilities: np.ndarray, targets: np.ndarray) -> float:
+    _, _, roc_thresholds = roc_curve(targets, probabilities)
+    candidates = np.unique(
+        np.concatenate(
+            [
+                roc_thresholds[np.isfinite(roc_thresholds)],
+                np.linspace(0.20, 0.80, 25),
+                np.asarray([0.5]),
+            ]
+        )
+    )
+    best_threshold = 0.5
+    best_score = (-1.0, -1.0, -1.0)
+    for threshold in candidates:
+        predictions = (probabilities >= threshold).astype(int)
+        balanced = float(balanced_accuracy_score(targets, predictions))
+        f1 = float(f1_score(targets, predictions, zero_division=0))
+        score = (min(balanced, f1), (balanced + f1) / 2.0, -abs(float(threshold) - 0.5))
+        if score > best_score:
+            best_score = score
+            best_threshold = float(threshold)
+    return best_threshold
+
+
+def calibrator_candidate_scores(
+    candidates: dict[str, object],
+    features: np.ndarray,
+    targets: np.ndarray,
+    splitter: StratifiedKFold,
+) -> dict[str, dict]:
+    scores: dict[str, dict] = {}
+    for name, candidate in candidates.items():
+        probabilities = cross_val_predict(
+            clone(candidate),
+            features,
+            targets,
+            cv=splitter,
+            method="predict_proba",
+            n_jobs=1,
+        )[:, 1]
+        threshold = best_joint_threshold(probabilities, targets)
+        predictions = (probabilities >= threshold).astype(int)
+        scores[name] = {
+            "threshold": round(float(threshold), 6),
+            "balanced_accuracy": round(float(balanced_accuracy_score(targets, predictions)), 4),
+            "f1": round(float(f1_score(targets, predictions, zero_division=0)), 4),
+            "auroc": round(float(roc_auc_score(targets, probabilities)), 4),
+        }
+    return scores
+
+
+def best_calibrator_name(scores: dict[str, dict]) -> str:
+    return max(
+        scores,
+        key=lambda name: (
+            min(scores[name]["balanced_accuracy"], scores[name]["f1"]),
+            scores[name]["auroc"],
+            scores[name]["balanced_accuracy"] + scores[name]["f1"],
+        ),
+    )
+
+
+def calibrate_openvino_category(
+    category: str,
+    dataset_root: Path,
+    *,
+    include_linear: bool = False,
+    fixed_calibrator: str | None = None,
+    fixed_threshold: float | None = None,
+    artifact_path: Path | None = None,
+) -> dict:
     rows = openvino_feature_rows(category, dataset_root)
     features = np.vstack([row["features"] for row in rows])
     targets = np.asarray([row["target"] for row in rows], dtype=int)
-    classifier = ExtraTreesClassifier(
-        n_estimators=800,
-        min_samples_leaf=1,
-        max_features="sqrt",
-        class_weight="balanced",
-        random_state=42,
-        n_jobs=-1,
+    class_counts = np.bincount(targets)
+    folds = min(5, int(class_counts.min()))
+    if folds < 2:
+        raise ValueError(f"{category} does not contain enough good and defective images for calibration")
+
+    candidates = openvino_calibrator_candidates(include_linear=include_linear)
+    if fixed_calibrator:
+        if fixed_calibrator not in candidates:
+            raise ValueError(f"Unknown OpenVINO calibrator: {fixed_calibrator}")
+        candidates = {fixed_calibrator: candidates[fixed_calibrator]}
+    outer_splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=42)
+    probabilities = np.zeros(len(targets), dtype=np.float32)
+    predictions = np.zeros(len(targets), dtype=int)
+    outer_selections: list[str] = []
+    outer_thresholds: list[float] = []
+    for outer_fold, (train_index, test_index) in enumerate(outer_splitter.split(features, targets), start=1):
+        if fixed_threshold is not None:
+            selected_name = next(iter(candidates))
+            selected_threshold = fixed_threshold
+        else:
+            inner_counts = np.bincount(targets[train_index])
+            inner_folds = min(4, int(inner_counts.min()))
+            inner_splitter = StratifiedKFold(
+                n_splits=inner_folds,
+                shuffle=True,
+                random_state=42 + outer_fold,
+            )
+            inner_scores = calibrator_candidate_scores(
+                candidates,
+                features[train_index],
+                targets[train_index],
+                inner_splitter,
+            )
+            selected_name = best_calibrator_name(inner_scores)
+            selected_threshold = float(inner_scores[selected_name]["threshold"])
+        fold_classifier = clone(candidates[selected_name])
+        fold_classifier.fit(features[train_index], targets[train_index])
+        fold_probabilities = fold_classifier.predict_proba(features[test_index])[:, 1]
+        probabilities[test_index] = fold_probabilities
+        predictions[test_index] = (fold_probabilities >= selected_threshold).astype(int)
+        outer_selections.append(selected_name)
+        outer_thresholds.append(selected_threshold)
+
+    # Pick and fit the runtime calibrator only after nested evaluation is complete.
+    production_splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=143)
+    candidate_scores = calibrator_candidate_scores(candidates, features, targets, production_splitter)
+    production_name = best_calibrator_name(candidate_scores)
+    decision_threshold = (
+        float(fixed_threshold)
+        if fixed_threshold is not None
+        else float(candidate_scores[production_name]["threshold"])
     )
-    splitter = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    predictions = cross_val_predict(classifier, features, targets, cv=splitter, n_jobs=1)
-    decision_threshold = 0.5
+    classifier = clone(candidates[production_name])
     classifier.fit(features, targets)
     true_negative, false_positive, false_negative, true_positive = confusion_matrix(
         targets, predictions, labels=[0, 1]
@@ -260,10 +424,11 @@ def calibrate_openvino_category(category: str, dataset_root: Path) -> dict:
     spec = category_model_spec(category)
     if spec.openvino_calibrator_path is None:
         raise RuntimeError(f"No OpenVINO calibrator path configured for {category}")
-    spec.openvino_calibrator_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path = artifact_path or spec.openvino_calibrator_path
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     export_portable_forest(
         classifier,
-        spec.openvino_calibrator_path,
+        output_path,
         feature_mode="openvino_spatial_v1",
         decision_threshold=decision_threshold,
     )
@@ -274,11 +439,22 @@ def calibrate_openvino_category(category: str, dataset_root: Path) -> dict:
     return {
         "detector": f"{spec.model_kind}_openvino_spatial_calibrator",
         "protocol": (
-            "5-fold stratified out-of-fold evaluation on labelled MVTec test images; "
-            "production calibrator fitted on all labelled images"
+            "nested stratified cross-validation on labelled MVTec test images; each outer fold performs "
+            + (
+                "calibrator and threshold selection using only its training partition; "
+                if fixed_threshold is None
+                else f"evaluation with a pre-specified {fixed_threshold:.4f} decision threshold; "
+            )
+            + "production calibrator is fitted on all labelled images after evaluation"
         ),
-        "folds": 5,
+        "folds": folds,
         "samples": int(len(targets)),
+        "selected_classifier": production_name,
+        "candidate_scores": candidate_scores,
+        "outer_selection_frequency": {
+            name: outer_selections.count(name) for name in sorted(set(outer_selections))
+        },
+        "outer_thresholds": [round(float(value), 6) for value in outer_thresholds],
         "decision_threshold": round(float(decision_threshold), 6),
         "accuracy": round(float(accuracy_score(targets, predictions)), 4),
         "precision": round(float(precision_score(targets, predictions, zero_division=0)), 4),
@@ -286,13 +462,18 @@ def calibrate_openvino_category(category: str, dataset_root: Path) -> dict:
         "specificity": round(float(true_negative / max(true_negative + false_positive, 1)), 4),
         "balanced_accuracy": round(float(balanced_accuracy_score(targets, predictions)), 4),
         "f1": round(float(f1_score(targets, predictions, zero_division=0)), 4),
+        "auroc": round(float(roc_auc_score(targets, probabilities)), 4),
         "confusion_matrix": [
             [int(true_negative), int(false_positive)],
             [int(false_negative), int(true_positive)],
         ],
         "defect_subtype_recall": subtype_recall,
-        "artifact": str(spec.openvino_calibrator_path.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+        "artifact": str(output_path.relative_to(PROJECT_ROOT)).replace("\\", "/"),
     }
+
+
+def calibration_metric_floor(result: dict) -> float:
+    return min(float(result.get("balanced_accuracy", 0.0)), float(result.get("f1", 0.0)))
 
 
 def main() -> None:
@@ -306,12 +487,29 @@ def main() -> None:
         help="Calibrate the portable baseline or the optional advanced anomaly model.",
     )
     parser.add_argument(
+        "--include-linear-calibrators",
+        action="store_true",
+        help="Also evaluate portable regularized logistic calibrators for OpenVINO outputs.",
+    )
+    parser.add_argument(
+        "--fixed-calibrator",
+        help="Evaluate one named OpenVINO calibrator while tuning only its decision threshold.",
+    )
+    parser.add_argument(
+        "--fixed-threshold",
+        type=float,
+        help="Use one pre-specified OpenVINO decision threshold in every held-out fold.",
+    )
+    parser.add_argument("--force", action="store_true", help="Replace an existing calibration even if it is weaker.")
+    parser.add_argument(
         "--objective",
         choices=("f1", "balanced_accuracy"),
         default="f1",
         help="Metric optimized on the calibration split when choosing the decision threshold.",
     )
     args = parser.parse_args()
+    if args.fixed_threshold is not None and not args.fixed_calibrator:
+        parser.error("--fixed-threshold requires --fixed-calibrator")
     categories = (
         SUPPORTED_CATEGORIES
         if args.categories == "all"
@@ -325,12 +523,31 @@ def main() -> None:
 
     for category in categories:
         print(f"Calibrating {args.engine} detector for {category}...", flush=True)
-        if args.engine == "baseline":
-            result = calibrate_baseline_category(category, dataset_root, args.objective)
-        elif args.engine == "openvino":
-            result = calibrate_openvino_category(category, dataset_root)
-        else:
-            result = calibrate_category(category, dataset_root, args.objective)
+        try:
+            if args.engine == "baseline":
+                result = calibrate_baseline_category(category, dataset_root, args.objective)
+            elif args.engine == "openvino":
+                spec = category_model_spec(category)
+                if spec.openvino_calibrator_path is None:
+                    raise RuntimeError(f"No OpenVINO calibrator path configured for {category}")
+                candidate_path = spec.openvino_calibrator_path.with_name(
+                    f"{spec.openvino_calibrator_path.stem}.candidate{spec.openvino_calibrator_path.suffix}"
+                )
+                result = calibrate_openvino_category(
+                    category,
+                    dataset_root,
+                    include_linear=args.include_linear_calibrators,
+                    fixed_calibrator=args.fixed_calibrator,
+                    fixed_threshold=args.fixed_threshold,
+                    artifact_path=candidate_path,
+                )
+            else:
+                result = calibrate_category(category, dataset_root, args.objective)
+        finally:
+            # Category OpenVINO graphs can approach a gigabyte each. Release the
+            # previous graph before loading the next category in long calibration runs.
+            load_openvino_runtime.cache_clear()
+            load_openvino_calibrator.cache_clear()
         spec = category_model_spec(category)
         metadata = json.loads(spec.metadata_path.read_text(encoding="utf-8"))
         metadata_key = {
@@ -338,6 +555,20 @@ def main() -> None:
             "advanced": "threshold_calibration",
             "openvino": "openvino_spatial_calibration",
         }[args.engine]
+        if args.engine == "openvino":
+            current = metadata.get(metadata_key, {})
+            should_promote = args.force or not current or calibration_metric_floor(result) > calibration_metric_floor(current)
+            if should_promote:
+                candidate_path.replace(spec.openvino_calibrator_path)
+                result["artifact"] = str(spec.openvino_calibrator_path.relative_to(PROJECT_ROOT)).replace("\\", "/")
+            else:
+                candidate_path.unlink(missing_ok=True)
+                print(
+                    f"Kept existing {category} calibration: candidate floor={calibration_metric_floor(result):.4f}, "
+                    f"current floor={calibration_metric_floor(current):.4f}",
+                    flush=True,
+                )
+                result = current
         metadata[metadata_key] = result
         spec.metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         entry = registry.setdefault(category, {})

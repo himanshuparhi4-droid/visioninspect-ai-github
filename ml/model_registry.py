@@ -119,6 +119,7 @@ def _default_spec(category: str) -> CategoryModelSpec:
             baseline_profile_path=MODELS_DIR / "inference" / "normal_profile.npz",
             metadata_path=MODELS_DIR / "model_metadata.json",
             openvino_path=MODELS_DIR / "exported" / "bottle" / "weights" / "openvino" / "model.xml",
+            openvino_calibrator_path=MODELS_DIR / "inference" / "openvino_calibrator.npz",
         )
 
     category_dir = MODELS_DIR / "categories" / category
@@ -166,6 +167,8 @@ def category_model_spec(category: str | None) -> CategoryModelSpec:
         return MODELS_DIR.parent / value if value else fallback
 
     def optional_path_value(name: str, fallback: Path | None) -> Path | None:
+        if name in override and override[name] is None:
+            return None
         value = override.get(name)
         return MODELS_DIR.parent / value if value else fallback
 

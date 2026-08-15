@@ -35,88 +35,88 @@
     "holdout_auroc": 0.9821
   },
   "defect_classifier": {
-    "accuracy": 0.8333,
-    "macro_f1": 0.8294,
+    "accuracy": 0.7333,
+    "macro_f1": 0.7212,
     "classification_report": {
       "color": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1-score": 1.0,
-        "support": 3.0
+        "precision": 0.5555555555555556,
+        "recall": 0.625,
+        "f1-score": 0.5882352941176471,
+        "support": 8.0
       },
       "combined": {
-        "precision": 0.5,
-        "recall": 0.6666666666666666,
-        "f1-score": 0.5714285714285714,
-        "support": 3.0
+        "precision": 0.7142857142857143,
+        "recall": 0.45454545454545453,
+        "f1-score": 0.5555555555555556,
+        "support": 11.0
       },
       "hole": {
-        "precision": 0.6666666666666666,
-        "recall": 0.6666666666666666,
-        "f1-score": 0.6666666666666666,
-        "support": 3.0
+        "precision": 0.75,
+        "recall": 0.9,
+        "f1-score": 0.8181818181818182,
+        "support": 10.0
       },
       "liquid": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1-score": 1.0,
-        "support": 3.0
+        "precision": 0.9,
+        "recall": 0.9,
+        "f1-score": 0.9,
+        "support": 10.0
       },
       "scratch": {
-        "precision": 1.0,
-        "recall": 0.8333333333333334,
-        "f1-score": 0.9090909090909091,
-        "support": 6.0
+        "precision": 0.7272727272727273,
+        "recall": 0.7619047619047619,
+        "f1-score": 0.7441860465116279,
+        "support": 21.0
       },
-      "accuracy": 0.8333333333333334,
+      "accuracy": 0.7333333333333333,
       "macro avg": {
-        "precision": 0.8333333333333333,
-        "recall": 0.8333333333333333,
-        "f1-score": 0.8294372294372294,
-        "support": 18.0
+        "precision": 0.7294227994227993,
+        "recall": 0.7282900432900432,
+        "f1-score": 0.7212317428733297,
+        "support": 60.0
       },
       "weighted avg": {
-        "precision": 0.8611111111111112,
-        "recall": 0.8333333333333334,
-        "f1-score": 0.8427128427128427,
-        "support": 18.0
+        "precision": 0.7345719095719097,
+        "recall": 0.7333333333333333,
+        "f1-score": 0.7271119770435776,
+        "support": 60.0
       }
     },
     "confusion_matrix": [
       [
-        3,
+        5,
+        1,
         0,
         0,
-        0,
-        0
+        2
       ],
       [
-        0,
         2,
-        1,
-        0,
-        0
-      ],
-      [
-        0,
-        1,
+        5,
         2,
         0,
-        0
+        2
+      ],
+      [
+        0,
+        0,
+        9,
+        0,
+        1
       ],
       [
         0,
         0,
         0,
-        3,
-        0
+        9,
+        1
       ],
       [
-        0,
+        2,
         1,
-        0,
-        0,
-        5
+        1,
+        1,
+        16
       ]
     ],
     "labels": [
@@ -126,907 +126,105 @@
       "liquid",
       "scratch"
     ],
-    "train_size": 42,
-    "eval_size": 18,
-    "feature_extractor": "resnet18_finetuned",
-    "feature_mode": "cnn_heatmap_object_crop",
+    "train_size": 60,
+    "eval_size": 60,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_mask_shape",
+    "feature_mode": "global_roi_shape_texture",
     "defect_only": true,
-    "best_epoch": 5,
-    "history": [
-      {
-        "accuracy": 0.3333,
-        "macro_f1": 0.335,
-        "classification_report": {
-          "color": {
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1-score": 0.0,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 1.0,
-            "recall": 0.3333333333333333,
-            "f1-score": 0.5,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.23076923076923078,
-            "recall": 1.0,
-            "f1-score": 0.375,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.8,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1-score": 0.0,
-            "support": 6.0
-          },
-          "accuracy": 0.3333333333333333,
-          "macro avg": {
-            "precision": 0.4461538461538462,
-            "recall": 0.4,
-            "f1-score": 0.335,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.3717948717948718,
-            "recall": 0.3333333333333333,
-            "f1-score": 0.2791666666666667,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            0,
-            0,
-            3,
-            0,
-            0
-          ],
-          [
-            0,
-            1,
-            2,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            3,
-            0,
-            0
-          ],
-          [
-            1,
-            0,
-            0,
-            2,
-            0
-          ],
-          [
-            1,
-            0,
-            5,
-            0,
-            0
-          ]
-        ],
-        "epoch": 1,
-        "train_loss": 1.7455
-      },
-      {
-        "accuracy": 0.6667,
-        "macro_f1": 0.6871,
-        "classification_report": {
-          "color": {
-            "precision": 0.6,
-            "recall": 1.0,
-            "f1-score": 0.75,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 1.0,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.8,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.42857142857142855,
-            "recall": 1.0,
-            "f1-score": 0.6,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 1.0,
-            "recall": 0.16666666666666666,
-            "f1-score": 0.2857142857142857,
-            "support": 6.0
-          },
-          "accuracy": 0.6666666666666666,
-          "macro avg": {
-            "precision": 0.8057142857142857,
-            "recall": 0.7666666666666666,
-            "f1-score": 0.687142857142857,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.8380952380952381,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6202380952380951,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            3,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            2,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            3,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            3,
-            0
-          ],
-          [
-            2,
-            0,
-            3,
-            0,
-            1
-          ]
-        ],
-        "epoch": 2,
-        "train_loss": 1.1379
-      },
-      {
-        "accuracy": 0.6111,
-        "macro_f1": 0.6467,
-        "classification_report": {
-          "color": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.2857142857142857,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.4,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 1.0,
-            "recall": 0.3333333333333333,
-            "f1-score": 0.5,
-            "support": 6.0
-          },
-          "accuracy": 0.6111111111111112,
-          "macro avg": {
-            "precision": 0.7238095238095238,
-            "recall": 0.6666666666666667,
-            "f1-score": 0.6466666666666667,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.7698412698412699,
-            "recall": 0.6111111111111112,
-            "f1-score": 0.6222222222222222,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            2,
-            0,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            2,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            1,
-            2,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            3,
-            0
-          ],
-          [
-            1,
-            0,
-            3,
-            0,
-            2
-          ]
-        ],
-        "epoch": 3,
-        "train_loss": 1.0686
-      },
-      {
-        "accuracy": 0.8333,
-        "macro_f1": 0.8199,
-        "classification_report": {
-          "color": {
-            "precision": 0.75,
-            "recall": 1.0,
-            "f1-score": 0.8571428571428571,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 1.0,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.9090909090909091,
-            "support": 6.0
-          },
-          "accuracy": 0.8333333333333334,
-          "macro avg": {
-            "precision": 0.8166666666666667,
-            "recall": 0.8333333333333333,
-            "f1-score": 0.8199134199134198,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.8472222222222222,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.8347763347763348,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            3,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            2,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            1,
-            2,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            3,
-            0
-          ],
-          [
-            1,
-            0,
-            0,
-            0,
-            5
-          ]
-        ],
-        "epoch": 4,
-        "train_loss": 0.851
-      },
-      {
-        "accuracy": 0.8333,
-        "macro_f1": 0.8294,
-        "classification_report": {
-          "color": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 0.5,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.5714285714285714,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 1.0,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.9090909090909091,
-            "support": 6.0
-          },
-          "accuracy": 0.8333333333333334,
-          "macro avg": {
-            "precision": 0.8333333333333333,
-            "recall": 0.8333333333333333,
-            "f1-score": 0.8294372294372294,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.8611111111111112,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.8427128427128427,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            3,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            2,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            1,
-            2,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            3,
-            0
-          ],
-          [
-            0,
-            1,
-            0,
-            0,
-            5
-          ]
-        ],
-        "epoch": 5,
-        "train_loss": 0.5612
-      },
-      {
-        "accuracy": 0.8333,
-        "macro_f1": 0.8199,
-        "classification_report": {
-          "color": {
-            "precision": 0.75,
-            "recall": 1.0,
-            "f1-score": 0.8571428571428571,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 1.0,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.9090909090909091,
-            "support": 6.0
-          },
-          "accuracy": 0.8333333333333334,
-          "macro avg": {
-            "precision": 0.8166666666666667,
-            "recall": 0.8333333333333333,
-            "f1-score": 0.8199134199134198,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.8472222222222222,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.8347763347763348,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            3,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            2,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            1,
-            2,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            3,
-            0
-          ],
-          [
-            1,
-            0,
-            0,
-            0,
-            5
-          ]
-        ],
-        "epoch": 6,
-        "train_loss": 0.5879
-      },
-      {
-        "accuracy": 0.8333,
-        "macro_f1": 0.8294,
-        "classification_report": {
-          "color": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 0.5,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.5714285714285714,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 1.0,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.9090909090909091,
-            "support": 6.0
-          },
-          "accuracy": 0.8333333333333334,
-          "macro avg": {
-            "precision": 0.8333333333333333,
-            "recall": 0.8333333333333333,
-            "f1-score": 0.8294372294372294,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.8611111111111112,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.8427128427128427,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            3,
-            0,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            2,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            1,
-            2,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            3,
-            0
-          ],
-          [
-            0,
-            1,
-            0,
-            0,
-            5
-          ]
-        ],
-        "epoch": 7,
-        "train_loss": 0.4904
-      },
-      {
-        "accuracy": 0.7778,
-        "macro_f1": 0.7752,
-        "classification_report": {
-          "color": {
-            "precision": 1.0,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.8,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 0.4,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.5,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 1.0,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.9090909090909091,
-            "support": 6.0
-          },
-          "accuracy": 0.7777777777777778,
-          "macro avg": {
-            "precision": 0.8133333333333332,
-            "recall": 0.7666666666666667,
-            "f1-score": 0.7751515151515151,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.8444444444444444,
-            "recall": 0.7777777777777778,
-            "f1-score": 0.7974747474747476,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            2,
-            1,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            2,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            1,
-            2,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            3,
-            0
-          ],
-          [
-            0,
-            1,
-            0,
-            0,
-            5
-          ]
-        ],
-        "epoch": 8,
-        "train_loss": 0.5997
-      },
-      {
-        "accuracy": 0.7778,
-        "macro_f1": 0.7752,
-        "classification_report": {
-          "color": {
-            "precision": 1.0,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.8,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 0.4,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.5,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 1.0,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.9090909090909091,
-            "support": 6.0
-          },
-          "accuracy": 0.7777777777777778,
-          "macro avg": {
-            "precision": 0.8133333333333332,
-            "recall": 0.7666666666666667,
-            "f1-score": 0.7751515151515151,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.8444444444444444,
-            "recall": 0.7777777777777778,
-            "f1-score": 0.7974747474747476,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            2,
-            1,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            2,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            1,
-            2,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            3,
-            0
-          ],
-          [
-            0,
-            1,
-            0,
-            0,
-            5
-          ]
-        ],
-        "epoch": 9,
-        "train_loss": 0.3766
-      },
-      {
-        "accuracy": 0.7778,
-        "macro_f1": 0.7752,
-        "classification_report": {
-          "color": {
-            "precision": 1.0,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.8,
-            "support": 3.0
-          },
-          "combined": {
-            "precision": 0.4,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.5,
-            "support": 3.0
-          },
-          "hole": {
-            "precision": 0.6666666666666666,
-            "recall": 0.6666666666666666,
-            "f1-score": 0.6666666666666666,
-            "support": 3.0
-          },
-          "liquid": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1-score": 1.0,
-            "support": 3.0
-          },
-          "scratch": {
-            "precision": 1.0,
-            "recall": 0.8333333333333334,
-            "f1-score": 0.9090909090909091,
-            "support": 6.0
-          },
-          "accuracy": 0.7777777777777778,
-          "macro avg": {
-            "precision": 0.8133333333333332,
-            "recall": 0.7666666666666667,
-            "f1-score": 0.7751515151515151,
-            "support": 18.0
-          },
-          "weighted avg": {
-            "precision": 0.8444444444444444,
-            "recall": 0.7777777777777778,
-            "f1-score": 0.7974747474747476,
-            "support": 18.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            2,
-            1,
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            2,
-            1,
-            0,
-            0
-          ],
-          [
-            0,
-            1,
-            2,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0,
-            3,
-            0
-          ],
-          [
-            0,
-            1,
-            0,
-            0,
-            5
-          ]
-        ],
-        "epoch": 10,
-        "train_loss": 0.4966
-      }
-    ],
     "evaluation": {
-      "protocol": "stratified holdout validation; best epoch selected by macro F1",
-      "selected_classifier": "resnet18_finetuned_weighted_cross_entropy",
-      "loss": "weighted_cross_entropy_label_smoothing_0.05",
-      "augmentation": "small affine plus brightness/contrast jitter"
+      "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
+      "selected_classifier": "lda_shrinkage",
+      "folds": 5,
+      "candidate_scores": {
+        "logistic_c0.01": {
+          "mean_accuracy": 0.7333,
+          "std_accuracy": 0.0972,
+          "mean_macro_f1": 0.6648,
+          "std_macro_f1": 0.1398
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.7167,
+          "std_accuracy": 0.1,
+          "mean_macro_f1": 0.6348,
+          "std_macro_f1": 0.1358
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.7167,
+          "std_accuracy": 0.1,
+          "mean_macro_f1": 0.6348,
+          "std_macro_f1": 0.1358
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.7,
+          "std_accuracy": 0.085,
+          "mean_macro_f1": 0.6439,
+          "std_macro_f1": 0.0919
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.75,
+          "std_accuracy": 0.1179,
+          "mean_macro_f1": 0.6836,
+          "std_macro_f1": 0.1799
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.7333,
+          "std_accuracy": 0.1225,
+          "mean_macro_f1": 0.6404,
+          "std_macro_f1": 0.1676
+        },
+        "random_forest": {
+          "mean_accuracy": 0.6833,
+          "std_accuracy": 0.1333,
+          "mean_macro_f1": 0.6017,
+          "std_macro_f1": 0.196
+        },
+        "gradient_boosting": {
+          "mean_accuracy": 0.5167,
+          "std_accuracy": 0.0972,
+          "mean_macro_f1": 0.4647,
+          "std_macro_f1": 0.0742
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.55,
+          "std_accuracy": 0.113,
+          "mean_macro_f1": 0.4529,
+          "std_macro_f1": 0.1697
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.5667,
+          "std_accuracy": 0.0624,
+          "mean_macro_f1": 0.4265,
+          "std_macro_f1": 0.06
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.5667,
+          "std_accuracy": 0.0624,
+          "mean_macro_f1": 0.4265,
+          "std_macro_f1": 0.06
+        },
+        "knn_3": {
+          "mean_accuracy": 0.5833,
+          "std_accuracy": 0.1054,
+          "mean_macro_f1": 0.5182,
+          "std_macro_f1": 0.1521
+        },
+        "knn_5": {
+          "mean_accuracy": 0.5667,
+          "std_accuracy": 0.0972,
+          "mean_macro_f1": 0.5161,
+          "std_macro_f1": 0.1655
+        }
+      },
+      "outer_selection_frequency": {
+        "logistic_c0.01": 1,
+        "logistic_c10": 4
+      }
     },
     "dataset_context": {
       "source": "MVTec AD labelled test folders",
-      "protocol": "defect-only subtype CNN classification using object/defect crops",
-      "category": "wood",
-      "crop_mode": "full"
-    },
-    "active_artifact": "models/categories/wood/cnn_defect_classifier.onnx"
+      "protocol": "defect-only subtype classification with stratified cross-validation using ground truth masks; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "wood"
+    }
   },
   "portable_detector": "resnet18_normal_memory_with_opencv_localization",
   "portable_train_good_images": 247,
@@ -1052,5 +250,268 @@
     "detector": "resnet18_normal_memory",
     "localization": "opencv_normalized_residual",
     "residual_threshold": 1.21693
+  },
+  "openvino_spatial_calibration": {
+    "detector": "padim_openvino_spatial_calibrator",
+    "protocol": "nested stratified cross-validation on labelled MVTec test images; each outer fold performs calibrator and threshold selection using only its training partition; production calibrator is fitted on all labelled images after evaluation",
+    "folds": 5,
+    "samples": 79,
+    "selected_classifier": "extra_trees_wide_leaf1",
+    "candidate_scores": {
+      "extra_trees_sqrt_leaf1": {
+        "threshold": 0.64,
+        "balanced_accuracy": 0.9404,
+        "f1": 0.9573,
+        "auroc": 0.9882
+      },
+      "extra_trees_wide_leaf1": {
+        "threshold": 0.856667,
+        "balanced_accuracy": 0.9583,
+        "f1": 0.9565,
+        "auroc": 0.9877
+      },
+      "extra_trees_sqrt_leaf2": {
+        "threshold": 0.386695,
+        "balanced_accuracy": 0.939,
+        "f1": 0.9752,
+        "auroc": 0.986
+      },
+      "random_forest_sqrt_leaf1": {
+        "threshold": 0.575,
+        "balanced_accuracy": 0.9487,
+        "f1": 0.9661,
+        "auroc": 0.9838
+      }
+    },
+    "outer_selection_frequency": {
+      "extra_trees_sqrt_leaf1": 1,
+      "extra_trees_wide_leaf1": 3,
+      "random_forest_sqrt_leaf1": 1
+    },
+    "outer_thresholds": [
+      0.486667,
+      0.75,
+      0.575,
+      0.55,
+      0.83
+    ],
+    "decision_threshold": 0.856667,
+    "accuracy": 0.9367,
+    "precision": 0.9661,
+    "recall": 0.95,
+    "specificity": 0.8947,
+    "balanced_accuracy": 0.9224,
+    "f1": 0.958,
+    "auroc": 0.9833,
+    "confusion_matrix": [
+      [
+        17,
+        2
+      ],
+      [
+        3,
+        57
+      ]
+    ],
+    "defect_subtype_recall": {
+      "color": 1.0,
+      "combined": 1.0,
+      "hole": 0.9,
+      "liquid": 1.0,
+      "scratch": 0.9048
+    },
+    "artifact": "models/categories/wood/openvino_calibrator.npz"
+  },
+  "defect_classifier_revalidation": {
+    "accuracy": 0.7333,
+    "macro_f1": 0.7212,
+    "classification_report": {
+      "color": {
+        "precision": 0.5555555555555556,
+        "recall": 0.625,
+        "f1-score": 0.5882352941176471,
+        "support": 8.0
+      },
+      "combined": {
+        "precision": 0.7142857142857143,
+        "recall": 0.45454545454545453,
+        "f1-score": 0.5555555555555556,
+        "support": 11.0
+      },
+      "hole": {
+        "precision": 0.75,
+        "recall": 0.9,
+        "f1-score": 0.8181818181818182,
+        "support": 10.0
+      },
+      "liquid": {
+        "precision": 0.9,
+        "recall": 0.9,
+        "f1-score": 0.9,
+        "support": 10.0
+      },
+      "scratch": {
+        "precision": 0.7272727272727273,
+        "recall": 0.7619047619047619,
+        "f1-score": 0.7441860465116279,
+        "support": 21.0
+      },
+      "accuracy": 0.7333333333333333,
+      "macro avg": {
+        "precision": 0.7294227994227993,
+        "recall": 0.7282900432900432,
+        "f1-score": 0.7212317428733297,
+        "support": 60.0
+      },
+      "weighted avg": {
+        "precision": 0.7345719095719097,
+        "recall": 0.7333333333333333,
+        "f1-score": 0.7271119770435776,
+        "support": 60.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        5,
+        1,
+        0,
+        0,
+        2
+      ],
+      [
+        2,
+        5,
+        2,
+        0,
+        2
+      ],
+      [
+        0,
+        0,
+        9,
+        0,
+        1
+      ],
+      [
+        0,
+        0,
+        0,
+        9,
+        1
+      ],
+      [
+        2,
+        1,
+        1,
+        1,
+        16
+      ]
+    ],
+    "labels": [
+      "color",
+      "combined",
+      "hole",
+      "liquid",
+      "scratch"
+    ],
+    "train_size": 60,
+    "eval_size": 60,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_mask_shape",
+    "feature_mode": "global_roi_shape_texture",
+    "defect_only": true,
+    "evaluation": {
+      "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
+      "selected_classifier": "lda_shrinkage",
+      "folds": 5,
+      "candidate_scores": {
+        "logistic_c0.01": {
+          "mean_accuracy": 0.7333,
+          "std_accuracy": 0.0972,
+          "mean_macro_f1": 0.6648,
+          "std_macro_f1": 0.1398
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.7167,
+          "std_accuracy": 0.1,
+          "mean_macro_f1": 0.6348,
+          "std_macro_f1": 0.1358
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.7167,
+          "std_accuracy": 0.1,
+          "mean_macro_f1": 0.6348,
+          "std_macro_f1": 0.1358
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.7,
+          "std_accuracy": 0.085,
+          "mean_macro_f1": 0.6439,
+          "std_macro_f1": 0.0919
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.75,
+          "std_accuracy": 0.1179,
+          "mean_macro_f1": 0.6836,
+          "std_macro_f1": 0.1799
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.7333,
+          "std_accuracy": 0.1225,
+          "mean_macro_f1": 0.6404,
+          "std_macro_f1": 0.1676
+        },
+        "random_forest": {
+          "mean_accuracy": 0.6833,
+          "std_accuracy": 0.1333,
+          "mean_macro_f1": 0.6017,
+          "std_macro_f1": 0.196
+        },
+        "gradient_boosting": {
+          "mean_accuracy": 0.5167,
+          "std_accuracy": 0.0972,
+          "mean_macro_f1": 0.4647,
+          "std_macro_f1": 0.0742
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.55,
+          "std_accuracy": 0.113,
+          "mean_macro_f1": 0.4529,
+          "std_macro_f1": 0.1697
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.5667,
+          "std_accuracy": 0.0624,
+          "mean_macro_f1": 0.4265,
+          "std_macro_f1": 0.06
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.5667,
+          "std_accuracy": 0.0624,
+          "mean_macro_f1": 0.4265,
+          "std_macro_f1": 0.06
+        },
+        "knn_3": {
+          "mean_accuracy": 0.5833,
+          "std_accuracy": 0.1054,
+          "mean_macro_f1": 0.5182,
+          "std_macro_f1": 0.1521
+        },
+        "knn_5": {
+          "mean_accuracy": 0.5667,
+          "std_accuracy": 0.0972,
+          "mean_macro_f1": 0.5161,
+          "std_macro_f1": 0.1655
+        }
+      },
+      "outer_selection_frequency": {
+        "logistic_c0.01": 1,
+        "logistic_c10": 4
+      }
+    },
+    "dataset_context": {
+      "source": "MVTec AD labelled test folders",
+      "protocol": "defect-only subtype classification with stratified cross-validation using ground truth masks; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "wood"
+    }
   }
 }
