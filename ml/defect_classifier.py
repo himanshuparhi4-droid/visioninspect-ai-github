@@ -129,6 +129,21 @@ def warm_shared_feature_runtime() -> None:
     )
 
 
+def refine_defect_mask_for_classification(mask: np.ndarray | None) -> np.ndarray | None:
+    """Filter out soft reflection halos and isolate the core localized defect."""
+    if mask is None or not np.any(mask):
+        return mask
+    mask_u8 = mask.astype(np.uint8)
+    num_labels, comp_labels, stats, _ = cv2.connectedComponentsWithStats(mask_u8)
+    if num_labels <= 2:
+        return mask
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    max_area = float(np.max(areas))
+    valid_comps = np.where(areas >= max_area * 0.25)[0] + 1
+    clean_mask = np.isin(comp_labels, valid_comps).astype(np.uint8)
+    return clean_mask.astype(bool)
+
+
 def classify_defect_type(
     image_path: str | Path,
     classifier_model_path: str | Path,
@@ -148,6 +163,8 @@ def classify_defect_type(
         load_portable_forest,
         predict_portable_forest,
     )
+
+    defect_mask = refine_defect_mask_for_classification(defect_mask)
 
     classifier_model_path = Path(classifier_model_path)
     cnn_onnx_path = (
