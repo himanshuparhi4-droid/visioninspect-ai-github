@@ -242,10 +242,25 @@ def classify_defect_type(
 
     classifier = bundle["classifier"]
     label = str(classifier.predict(features)[0])
-    probabilities = classifier.predict_proba(features)[0]
+    classes = getattr(classifier, "classes_", bundle.get("labels", []))
+    if hasattr(classifier, "predict_proba"):
+        probabilities = classifier.predict_proba(features)[0]
+    elif hasattr(classifier, "decision_function"):
+        decision = np.asarray(classifier.decision_function(features))[0]
+        if decision.ndim == 0:
+            prob = 1.0 / (1.0 + np.exp(-decision))
+            probabilities = np.array([1.0 - prob, prob], dtype=np.float32)
+        else:
+            exp_scores = np.exp(decision - np.max(decision))
+            probabilities = exp_scores / max(float(exp_scores.sum()), 1e-6)
+    else:
+        probabilities = np.zeros(len(classes), dtype=np.float32)
+        match_idx = list(classes).index(label) if label in list(classes) else 0
+        probabilities[match_idx] = 1.0
+
     class_probabilities = {
         str(class_name): round(float(probability), 4)
-        for class_name, probability in zip(classifier.classes_, probabilities, strict=False)
+        for class_name, probability in zip(classes, probabilities, strict=False)
     }
     return {
         "defect_type": label,
