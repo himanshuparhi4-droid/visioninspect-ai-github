@@ -591,12 +591,18 @@ def extract_handcrafted_roi_shape_features(
 
 
 def create_estimator(kind: str = "logistic", regularization: float = 1.0):
+    from sklearn.calibration import CalibratedClassifierCV
     from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
     from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingClassifier, RandomForestClassifier
-    from sklearn.linear_model import LogisticRegression, SGDClassifier
+    from sklearn.linear_model import LogisticRegression, RidgeClassifier, SGDClassifier
     from sklearn.neighbors import KNeighborsClassifier
-    from sklearn.svm import SVC
+    from sklearn.svm import SVC, LinearSVC
 
+    if kind == "linear_svc":
+        base = LinearSVC(C=regularization, random_state=42, max_iter=4000)
+        return CalibratedClassifierCV(estimator=base, method="sigmoid", cv=3)
+    if kind == "ridge":
+        return RidgeClassifier(alpha=regularization, random_state=42)
     if kind == "svc":
         return SVC(
             C=regularization,
@@ -679,11 +685,16 @@ def classifier_candidates(feature_count: int | None = None) -> dict[str, Pipelin
             "sgd_log_alpha0.001": create_classifier("sgd_log_loss", 0.001),
             "pca_logistic_c0.1": create_pca_classifier("logistic", 0.1),
             "pca_svc_rbf_c5": create_pca_classifier("svc", 5.0),
+            "linear_svc_c0.01": create_classifier("linear_svc", 0.01),
+            "linear_svc_c0.05": create_classifier("linear_svc", 0.05),
             "extra_trees": create_classifier("extra_trees"),
             "random_forest": create_classifier("random_forest"),
         }
 
     base_candidates = {
+        "linear_svc_c0.01": create_classifier("linear_svc", 0.01),
+        "linear_svc_c0.05": create_classifier("linear_svc", 0.05),
+        "linear_svc_c0.1": create_classifier("linear_svc", 0.1),
         "logistic_c0.01": create_classifier("logistic", 0.01),
         "logistic_c0.1": create_classifier("logistic", 0.1),
         "logistic_c1": create_classifier("logistic", 1.0),
