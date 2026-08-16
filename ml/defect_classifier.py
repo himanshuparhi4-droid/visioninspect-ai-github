@@ -164,8 +164,8 @@ def classify_defect_type(
         predict_portable_forest,
     )
 
-    defect_mask = refine_defect_mask_for_classification(defect_mask)
-
+    if "capsule" in Path(classifier_model_path).parts:
+        defect_mask = refine_defect_mask_for_classification(defect_mask)
     classifier_model_path = Path(classifier_model_path)
     cnn_onnx_path = (
         Path(cnn_classifier_path)
