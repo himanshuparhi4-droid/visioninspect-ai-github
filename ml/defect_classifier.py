@@ -55,8 +55,9 @@ def predict_portable_cnn_defect_type(
 ) -> dict:
     from ml.object_preprocessing import prepare_classifier_view, read_bgr
 
-    runtime = load_portable_cnn_runtime(str(model_path), str(metadata_path))
-    metadata = runtime.metadata
+    metadata_path = Path(metadata_path)
+    model_path = Path(model_path)
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     image_size = int(metadata["image_size"])
     crop_mode = str(metadata.get("preprocessing", {}).get("view", "defect"))
     image_bgr = read_bgr(image_path)
@@ -78,7 +79,26 @@ def predict_portable_cnn_defect_type(
     mean = np.asarray((0.485, 0.456, 0.406), dtype=np.float32)
     std = np.asarray((0.229, 0.224, 0.225), dtype=np.float32)
     tensor = np.transpose((rgb - mean) / std, (2, 0, 1))[None].astype(np.float32, copy=False)
-    logits = runtime.predict(tensor).reshape(-1)
+
+    # Ensemble inference: average logits from multiple models
+    ensemble_model_names = metadata.get("ensemble_models")
+    if ensemble_model_names:
+        model_dir = model_path.parent
+        all_logits = []
+        for name in ensemble_model_names:
+            ensemble_path = model_dir / name
+            if ensemble_path.exists():
+                runtime = load_portable_cnn_runtime(str(ensemble_path), str(metadata_path))
+                all_logits.append(runtime.predict(tensor).reshape(-1))
+        if all_logits:
+            logits = np.mean(all_logits, axis=0)
+        else:
+            runtime = load_portable_cnn_runtime(str(model_path), str(metadata_path))
+            logits = runtime.predict(tensor).reshape(-1)
+    else:
+        runtime = load_portable_cnn_runtime(str(model_path), str(metadata_path))
+        logits = runtime.predict(tensor).reshape(-1)
+
     probabilities = np.exp(logits - np.max(logits))
     probabilities /= probabilities.sum()
     labels = [str(label) for label in metadata["labels"]]
@@ -90,7 +110,7 @@ def predict_portable_cnn_defect_type(
             label: round(float(probability), 4)
             for label, probability in zip(labels, probabilities, strict=True)
         },
-        "classifier_engine": "fine_tuned_resnet18_onnx",
+        "classifier_engine": "fine_tuned_resnet18_onnx_ensemble" if ensemble_model_names else "fine_tuned_resnet18_onnx",
     }
 
 

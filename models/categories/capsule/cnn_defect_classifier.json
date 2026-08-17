@@ -14,5 +14,11 @@
     "alignment": "elongated_object_deskew",
     "contrast": "LAB_CLAHE"
   },
-  "classifier_engine": "fine_tuned_resnet18_onnx"
+  "classifier_engine": "fine_tuned_resnet18_onnx",
+  "ensemble": true,
+  "ensemble_models": [
+    "cnn_defect_classifier_0.onnx",
+    "cnn_defect_classifier_1.onnx",
+    "cnn_defect_classifier_2.onnx"
+  ]
 }
