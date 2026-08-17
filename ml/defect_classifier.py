@@ -68,6 +68,9 @@ def predict_portable_cnn_defect_type(
         view = prepare_classifier_view(image_bgr, None, image_size=image_size)
     elif crop_mode in {"defect", "object_crop_or_anomaly_mask_crop"}:
         view = prepare_classifier_view(image_bgr, defect_mask, image_size=image_size)
+    elif crop_mode == "bbox":
+        from ml.cnn_classifier import prepare_cnn_view
+        view = prepare_cnn_view(image_bgr, defect_mask, image_size=image_size, crop_mode=crop_mode)
     else:
         raise DefectClassifierError(f"Unsupported portable CNN crop mode: {crop_mode}")
 

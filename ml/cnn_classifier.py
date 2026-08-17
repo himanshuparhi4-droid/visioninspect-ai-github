@@ -107,6 +107,14 @@ def prepare_cnn_view(
         return prepare_classifier_view(image_bgr, None, image_size=image_size)
     if crop_mode in {"defect", "object_crop_or_anomaly_mask_crop"}:
         return prepare_classifier_view(image_bgr, defect_mask, image_size=image_size)
+    if crop_mode == "bbox":
+        from ml.object_preprocessing import crop_to_mask, bbox_from_mask
+        if defect_mask is not None and np.any(defect_mask):
+            crop = crop_to_mask(image_bgr, defect_mask, padding_ratio=0.10, min_size_ratio=0.10)
+        else:
+            crop = crop_to_mask(image_bgr, defect_mask, padding_ratio=0.10, min_size_ratio=0.10)
+        crop = resize_with_padding(crop, (image_size, image_size), fill_value=0)
+        return enhance_contrast_bgr(crop)
     raise ValueError(f"Unsupported CNN crop_mode: {crop_mode}")
 
 
@@ -122,6 +130,8 @@ def build_resnet18_classifier(num_classes: int, *, freeze_backbone: bool = True)
     if freeze_backbone:
         for parameter in model.parameters():
             parameter.requires_grad = False
+        for parameter in model.layer3.parameters():
+            parameter.requires_grad = True
         for parameter in model.layer4.parameters():
             parameter.requires_grad = True
 

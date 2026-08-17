@@ -22,7 +22,8 @@
     "model_kind": "patchcore",
     "baseline_score_threshold": 0.008157,
     "baseline_residual_threshold": 0.542293,
-    "openvino_calibrator_path": "models/categories/capsule/openvino_calibrator.npz"
+    "openvino_calibrator_path": "models/categories/capsule/openvino_calibrator.npz",
+    "cnn_classifier_path": "models/categories/capsule/cnn_defect_classifier.onnx"
   },
   "carpet": {
     "checkpoint_path": "models/categories/carpet/padim_v1.ckpt",

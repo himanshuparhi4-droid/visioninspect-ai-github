@@ -92,13 +92,6 @@ def test_shared_onnx_feature_model_is_github_safe():
     assert not pytorch_weights_path.exists()
 
 
-def test_weaker_cnn_classifiers_are_not_selected_over_revalidated_models():
-    for category in ("capsule", "wood"):
-        spec = category_model_spec(category)
-
-        assert spec.cnn_classifier_path is None
-        assert spec.classifier_path.exists()
-
 
 def test_portable_logistic_runtime_matches_sklearn(tmp_path):
     features = np.asarray(

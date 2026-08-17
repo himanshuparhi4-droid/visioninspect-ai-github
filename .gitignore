@@ -48,6 +48,8 @@ models/categories/**/promotion_runs/
 models/exported/*
 !models/exported/cable/
 !models/exported/cable/**
+!models/exported/capsule/
+!models/exported/capsule/**
 outputs/
 results/
 tmp/
