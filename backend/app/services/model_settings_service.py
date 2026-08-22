@@ -2,10 +2,9 @@ import json
 import logging
 from pathlib import Path
 
-import joblib
 from pydantic import ValidationError
 
-from app.config import settings
+from app.config import resource_constrained_runtime, settings
 from app.schemas.model_schema import RuntimeModelSettings
 from app.utils import uploads_path
 
@@ -40,16 +39,6 @@ def save_runtime_settings(payload: RuntimeModelSettings) -> RuntimeModelSettings
     return payload
 
 
-def load_classifier_metrics(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    try:
-        bundle = joblib.load(path)
-    except Exception:
-        return {}
-    return bundle.get("metrics", {}) if isinstance(bundle, dict) else {}
-
-
 def read_json_artifact(path: Path) -> dict:
     if not path.exists():
         return {}
@@ -67,18 +56,13 @@ def artifact_size_mb(*paths: Path | None) -> float:
 
 def load_active_classifier_evidence(spec, status: dict, category_metadata: dict) -> tuple[dict, str]:
     """Read metrics from the classifier that the runtime will actually load."""
-    engine = status.get("classifier_engine")
+    engine = status.get("classifier_engine") or status.get("engine")
     if engine == "fine_tuned_resnet18_onnx" and spec.cnn_classifier_path is not None:
         sidecar = read_json_artifact(spec.cnn_classifier_path.with_suffix(".json"))
         metrics = sidecar.get("metrics") or category_metadata.get("defect_classifier") or {}
         return metrics, "Active ONNX classifier evaluation"
     if engine == "sklearn_feature_classifier" and spec.classifier_path.exists():
-        try:
-            bundle = joblib.load(spec.classifier_path)
-        except Exception:
-            return {}, "Classifier artifact could not be read"
-        metrics = bundle.get("metrics", {}) if isinstance(bundle, dict) else {}
-        return metrics, "Active classifier artifact"
+        return category_metadata.get("defect_classifier") or {}, "Saved active classifier evaluation"
     if engine == "portable_forest":
         return category_metadata.get("defect_classifier") or {}, "Portable classifier evaluation metadata"
     return {}, "No active subtype classifier"
@@ -115,9 +99,7 @@ def build_model_metrics_payload() -> dict:
 
     bottle_spec = category_model_spec("bottle")
     metadata = load_model_metadata(str(bottle_spec.metadata_path))
-    classifier_metrics = metadata.get("defect_classifier") or load_classifier_metrics(
-        bottle_spec.classifier_path
-    )
+    classifier_metrics = metadata.get("defect_classifier") or {}
     classifier_report = classifier_metrics.get("classification_report", {})
     labels = classifier_metrics.get("labels") or metadata.get("defect_classifier", {}).get("labels", [])
     confusion_matrix = classifier_metrics.get("confusion_matrix", [])
@@ -158,6 +140,7 @@ def build_model_metrics_payload() -> dict:
     for status in category_model_statuses(
         settings.use_padim_inference,
         settings.use_openvino_inference,
+        resource_constrained_runtime(),
     ):
         spec = category_model_spec(status["category"])
         category_metadata = read_json_artifact(spec.metadata_path)
@@ -245,6 +228,9 @@ def build_model_metrics_payload() -> dict:
                 "trained": status["trained"],
                 "active_engine": status["active_engine"],
                 "deployment_tier": status["deployment_tier"],
+                "openvino_available": status["openvino_available"],
+                "openvino_memory_safe": status["openvino_memory_safe"],
+                "openvino_deferred_for_memory": status["openvino_deferred_for_memory"],
                 "classifier_engine": status["classifier_engine"],
                 "subtype_labels": status["subtype_labels"],
                 "subtype_count": status["subtype_count"],
@@ -279,7 +265,7 @@ def build_model_metrics_payload() -> dict:
                 "deployment_precision": openvino_export.get("precision")
                 if status["active_engine"].endswith("_openvino")
                 else "FP32",
-                "fallback_available": bool(status.get("artifacts", {}).get("profile", {}).get("available")),
+                "fallback_available": bool(status.get("artifacts", {}).get("profile")),
                 "classification_trained": status["classification_trained"],
                 "model_kind": status["model_kind"],
                 "decision_threshold": status["decision_threshold"],

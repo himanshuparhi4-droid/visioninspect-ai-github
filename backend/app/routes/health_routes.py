@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from app.config import settings
+from app.config import resource_constrained_runtime, settings
 from app.services.cloudinary_service import cloudinary_is_configured, storage_backend
 from ml.model_registry import category_model_spec, category_model_statuses
 
@@ -15,16 +15,22 @@ async def health_check(request: Request) -> dict:
     category_statuses = category_model_statuses(
         settings.use_padim_inference,
         settings.use_openvino_inference,
+        resource_constrained_runtime(),
     )
     bottle_model = category_model_spec("bottle")
-    advanced_enabled = settings.use_padim_inference and any(
-        item["advanced_model_available"] for item in category_statuses
+    advanced_enabled = any(
+        item["active_engine"] in {"padim", "patchcore"} for item in category_statuses
     )
-    openvino_enabled = settings.use_openvino_inference and any(
+    openvino_enabled = any(
         item["active_engine"].endswith("_openvino") for item in category_statuses
     )
+    portable_enabled = any(
+        item["active_engine"] == "portable_baseline" for item in category_statuses
+    )
     active_engine = (
-        "openvino-anomaly-models"
+        "adaptive-openvino-portable"
+        if openvino_enabled and portable_enabled
+        else "openvino-anomaly-models"
         if openvino_enabled
         else "advanced-anomaly-models"
         if advanced_enabled
@@ -52,11 +58,19 @@ async def health_check(request: Request) -> dict:
             "local_upload_route": "/uploads",
         },
         "inference": {
+            "runtime_profile": settings.model_runtime_profile,
+            "resource_constrained": resource_constrained_runtime(),
             "padim_enabled": advanced_enabled,
             "padim_requested": settings.use_padim_inference,
             "padim_accelerator": settings.padim_inference_accelerator,
             "openvino_enabled": openvino_enabled,
             "openvino_device": settings.openvino_inference_device,
+            "openvino_categories": sum(
+                item["active_engine"].endswith("_openvino") for item in category_statuses
+            ),
+            "portable_categories": sum(
+                item["active_engine"] == "portable_baseline" for item in category_statuses
+            ),
             "active_engine": active_engine,
             "portable_engine": "opencv-baseline",
         },
@@ -77,6 +91,7 @@ async def readiness_check(request: Request) -> JSONResponse:
     category_statuses = category_model_statuses(
         settings.use_padim_inference,
         settings.use_openvino_inference,
+        resource_constrained_runtime(),
     )
     checks = {
         "database_ready": getattr(request.app.state, "database_ready", False),

@@ -63,6 +63,13 @@ CATEGORY_DEFECT_LABELS = {
     ),
 }
 
+LOW_MEMORY_CLASSIFIER_ENGINES = frozenset(
+    {
+        "fine_tuned_resnet18_onnx",
+        "portable_forest",
+    }
+)
+
 
 def is_valid_checkpoint(path: Path) -> bool:
     return path.exists() and path.stat().st_size > 1_000_000
@@ -261,22 +268,40 @@ def classifier_runtime_status(spec: CategoryModelSpec) -> dict:
     return {"engine": "unavailable", "available": False, "artifact": None}
 
 
-def category_model_statuses(advanced_enabled: bool = False, openvino_enabled: bool = False) -> list[dict]:
+def openvino_runtime_is_memory_safe(spec: CategoryModelSpec, classifier_engine: str) -> bool:
+    """Return whether the detector/classifier pair fits the constrained deployment profile."""
+    return spec.model_kind == "padim" or classifier_engine in LOW_MEMORY_CLASSIFIER_ENGINES
+
+
+def category_model_statuses(
+    advanced_enabled: bool = False,
+    openvino_enabled: bool = False,
+    resource_constrained: bool = False,
+) -> list[dict]:
     statuses = []
     for category in SUPPORTED_CATEGORIES:
         spec = category_model_spec(category)
         classifier = classifier_runtime_status(spec)
-        openvino_ready = bool(
-            openvino_enabled
-            and spec.openvino_path is not None
+        openvino_available = bool(
+            spec.openvino_path is not None
             and spec.openvino_path.exists()
             and spec.openvino_path.with_suffix(".bin").exists()
+        )
+        openvino_memory_safe = openvino_runtime_is_memory_safe(spec, classifier["engine"])
+        openvino_requested = openvino_enabled and openvino_available
+        openvino_ready = openvino_requested and (
+            not resource_constrained or openvino_memory_safe
+        )
+        native_advanced_ready = (
+            advanced_enabled
+            and not resource_constrained
+            and is_valid_checkpoint(spec.checkpoint_path)
         )
         active_engine = (
             f"{spec.model_kind}_openvino"
             if openvino_ready
             else spec.model_kind
-            if advanced_enabled and is_valid_checkpoint(spec.checkpoint_path)
+            if native_advanced_ready
             else "portable_baseline"
         )
         statuses.append(
@@ -287,6 +312,11 @@ def category_model_statuses(advanced_enabled: bool = False, openvino_enabled: bo
                 "fully_ready": spec.is_runnable and classifier["available"],
                 "trained": spec.has_advanced_model,
                 "advanced_model_available": spec.has_advanced_model,
+                "openvino_available": openvino_available,
+                "openvino_memory_safe": openvino_memory_safe,
+                "openvino_deferred_for_memory": bool(
+                    resource_constrained and openvino_requested and not openvino_memory_safe
+                ),
                 "classification_trained": classifier["available"],
                 "portable_cnn_available": classifier["engine"] == "fine_tuned_resnet18_onnx",
                 "model_kind": spec.model_kind,

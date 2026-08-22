@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.config import allowed_cors_origins, settings
+from app.config import allowed_cors_origins, resource_constrained_runtime, settings
 from app.db.init_beanie import init_database
 from app.db.mongodb import close_database, ping_database
 from app.errors import register_exception_handlers
@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
     cv2.setUseOptimized(True)
     cv2.setNumThreads(max(1, settings.opencv_num_threads))
     warmup_task = None
-    if settings.warm_model_on_startup:
+    if settings.warm_model_on_startup and not resource_constrained_runtime():
         from ml.defect_classifier import warm_shared_feature_runtime
 
         warmup_task = asyncio.create_task(run_in_threadpool(warm_shared_feature_runtime))

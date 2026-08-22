@@ -123,6 +123,7 @@ export default function ModelMetricsPage() {
                 <th>Good specificity</th>
                 <th>Binary AUROC</th>
                 <th>Subtype classifier</th>
+                <th>Subtype accuracy</th>
                 <th>Subtype macro F1</th>
                 <th>Review threshold</th>
                 <th>Runtime size</th>
@@ -143,6 +144,9 @@ export default function ModelMetricsPage() {
                     <small className="metric-cell-note">
                       {model.deployment_precision || "FP32"} · {model.model_version || "v1"}
                     </small>
+                    {model.openvino_deferred_for_memory ? (
+                      <small className="metric-cell-note">OpenVINO available; portable selected for memory</small>
+                    ) : null}
                   </td>
                   <td>{model.input_size ? `${model.input_size} × ${model.input_size}` : "Pending"}</td>
                   <td>{formatPercentMetric(model.binary_accuracy)}</td>
@@ -151,6 +155,7 @@ export default function ModelMetricsPage() {
                   <td>{formatPercentMetric(model.binary_specificity)}</td>
                   <td>{formatPercentMetric(model.binary_auroc)}</td>
                   <td>{formatEngine(model.classifier_engine)}</td>
+                  <td>{formatPercentMetric(model.subtype_accuracy)}</td>
                   <td>
                     {formatPercentMetric(model.subtype_macro_f1)}
                     <small className="metric-cell-note">

@@ -3227,3 +3227,41 @@ td {
     grid-template-columns: 1fr;
   }
 }
+
+/* Keep desktop navigation and workspace scrolling independent. */
+@media (min-width: 761px) {
+  .app-layout {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .side-nav {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .sidebar.collapsed .side-nav {
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .app-main {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+  }
+}

@@ -27,6 +27,8 @@ services:
         value: "true"
       - key: OPENVINO_INFERENCE_DEVICE
         value: CPU
+      - key: MODEL_RUNTIME_PROFILE
+        value: low_memory
       - key: ANOMALY_MODEL_CACHE_SIZE
         value: "1"
       - key: CLASSIFIER_MODEL_CACHE_SIZE
@@ -36,7 +38,7 @@ services:
       - key: OPENCV_NUM_THREADS
         value: "2"
       - key: WARM_MODEL_ON_STARTUP
-        value: "true"
+        value: "false"
       - key: PADIM_INFERENCE_ACCELERATOR
         value: cpu
       - key: UPLOAD_DIR

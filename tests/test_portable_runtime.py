@@ -17,6 +17,7 @@ from ml.model_registry import (
     category_model_spec,
     category_model_statuses,
     classifier_runtime_status,
+    openvino_runtime_is_memory_safe,
 )
 
 
@@ -81,6 +82,30 @@ def test_registry_can_explicitly_disable_an_unused_cnn_classifier():
 
     assert capsule.cnn_classifier_path is None
     assert classifier_runtime_status(capsule)["engine"] == "sklearn_feature_classifier"
+
+
+def test_low_memory_profile_keeps_only_memory_safe_openvino_pairs():
+    bottle = category_model_spec("bottle")
+    cable = category_model_spec("cable")
+    pill = category_model_spec("pill")
+
+    assert openvino_runtime_is_memory_safe(bottle, "fine_tuned_resnet18_onnx") is True
+    assert openvino_runtime_is_memory_safe(cable, "portable_forest") is True
+    assert openvino_runtime_is_memory_safe(pill, "sklearn_feature_classifier") is False
+
+    statuses = {
+        item["category"]: item
+        for item in category_model_statuses(
+            advanced_enabled=True,
+            openvino_enabled=True,
+            resource_constrained=True,
+        )
+    }
+    assert statuses["bottle"]["active_engine"] == "padim_openvino"
+    assert statuses["cable"]["active_engine"] == "patchcore_openvino"
+    assert statuses["pill"]["active_engine"] == "portable_baseline"
+    assert statuses["pill"]["openvino_available"] is True
+    assert statuses["pill"]["openvino_deferred_for_memory"] is True
 
 
 def test_render_requirements_include_portable_inference_dependencies():

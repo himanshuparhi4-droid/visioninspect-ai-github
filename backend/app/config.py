@@ -1,3 +1,6 @@
+import os
+from typing import Literal
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,6 +24,7 @@ class Settings(BaseSettings):
     use_padim_inference: bool = False
     use_openvino_inference: bool = True
     openvino_inference_device: str = "CPU"
+    model_runtime_profile: Literal["auto", "full", "low_memory"] = "auto"
     padim_inference_accelerator: str = "auto"
     baseline_threshold: float = 1.34
     opencv_num_threads: int = 2
@@ -52,6 +56,15 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def resource_constrained_runtime() -> bool:
+    """Select memory-safe inference automatically on Render's free runtime."""
+    if settings.model_runtime_profile == "low_memory":
+        return True
+    if settings.model_runtime_profile == "full":
+        return False
+    return os.getenv("RENDER", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def allowed_cors_origins() -> list[str]:

@@ -10,7 +10,7 @@ import numpy as np
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
-from app.config import settings
+from app.config import resource_constrained_runtime, settings
 from app.dependencies import get_current_user, require_roles
 from app.models.inspection_model import Inspection
 from app.models.production_model import Product
@@ -456,6 +456,7 @@ async def get_model_categories(current_user: User = Depends(get_current_user)) -
     for status_item in category_model_statuses(
         settings.use_padim_inference,
         settings.use_openvino_inference,
+        resource_constrained_runtime(),
     ):
         sample_count = len(camera_sample_paths(status_item["category"]))
         items.append(

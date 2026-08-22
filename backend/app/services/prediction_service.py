@@ -10,7 +10,7 @@ from uuid import uuid4
 import cv2
 import numpy as np
 
-from app.config import settings
+from app.config import resource_constrained_runtime, settings
 from app.services.cloudinary_service import cleanup_stored_image, upload_image_or_local_url
 from app.utils import uploads_path
 
@@ -38,6 +38,7 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
         category_model_spec,
         classifier_runtime_status,
         is_valid_checkpoint,
+        openvino_runtime_is_memory_safe,
     )
 
     runtime_settings = load_runtime_settings()
@@ -56,15 +57,24 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
         and spec.openvino_path.exists()
         and spec.openvino_path.with_suffix(".bin").exists()
     )
-    use_advanced_model = settings.use_padim_inference and advanced_model_available
+    constrained_runtime = resource_constrained_runtime()
+    classifier_status = classifier_runtime_status(spec)
+    use_advanced_model = (
+        settings.use_padim_inference
+        and advanced_model_available
+        and not constrained_runtime
+    )
     use_openvino = (
         settings.use_openvino_inference
         and spec.openvino_path is not None
         and spec.openvino_path.exists()
         and spec.openvino_path.with_suffix(".bin").exists()
+        and (
+            not constrained_runtime
+            or openvino_runtime_is_memory_safe(spec, classifier_status["engine"])
+        )
     )
     category_metadata = read_json_artifact(spec.metadata_path)
-    classifier_status = classifier_runtime_status(spec)
     subtype_metrics, _ = load_active_classifier_evidence(spec, classifier_status, category_metadata)
     deployed_subtype_validation = category_metadata.get("deployed_subtype_validation") or {}
     confidence_calibration = deployed_subtype_validation.get("confidence_calibration") or None
