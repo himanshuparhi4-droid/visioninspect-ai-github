@@ -10,6 +10,7 @@ import SeverityBadge from "../../components/SeverityBadge";
 import { getAnalyticsSummary } from "../../services/analyticsApi";
 import { formatDateTime } from "../../services/dateTime";
 import { listInspections } from "../../services/inspectionApi";
+import { formatConfidence } from "../../services/inspectionLabels";
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState(null);
@@ -124,7 +125,7 @@ export default function DashboardPage() {
                       <SeverityBadge level={item.severity_level} />
                     </td>
                     <td>{item.pass_fail || "Pending"}</td>
-                    <td>{item.confidence != null ? `${(item.confidence * 100).toFixed(1)}%` : "Pending"}</td>
+                    <td>{formatConfidence(item.confidence)}</td>
                     <td>{formatDateTime(item.created_at)}</td>
                   </tr>
                 ))}

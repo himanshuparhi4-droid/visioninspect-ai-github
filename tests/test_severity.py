@@ -50,7 +50,7 @@ def test_good_prediction_has_zero_defect_severity():
 
 def test_classifier_labels_have_explicit_severity_scores():
     labels = set()
-    for path in [Path("models/defect_classifier.pkl"), *Path("models/categories").glob("*/defect_classifier.pkl")]:
+    for path in Path("models/categories").glob("*/defect_classifier.pkl"):
         if not path.exists():
             continue
         artifact = joblib.load(path)

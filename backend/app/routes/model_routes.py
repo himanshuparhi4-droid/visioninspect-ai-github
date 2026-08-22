@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from app.dependencies import get_current_user, require_roles
 from app.models.user_model import User
@@ -9,6 +10,8 @@ from app.services.model_settings_service import (
     load_runtime_settings,
     save_runtime_settings,
 )
+from app.services.prediction_service import PredictionError, warm_category_runtime
+from ml.model_registry import CategoryModelError
 
 router = APIRouter(prefix="/model", tags=["model"])
 
@@ -21,6 +24,14 @@ async def get_model_metrics(current_user: User = Depends(get_current_user)) -> M
 @router.get("/settings", response_model=RuntimeModelSettings)
 async def get_model_settings(current_user: User = Depends(get_current_user)) -> RuntimeModelSettings:
     return load_runtime_settings()
+
+
+@router.post("/warmup/{category}")
+async def warmup_model_category(category: str, current_user: User = Depends(get_current_user)) -> dict:
+    try:
+        return await run_in_threadpool(warm_category_runtime, category)
+    except (CategoryModelError, PredictionError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.patch("/settings", response_model=RuntimeModelSettings)

@@ -11,10 +11,12 @@ from sklearn.preprocessing import StandardScaler
 from ml.baseline_detector import load_reference_profile
 from ml.classifier import export_portable_forest, predict_portable_forest
 from ml.model_registry import (
+    CATEGORY_DEFECT_LABELS,
     SUPPORTED_CATEGORIES,
     CategoryModelSpec,
     category_model_spec,
     category_model_statuses,
+    classifier_runtime_status,
 )
 
 
@@ -71,6 +73,14 @@ def test_every_supported_category_has_portable_runtime_artifacts():
         assert "classifier" in classifier
         assert classifier["defect_only"] is True
         assert "good" not in classifier["labels"]
+        assert set(classifier["labels"]) == set(CATEGORY_DEFECT_LABELS[category])
+
+
+def test_registry_can_explicitly_disable_an_unused_cnn_classifier():
+    capsule = category_model_spec("capsule")
+
+    assert capsule.cnn_classifier_path is None
+    assert classifier_runtime_status(capsule)["engine"] == "sklearn_feature_classifier"
 
 
 def test_render_requirements_include_portable_inference_dependencies():
@@ -84,8 +94,8 @@ def test_render_requirements_include_portable_inference_dependencies():
 
 
 def test_shared_onnx_feature_model_is_github_safe():
-    model_path = Path("models/inference/resnet18_features.onnx")
-    pytorch_weights_path = Path("models/inference/resnet18-f37072fd.pth")
+    model_path = Path("models/shared/resnet18_features.onnx")
+    pytorch_weights_path = Path("models/shared/resnet18-f37072fd.pth")
 
     assert model_path.exists()
     assert 1_000_000 < model_path.stat().st_size < 100_000_000

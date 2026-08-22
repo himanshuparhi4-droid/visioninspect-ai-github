@@ -16,6 +16,17 @@ import {
   updateUser,
 } from "../../services/userApi";
 
+function formatAuditValue(value) {
+  if (value === null || value === undefined || value === "") return "None";
+  if (Array.isArray(value)) return value.map(formatAuditValue).join(", ");
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .map(([key, nestedValue]) => `${key.replaceAll("_", " ")}: ${formatAuditValue(nestedValue)}`)
+      .join("; ");
+  }
+  return String(value);
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
@@ -214,7 +225,7 @@ export default function UsersPage() {
                   <td>{log.entity_type}</td>
                   <td>
                     {Object.entries(log.metadata || {})
-                      .map(([key, value]) => `${key}: ${value}`)
+                      .map(([key, value]) => `${key.replaceAll("_", " ")}: ${formatAuditValue(value)}`)
                       .join(", ") || "None"}
                   </td>
                 </tr>

@@ -22,10 +22,6 @@ class Settings(BaseSettings):
     use_openvino_inference: bool = True
     openvino_inference_device: str = "CPU"
     padim_inference_accelerator: str = "auto"
-    model_checkpoint_path: str = "../models/local_checkpoints/padim_mvtec_bottle_v1.ckpt"
-    classifier_model_path: str = "../models/defect_classifier.pkl"
-    model_metadata_path: str = "../models/model_metadata.json"
-    baseline_profile_path: str = "../models/inference/normal_profile.npz"
     baseline_threshold: float = 1.34
     opencv_num_threads: int = 2
     warm_model_on_startup: bool = True
@@ -47,14 +43,6 @@ class Settings(BaseSettings):
             return 1.34 if numeric_value > 10 or abs(numeric_value - 1.45) < 1e-9 else value
         except (TypeError, ValueError):
             return value
-
-    @field_validator("model_checkpoint_path", mode="before")
-    @classmethod
-    def migrate_legacy_bottle_checkpoint_path(cls, value: object) -> object:
-        normalized = str(value or "").replace("\\", "/")
-        if normalized.endswith("models/checkpoints/padim_mvtec_bottle_v1.ckpt"):
-            return "../models/local_checkpoints/padim_mvtec_bottle_v1.ckpt"
-        return value
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),

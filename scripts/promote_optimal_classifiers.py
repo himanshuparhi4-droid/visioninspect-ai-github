@@ -4,15 +4,13 @@ import json
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(r"c:\Users\HP\Desktop\springboard\visioninspect-ai-github")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import joblib
-import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.pipeline import Pipeline
@@ -20,8 +18,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
 
 from ml.classifier import (
-    GLOBAL_TEXTURE_EXTRACTOR_NAME,
-    ROI_PIXEL_TEXTURE_EXTRACTOR_NAME,
     ROI_SHAPE_TEXTURE_EXTRACTOR_NAME,
     ROI_SHAPE_TEXTURE_FEATURE_MODE,
     ROI_TEXTURE_EXTRACTOR_NAME,
@@ -190,7 +186,7 @@ def update_registry():
 
     # Ensure carpet and bottle have CNN active
     reg["carpet"]["cnn_classifier_path"] = "models/categories/carpet/cnn_defect_classifier.onnx"
-    reg["bottle"]["cnn_classifier_path"] = "models/cnn_defect_classifier.onnx"
+    reg["bottle"]["cnn_classifier_path"] = "models/categories/bottle/cnn_defect_classifier.onnx"
 
     # Wood, capsule, grid, zipper, pill use high-accuracy standard bundles
     for c in ["wood", "capsule", "grid", "zipper", "pill"]:

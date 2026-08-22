@@ -8,9 +8,28 @@ export function formatMetric(value) {
   return value;
 }
 
-function formatPercentMetric(value) {
+export function formatPercentMetric(value) {
   if (value == null) return "Pending";
   return `${(Number(value) * 100).toFixed(1)}%`;
+}
+
+export function metricStatusClass(status) {
+  if (status === "Production") return "metric-status-strong";
+  if (status === "Manual review") return "metric-status-review";
+  if (status === "Needs tuning") return "metric-status-acceptable";
+  if (status === "Experimental") return "metric-status-tuning";
+  return "metric-status-pending";
+}
+
+export function formatEngine(value) {
+  if (!value || value === "unavailable") return "Unavailable";
+  return value
+    .replaceAll("_openvino", " OpenVINO")
+    .replaceAll("fine_tuned_resnet18_onnx", "ResNet18 ONNX")
+    .replaceAll("sklearn_feature_classifier", "Feature classifier")
+    .replaceAll("portable_forest", "Portable forest")
+    .replaceAll("portable_baseline", "Portable baseline")
+    .replaceAll("_", " ");
 }
 
 function baselineAssessment(row) {
@@ -27,8 +46,10 @@ export function BaselineMetricsTable({ rows = [] }) {
     <section className="tool-panel">
       <div className="panel-heading">
         <div>
-          <h2>Baseline Prediction Metrics</h2>
-          <p>Cross-validated portable detector performance for every supported product category.</p>
+          <h2>Portable Fallback Metrics</h2>
+          <p>
+            Cross-validated fallback performance. Release status is based on the active OpenVINO detector table above.
+          </p>
         </div>
         <ScanSearch size={22} />
       </div>

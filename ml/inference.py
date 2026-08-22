@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -15,9 +16,14 @@ from ml.baseline_detector import (
     heatmap_overlay,
     load_reference_profile,
     normalized_anomaly_map,
+    portable_anomaly_features,
     preprocess_gray,
+    spatial_embedding_anomaly_scores,
+    spatial_score_map,
 )
 from ml.padim_detector import PadimInferenceError, predict_with_anomaly_model
+
+logger = logging.getLogger(__name__)
 
 
 class InferenceError(RuntimeError):
@@ -39,13 +45,20 @@ class InferenceConfig:
     padim_score_threshold: float
     review_severity_threshold: float
     fail_severity_threshold: float
+    subtype_confidence_threshold: float = 0.55
+    portable_threshold_scale: float = 1.0
     critical_zones: tuple[str, ...] = ()
     cnn_classifier_model_path: Path | None = None
     openvino_path: Path | None = None
     openvino_calibrator_path: Path | None = None
+    portable_detector_calibrator_path: Path | None = None
     compact_classifier_path: Path | None = None
     use_openvino_inference: bool = False
     openvino_inference_device: str = "CPU"
+    input_size: int = 256
+    subtype_model_macro_f1: float | None = None
+    subtype_release_target: float = 0.85
+    subtype_confidence_calibration: dict | None = None
 
 
 def default_model_metadata() -> dict:
@@ -61,7 +74,7 @@ def load_model_metadata(path_value: str) -> dict:
     path = Path(path_value)
     if not path.exists():
         return default_model_metadata()
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 @lru_cache(maxsize=4)
@@ -81,6 +94,18 @@ def detection_confidence_from_score(score: float, threshold: float) -> float:
 def has_localized_baseline_defect(score: float, baseline_threshold: float, binary_mask: np.ndarray) -> bool:
     """Require both an elevated score and a spatially meaningful residual."""
     return bool(score > baseline_threshold and np.any(binary_mask))
+
+
+def calibrated_subtype_confidence(raw_confidence: float, calibration: dict | None) -> tuple[float, bool]:
+    """Map a top-label probability to observed reliability using saved OOF evidence."""
+    if not calibration or calibration.get("method") != "isotonic_oof_top_label":
+        return raw_confidence, False
+    x_values = np.asarray(calibration.get("x_thresholds", []), dtype=np.float64)
+    y_values = np.asarray(calibration.get("y_thresholds", []), dtype=np.float64)
+    if len(x_values) < 2 or len(x_values) != len(y_values):
+        return raw_confidence, False
+    calibrated = float(np.interp(raw_confidence, x_values, y_values, left=y_values[0], right=y_values[-1]))
+    return float(np.clip(calibrated, 0.0, 1.0)), True
 
 
 def compute_defect_geometry(
@@ -162,23 +187,84 @@ def baseline_anomaly_prediction(image_path: Path, image_bgr: np.ndarray, config:
     else:
         raise InferenceError(f"Portable normal profile not found: {config.baseline_profile_path}")
 
+    spatial_scores = None
+    local_score_map = None
+    if "spatial_embedding_bank" in profile:
+        spatial_scores = spatial_embedding_anomaly_scores([image_path], profile["spatial_embedding_bank"])[0]
+        local_score_map = spatial_score_map(spatial_scores, (diff_map.shape[1], diff_map.shape[0]))
+
     binary_mask = anomaly_mask(diff_map, config.baseline_residual_threshold)
-    is_defective = has_localized_baseline_defect(score, config.baseline_threshold, binary_mask)
-    detection_confidence = detection_confidence_from_score(score, config.baseline_threshold)
+    defect_probability = None
+    calibration_threshold = None
+    calibration_fallback_reason = None
+    if config.portable_detector_calibrator_path and config.portable_detector_calibrator_path.exists():
+        try:
+            from ml.classifier import predict_portable_forest
+
+            features = portable_anomaly_features(
+                score,
+                diff_map,
+                profile["foreground_mask"],
+                spatial_scores,
+            ).reshape(1, -1)
+            calibrated = predict_portable_forest(config.portable_detector_calibrator_path, features)
+            positive = np.flatnonzero(calibrated["classes"].astype(bool))
+            if not len(positive):
+                raise InferenceError("Portable detector calibrator has no defective class")
+            defect_probability = float(calibrated["probabilities"][0, int(positive[0])])
+            calibration_threshold = float(
+                np.clip(calibrated["decision_threshold"] * config.portable_threshold_scale, 0.05, 0.95)
+            )
+            is_defective = defect_probability >= calibration_threshold
+            detection_confidence = max(defect_probability, 1.0 - defect_probability)
+            decision_basis = "portable_calibrator"
+            detector_kind = "resnet18_residual_calibrator"
+        except Exception as exc:
+            calibration_fallback_reason = str(exc)
+            logger.warning(
+                "portable_detector_fallback category=%s artifact=%s reason=%s",
+                config.category,
+                config.portable_detector_calibrator_path,
+                exc,
+            )
+            is_defective = has_localized_baseline_defect(score, config.baseline_threshold, binary_mask)
+            detection_confidence = detection_confidence_from_score(score, config.baseline_threshold)
+            decision_basis = "score_threshold"
+    else:
+        is_defective = has_localized_baseline_defect(score, config.baseline_threshold, binary_mask)
+        detection_confidence = detection_confidence_from_score(score, config.baseline_threshold)
+        decision_basis = "score_threshold"
+
+    if is_defective and not np.any(binary_mask):
+        if local_score_map is not None:
+            binary_mask = np.logical_and(
+                local_score_map >= np.percentile(local_score_map[profile["foreground_mask"]], 85),
+                profile["foreground_mask"],
+            )
+        else:
+            foreground_values = diff_map[profile["foreground_mask"]]
+            if foreground_values.size:
+                binary_mask = np.logical_and(
+                    diff_map >= np.percentile(foreground_values, 99),
+                    profile["foreground_mask"],
+                )
 
     return {
-        "engine": "baseline",
+        "engine": "portable_baseline",
         "detector_kind": detector_kind,
         "anomaly_score": score,
         "residual_score": residual_score,
         "decision_threshold": config.baseline_threshold,
         "is_defective": is_defective,
         "detection_confidence": detection_confidence,
+        "decision_basis": decision_basis,
+        "calibrated_defect_probability": defect_probability,
+        "calibration_threshold": calibration_threshold,
         "anomaly_map": diff_map,
         "pred_mask": binary_mask,
         "global_features": global_features,
-        "fallback_used": False,
-        "fallback_reason": None,
+        "fallback_used": calibration_fallback_reason is not None,
+        "fallback_reason": calibration_fallback_reason,
     }
 
 
@@ -196,6 +282,7 @@ def live_anomaly_prediction(image_path: Path, image_bgr: np.ndarray, config: Inf
                 if config.use_openvino_inference
                 else None,
                 openvino_device=config.openvino_inference_device,
+                input_size=config.input_size,
             )
         except PadimInferenceError as exc:
             fallback = baseline_anomaly_prediction(image_path, image_bgr, config)
@@ -223,6 +310,10 @@ def classify_prediction(
             "classification_confidence": None,
             "classification_error": None,
             "class_probabilities": {"good": detection_confidence},
+            "classifier_engine": "not_applicable",
+            "classifier_fallback_used": False,
+            "classifier_fallback_reason": None,
+            "confidence_calibrated": True,
         }
 
     if not config.classifier_model_path.exists():
@@ -233,6 +324,10 @@ def classify_prediction(
             "classification_confidence": None,
             "classification_error": f"Classifier artifact not found: {config.classifier_model_path}",
             "class_probabilities": {"unknown_defect": detection_confidence},
+            "classifier_engine": "unavailable",
+            "classifier_fallback_used": True,
+            "classifier_fallback_reason": f"Classifier artifact not found: {config.classifier_model_path}",
+            "confidence_calibrated": False,
         }
 
     try:
@@ -254,6 +349,36 @@ def classify_prediction(
             "classification_confidence": None,
             "classification_error": str(exc),
             "class_probabilities": {"unknown_defect": detection_confidence},
+            "classifier_engine": "failed",
+            "classifier_fallback_used": True,
+            "classifier_fallback_reason": str(exc),
+            "confidence_calibrated": False,
+        }
+
+    raw_classification_confidence = float(classification["confidence"])
+    classification_confidence, empirical_calibration_used = calibrated_subtype_confidence(
+        raw_classification_confidence,
+        config.subtype_confidence_calibration,
+    )
+    confidence_calibrated = bool(classification.get("confidence_calibrated", False) or empirical_calibration_used)
+    if classification_confidence < config.subtype_confidence_threshold:
+        threshold_message = (
+            f"Subtype confidence {classification_confidence:.4f} is below the calibrated "
+            f"review threshold {config.subtype_confidence_threshold:.4f}"
+        )
+        fallback_reason = classification.get("classifier_fallback_reason")
+        return {
+            "defect_type": "unknown_defect",
+            "confidence": detection_confidence,
+            "detection_confidence": detection_confidence,
+            "classification_confidence": classification_confidence,
+            "raw_classification_confidence": raw_classification_confidence,
+            "classification_error": threshold_message,
+            "class_probabilities": classification["class_probabilities"],
+            "classifier_engine": classification.get("classifier_engine", "unknown"),
+            "classifier_fallback_used": bool(classification.get("classifier_fallback_used", False)),
+            "classifier_fallback_reason": fallback_reason,
+            "confidence_calibrated": confidence_calibrated,
         }
 
     if classification["defect_type"] == "good":
@@ -265,14 +390,22 @@ def classify_prediction(
             "confidence": detection_confidence,
             "detection_confidence": detection_confidence,
             "classification_confidence": None,
+            "raw_classification_confidence": raw_classification_confidence,
             "classification_error": "Defect detector and subtype classifier produced conflicting decisions",
             "class_probabilities": {
                 "unknown_defect": detection_confidence,
                 "good": round(1 - detection_confidence, 4),
             },
+            "classifier_engine": classification.get("classifier_engine", "unknown"),
+            "classifier_fallback_used": bool(classification.get("classifier_fallback_used", False)),
+            "classifier_fallback_reason": classification.get("classifier_fallback_reason"),
+            "confidence_calibrated": confidence_calibrated,
         }
     classification["detection_confidence"] = detection_confidence
-    classification["classification_confidence"] = float(classification["confidence"])
+    classification["raw_classification_confidence"] = raw_classification_confidence
+    classification["classification_confidence"] = classification_confidence
+    classification["confidence"] = classification_confidence
+    classification["confidence_calibrated"] = confidence_calibrated
     classification["classification_error"] = None
     return classification
 
@@ -321,6 +454,10 @@ def build_explainability(
     engine: str,
     fallback_used: bool,
     fallback_reason: str | None,
+    classifier_engine: str = "unknown",
+    classifier_fallback_used: bool = False,
+    classifier_fallback_reason: str | None = None,
+    confidence_calibrated: bool = False,
     decision_basis: str = "score_threshold",
     calibrated_defect_probability: float | None = None,
     calibration_threshold: float | None = None,
@@ -328,7 +465,7 @@ def build_explainability(
     heatmap_intensity = float(np.percentile(anomaly_map_value, 95)) if anomaly_map_value.size else 0.0
     area_percent = float(geometry["area_ratio"] * 100)
     notes: list[str] = []
-    calibrated_decision = decision_basis == "spatial_calibrator" and calibrated_defect_probability is not None
+    calibrated_decision = decision_basis in {"spatial_calibrator", "portable_calibrator"} and calibrated_defect_probability is not None
     if prediction == "Good":
         if calibrated_decision:
             notes.append(
@@ -355,10 +492,17 @@ def build_explainability(
             notes.append(f"Detected anomaly overlaps a configured critical zone ({regions}).")
         if classification_confidence is None:
             notes.append("Defect subtype could not be identified reliably; manual classification is required.")
+        elif defect_type == "unknown_defect":
+            notes.append(
+                f"The highest subtype probability was {classification_confidence * 100:.1f}%, "
+                "so the defect was routed to manual classification."
+            )
         else:
-            notes.append(f"Classifier selected '{defect_type}' with {confidence * 100:.1f}% confidence.")
+            notes.append(f"Classifier selected '{defect_type}' with {classification_confidence * 100:.1f}% confidence.")
     if classification_error:
-        notes.append(f"Classifier fallback reason: {classification_error}")
+        notes.append(f"Subtype review reason: {classification_error}")
+    if classifier_fallback_used:
+        notes.append(f"Subtype classifier fallback was used: {classifier_fallback_reason or 'runtime unavailable'}")
     if fallback_used:
         notes.append(f"Fallback inference was used: {fallback_reason}")
 
@@ -367,6 +511,10 @@ def build_explainability(
         "active_inference_engine": engine,
         "fallback_used": bool(fallback_used),
         "fallback_reason": fallback_reason,
+        "classifier_engine": classifier_engine,
+        "classifier_fallback_used": bool(classifier_fallback_used),
+        "classifier_fallback_reason": classifier_fallback_reason,
+        "classification_confidence_calibrated": bool(confidence_calibrated),
         "decision_threshold": round(float(decision_threshold), 4),
         "decision_basis": decision_basis,
         "calibrated_defect_probability": (
@@ -418,7 +566,9 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
         config,
         global_features=anomaly.get("global_features"),
     )
-    confidence = float(classification["confidence"])
+    # The top-level confidence belongs to the Good/Defective decision. The
+    # subtype probability is reported separately and must not inflate it.
+    confidence = detection_confidence
     defect_type = classification["defect_type"]
     prediction = "Defective" if is_defective else "Good"
     geometry = compute_defect_geometry(binary_mask, defect_type, config.critical_zones)
@@ -430,13 +580,35 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
         defect_center_y_ratio=geometry["defect_center_y_ratio"],
     )
     severity = apply_quality_decision(severity, config, is_defective=is_defective)
+    subtype_model_status = (
+        "Not applicable"
+        if not is_defective
+        else "Production"
+        if config.subtype_model_macro_f1 is not None
+        and config.subtype_model_macro_f1 >= config.subtype_release_target
+        else "Manual review"
+        if config.subtype_model_macro_f1 is not None
+        else "Unverified"
+    )
+    manual_review_required = bool(
+        is_defective
+        and (
+            subtype_model_status != "Production"
+            or defect_type == "unknown_defect"
+            or severity["pass_fail"] == "Review"
+        )
+    )
+    if is_defective and subtype_model_status != "Production":
+        severity["recommended_action"] = (
+            f"{severity['recommended_action']}. Confirm the defect subtype during manual QA review."
+        )
     metadata = load_model_metadata(str(config.model_metadata_path))
     model_name = str(metadata.get("model_name", "model"))
     model_version = str(metadata.get("model_version", "local"))
     detector_kind = str(anomaly.get("detector_kind", anomaly["engine"]))
     model_used = (
         f"{model_name}:{model_version} ({anomaly['engine']})"
-        if anomaly["engine"] != "baseline"
+        if anomaly["engine"] != "portable_baseline"
         else f"portable-baseline:{config.category} ({detector_kind})"
     )
     explainability = build_explainability(
@@ -454,10 +626,22 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
         engine=anomaly["engine"],
         fallback_used=bool(anomaly.get("fallback_used", False)),
         fallback_reason=anomaly.get("fallback_reason"),
+        classifier_engine=str(classification.get("classifier_engine", "unknown")),
+        classifier_fallback_used=bool(classification.get("classifier_fallback_used", False)),
+        classifier_fallback_reason=classification.get("classifier_fallback_reason"),
+        confidence_calibrated=bool(classification.get("confidence_calibrated", False)),
         decision_basis=str(anomaly.get("decision_basis", "score_threshold")),
         calibrated_defect_probability=anomaly.get("calibrated_defect_probability"),
         calibration_threshold=anomaly.get("calibration_threshold"),
     )
+    explainability["subtype_model_status"] = subtype_model_status
+    explainability["subtype_model_macro_f1"] = config.subtype_model_macro_f1
+    explainability["subtype_release_target"] = config.subtype_release_target
+    explainability["manual_review_required"] = manual_review_required
+    if is_defective and subtype_model_status != "Production":
+        explainability["notes"].append(
+            "This category's subtype model is below the release target; treat the subtype as an AI suggestion."
+        )
 
     processed = np.clip(preprocess_gray(image_bgr), 0, 255).astype(np.uint8)
     heatmap = heatmap_overlay(image_bgr, diff_map, binary_mask=binary_mask)
@@ -469,6 +653,14 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
         "confidence": confidence,
         "detection_confidence": detection_confidence,
         "classification_confidence": classification.get("classification_confidence"),
+        "raw_classification_confidence": classification.get("raw_classification_confidence"),
+        "classifier_engine": classification.get("classifier_engine"),
+        "classifier_fallback_used": bool(classification.get("classifier_fallback_used", False)),
+        "classifier_fallback_reason": classification.get("classifier_fallback_reason"),
+        "classification_confidence_calibrated": bool(classification.get("confidence_calibrated", False)),
+        "subtype_model_status": subtype_model_status,
+        "subtype_model_macro_f1": config.subtype_model_macro_f1,
+        "manual_review_required": manual_review_required,
         "anomaly_score": score,
         "defect_area_ratio": round(float(geometry["area_ratio"]), 4),
         "class_probabilities": classification["class_probabilities"],
@@ -482,6 +674,10 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
         "model_version": model_used,
         "model_used": model_used,
         "active_inference_engine": anomaly["engine"],
+        "detector_engine": anomaly["engine"],
+        "detector_kind": anomaly.get("detector_kind", anomaly["engine"]),
+        "detector_fallback_used": bool(anomaly.get("fallback_used", False)),
+        "detector_fallback_reason": anomaly.get("fallback_reason"),
         "fallback_used": bool(anomaly.get("fallback_used", False)),
         "fallback_reason": anomaly.get("fallback_reason"),
         "processed_image": processed,

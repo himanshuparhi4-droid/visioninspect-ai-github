@@ -21,3 +21,8 @@ export function formatReviewStatus(value) {
 export function formatSourceType(value) {
   return SOURCE_TYPE_LABELS[value] || value || "Unknown";
 }
+
+export function formatConfidence(value, fallback = "Pending") {
+  if (value == null) return fallback;
+  return value >= 0.995 ? "99%+" : `${(Number(value) * 100).toFixed(1)}%`;
+}

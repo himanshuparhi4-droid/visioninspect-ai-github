@@ -53,7 +53,9 @@ def test_baseline_requires_a_localized_defect_mask_for_a_fail_decision():
 def test_saved_normal_profile_has_runtime_arrays():
     from ml.baseline_detector import load_reference_profile
 
-    profile = load_reference_profile(PROJECT_ROOT / "models" / "inference" / "normal_profile.npz")
+    profile = load_reference_profile(
+        PROJECT_ROOT / "models" / "categories" / "bottle" / "normal_profile.npz"
+    )
 
     assert profile["mean"].shape == (256, 256)
     assert profile["std"].shape == (256, 256)

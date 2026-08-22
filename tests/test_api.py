@@ -108,6 +108,18 @@ def test_model_metrics_include_every_category_baseline():
 
     assert len(category_rows) == 15
     assert all(row["image_f1"] is not None for row in category_rows)
+    assert all(row["binary_f1"] >= 0.90 for row in category_rows)
+    assert all(row["binary_auroc"] is not None for row in category_rows)
+    assert all(row["subtype_macro_f1"] is not None for row in category_rows)
+    assert all(row["subtype_validation_protocol"] for row in category_rows)
+    assert all(row["subtype_metadata_consistent"] for row in category_rows)
+    assert {row["release_status"] for row in category_rows} <= {"Production", "Manual review"}
+
+    release_summary = payload["release_summary"]
+    assert release_summary["categories"] == 15
+    assert release_summary["binary_target_met"] == 15
+    assert release_summary["production"] + release_summary["manual_review"] == 15
+    assert release_summary["openvino"] == 15
 
 
 def test_automatic_metadata_fills_blanks_without_overwriting_values():

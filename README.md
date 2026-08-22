@@ -10,9 +10,10 @@ The repository is designed to run locally after cloning. The website does not re
 - Manual image inspection and batches of up to 20 images.
 - Camera simulation using bundled bottle sample frames.
 - Fifteen MVTec product categories available for manual upload.
-- Portable ResNet18 normal-memory anomaly screening with OpenCV heatmaps.
-- Category-specific ResNet18 and texture-based defect subtype classification.
-- Optional PaDiM/PatchCore and OpenVINO runtime when advanced artifacts are installed.
+- Category-specific OpenVINO anomaly detection for all 15 supported products.
+- OpenCV heatmap localization and category-specific defect subtype classification.
+- Lazy model loading with a bounded cache for low-memory cloud instances.
+- Optional full PaDiM/PatchCore checkpoints for local retraining and accelerator-backed experiments.
 - Weighted severity scoring and pass/review/fail decisions.
 - Inspection history, reviewer actions, rework tickets, and audit logs.
 - PDF reports and production-quality analytics.
@@ -28,7 +29,7 @@ The repository is designed to run locally after cloning. The website does not re
 | Database | MongoDB |
 | Image processing | OpenCV, NumPy |
 | Classification | PyTorch, Torchvision ResNet18, scikit-learn |
-| Advanced anomaly models | Anomalib PaDiM/PatchCore, optional OpenVINO |
+| Anomaly detection | OpenVINO Runtime, Anomalib PaDiM/PatchCore training pipeline |
 | Reports | ReportLab |
 | Quality | pytest, Ruff, Black, Prettier, Playwright |
 
@@ -36,28 +37,27 @@ The repository is designed to run locally after cloning. The website does not re
 
 | Mode | Included after clone | Purpose |
 | --- | --- | --- |
-| Portable hybrid runtime | Yes | ResNet18 normal-memory detection and OpenCV heatmaps for all 15 categories |
-| Defect classifier | Yes | Defect-only subtype prediction using ResNet18, gradient, and color features |
-| PaDiM/PatchCore | Optional | Stronger learned anomaly detection when checkpoints are installed |
-| OpenVINO | Optional | CPU-optimized serving when exported models are installed |
+| OpenVINO anomaly runtime | Yes | Active, calibrated Good/Defective detection for all 15 categories |
+| Defect subtype runtime | Yes | Category-specific ONNX CNN, compact forest, or scikit-learn classifier |
+| Portable fallback | Yes | Normal-memory detector and OpenCV localization if an OpenVINO artifact cannot load |
+| PaDiM/PatchCore checkpoints | Optional | Retraining, benchmarking, and accelerator-backed local experiments |
 
-Portable mode is the default. It is intentional production-style fallback behavior, not a demo stub. Advanced inference is enabled only when explicitly configured and a valid model artifact exists.
+OpenVINO CPU inference is the default website runtime. Models are loaded only for the selected category and retained in a bounded cache. Every response identifies the active engine, model version, and any fallback reason. The portable path is a real fail-safe runtime, not a mock result.
 
 ## Included Model Assets
 
 The repository keeps runtime assets small:
 
-- Category normal-image profiles, ResNet18 memory banks, and model metadata.
-- Cross-validated category defect-subtype classifier artifacts.
+- OpenVINO model exports and spatial calibrators for all 15 categories.
+- Category normal-image profiles, model metadata, and cross-validated subtype classifiers.
 - SHA-256 integrity information exposed by the model registry for every portable artifact.
-- ResNet18 feature-extractor weights.
+- Shared ONNX feature-extractor weights used by portable fallback and selected subtype models.
 - Twelve bundled bottle camera-simulation frames.
 
 The following large or licensed assets are intentionally excluded:
 
 - Full MVTec AD dataset.
 - Training checkpoints.
-- OpenVINO exports.
 - Training outputs and temporary reports.
 
 ## Project Structure
@@ -68,8 +68,9 @@ visioninspect-ai/
 |-- frontend/                Next.js application
 |-- ml/                      Shared inference, preprocessing, classification, and severity logic
 |-- models/
-|   |-- categories/          Compact runtime assets for 14 non-bottle categories
-|   |-- inference/           Bottle profile and bundled ResNet18 weights
+|   |-- categories/          Uniform per-category classifiers, calibrators, profiles, metadata, and optional checkpoints
+|   |-- exported/            Deployable OpenVINO models for all 15 categories
+|   |-- shared/              Shared feature-extraction runtime assets
 |   |-- defect_classifier.pkl
 |   `-- model_metadata.json
 |-- notebooks/               AI/ML learning and experiment notebooks
@@ -148,7 +149,8 @@ MONGODB_URI=mongodb://localhost:27017
 MONGODB_DATABASE=visioninspect_ai
 
 USE_PADIM_INFERENCE=false
-USE_OPENVINO_INFERENCE=false
+USE_OPENVINO_INFERENCE=true
+OPENVINO_INFERENCE_DEVICE=CPU
 
 BOOTSTRAP_ADMIN_ENABLED=true
 BOOTSTRAP_ADMIN_EMAIL=admin@visioninspect.ai
@@ -184,21 +186,44 @@ bottle, cable, capsule, carpet, grid, hazelnut, leather, metal_nut,
 pill, screw, tile, toothbrush, transistor, wood, zipper
 ```
 
-Manual upload works from the bundled compact runtime assets. Camera simulation shows categories for which sample frames are physically available; the clone includes bottle samples.
+Manual and batch upload support all 15 categories through the bundled OpenVINO artifacts. Camera simulation shows only categories for which redistribution-safe sample frames are physically present; the repository currently includes bottle samples.
+
+## Verified Model Capability
+
+The table below is the release snapshot used by the website model-metrics page. Binary F1 measures Good/Defective detection. Subtype macro F1 measures only the harder defect-type classification task. A category is marked `Production` only when binary F1 is at least 90% and subtype macro F1 is at least 85%; otherwise subtype predictions are clearly routed to manual review.
+
+| Category | Binary F1 | Subtype Macro F1 | Active Detector | Release Status |
+| --- | ---: | ---: | --- | --- |
+| Bottle | 95.08% | 84.26% | PaDiM OpenVINO | Manual review |
+| Cable | 97.24% | 81.27% | PatchCore OpenVINO | Manual review |
+| Capsule | 95.19% | 61.24% | PatchCore OpenVINO | Manual review |
+| Carpet | 94.25% | 83.06% | PaDiM OpenVINO | Manual review |
+| Grid | 93.81% | 59.85% | PatchCore OpenVINO | Manual review |
+| Hazelnut | 97.14% | 87.25% | PatchCore OpenVINO | Production |
+| Leather | 93.71% | 86.72% | PaDiM OpenVINO | Production |
+| Metal nut | 92.74% | 87.40% | PaDiM OpenVINO | Production |
+| Pill | 96.45% | 72.43% | PatchCore OpenVINO | Manual review |
+| Screw | 95.32% | 55.19% | PatchCore OpenVINO | Manual review |
+| Tile | 94.67% | 95.20% | PaDiM OpenVINO | Production |
+| Toothbrush | 91.23% | 100.00% | PaDiM OpenVINO | Production |
+| Transistor | 93.83% | 82.22% | PatchCore OpenVINO | Manual review |
+| Wood | 94.02% | 67.77% | PaDiM OpenVINO | Manual review |
+| Zipper | 95.69% | 72.94% | PatchCore OpenVINO | Manual review |
+
+These metrics use the evaluation protocol recorded in each category's `model_metadata.json`. Binary calibration uses nested stratified validation or a separate calibration/holdout split. Subtype metrics use out-of-fold predictions from the exact deployed classifier architecture and active anomaly-mask source. MVTec AD has few labelled examples for several subtypes, so the project does not claim that all subtype models are production-ready.
 
 ## Advanced Model Setup
 
-The active category registry selects PaDiM for `bottle`, `carpet`, `grid`,
-`leather`, `metal_nut`, `tile`, `toothbrush`, and `wood`. PatchCore is selected
-for `cable`, `capsule`, `hazelnut`, `pill`, `screw`, `transistor`, and `zipper`.
-The portable CPU path uses the shared ONNX feature extractor and a calibrated
-OpenVINO-compatible runtime for every category; full checkpoints remain optional
-for local or accelerator-backed serving.
+The active category registry selects PaDiM for `bottle`, `carpet`, `leather`,
+`metal_nut`, `tile`, `toothbrush`, and `wood`. PatchCore is selected for `cable`,
+`capsule`, `grid`, `hazelnut`, `pill`, `screw`, `transistor`, and `zipper`.
+Their deployable OpenVINO exports are included and run on CPU. Full training checkpoints remain optional for local or accelerator-backed retraining.
 
-Current category evaluations exceed 90% image-level accuracy, F1, and AUROC for
-Good/Defective detection in all 15 categories. Defect-subtype classification is
-a separate, harder task and varies by category because several MVTec defect
-subtypes contain only a small number of labeled examples.
+Current category evaluations report image-level binary F1 of at least 91.23%
+and AUROC of at least 95.00% across all 15 categories. Accuracy is reported
+separately and is not overstated; the lowest category accuracy is 88.10%.
+Defect-subtype classification is a separate, harder task and varies by category
+because several MVTec defect subtypes contain only a small number of labelled examples.
 
 Advanced models are optional. For a category, place its checkpoint in the path specified by `models/category_model_registry.json`, install the development/ML dependencies, and enable:
 
@@ -207,14 +232,14 @@ USE_PADIM_INFERENCE=true
 PADIM_INFERENCE_ACCELERATOR=auto
 ```
 
-OpenVINO must be enabled separately:
+OpenVINO is enabled by default and can be configured with:
 
 ```env
 USE_OPENVINO_INFERENCE=true
 OPENVINO_INFERENCE_DEVICE=CPU
 ```
 
-Keeping OpenVINO disabled prevents unsupported GPU compilation from delaying or blocking an inspection.
+Use `CPU` on Render. If OpenVINO is intentionally disabled or an artifact fails validation, the response identifies the portable fallback and its reason.
 
 The root development requirements include Anomalib and notebook tooling:
 

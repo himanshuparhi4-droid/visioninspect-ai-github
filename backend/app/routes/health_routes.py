@@ -5,7 +5,6 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.services.cloudinary_service import cloudinary_is_configured, storage_backend
-from app.utils import resolve_backend_path
 from ml.model_registry import category_model_spec, category_model_statuses
 
 router = APIRouter(prefix="/health", tags=["health"])
@@ -13,8 +12,6 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 @router.get("")
 async def health_check(request: Request) -> dict:
-    classifier_path = resolve_backend_path(settings.classifier_model_path)
-    profile_path = resolve_backend_path(settings.baseline_profile_path)
     category_statuses = category_model_statuses(
         settings.use_padim_inference,
         settings.use_openvino_inference,
@@ -44,8 +41,8 @@ async def health_check(request: Request) -> dict:
         "database_error": getattr(request.app.state, "database_error", None),
         "artifacts": {
             "padim_checkpoint": bottle_model.has_advanced_model,
-            "defect_classifier": classifier_path.exists(),
-            "baseline_profile": profile_path.exists(),
+            "defect_classifier": bottle_model.classifier_path.exists(),
+            "baseline_profile": bottle_model.baseline_profile_path.exists(),
             "portable_categories": sum(1 for item in category_statuses if item["available"]),
             "advanced_categories": sum(1 for item in category_statuses if item["advanced_model_available"]),
         },

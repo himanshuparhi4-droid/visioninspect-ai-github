@@ -28,6 +28,41 @@ SUPPORTED_CATEGORIES = (
     "zipper",
 )
 
+CATEGORY_DEFECT_LABELS = {
+    "bottle": ("broken_large", "broken_small", "contamination"),
+    "cable": (
+        "bent_wire",
+        "cable_swap",
+        "combined",
+        "cut_inner_insulation",
+        "cut_outer_insulation",
+        "missing_cable",
+        "missing_wire",
+        "poke_insulation",
+    ),
+    "capsule": ("crack", "faulty_imprint", "poke", "scratch", "squeeze"),
+    "carpet": ("color", "cut", "hole", "metal_contamination", "thread"),
+    "grid": ("bent", "broken", "glue", "metal_contamination", "thread"),
+    "hazelnut": ("crack", "cut", "hole", "print"),
+    "leather": ("color", "cut", "fold", "glue", "poke"),
+    "metal_nut": ("bent", "color", "flip", "scratch"),
+    "pill": ("color", "combined", "contamination", "crack", "faulty_imprint", "pill_type", "scratch"),
+    "screw": ("manipulated_front", "scratch_head", "scratch_neck", "thread_side", "thread_top"),
+    "tile": ("crack", "glue_strip", "gray_stroke", "oil", "rough"),
+    "toothbrush": ("defective",),
+    "transistor": ("bent_lead", "cut_lead", "damaged_case", "misplaced"),
+    "wood": ("color", "combined", "hole", "liquid", "scratch"),
+    "zipper": (
+        "broken_teeth",
+        "combined",
+        "fabric_border",
+        "fabric_interior",
+        "rough",
+        "split_teeth",
+        "squeezed_teeth",
+    ),
+}
+
 
 def is_valid_checkpoint(path: Path) -> bool:
     return path.exists() and path.stat().st_size > 1_000_000
@@ -70,10 +105,13 @@ class CategoryModelSpec:
     cnn_classifier_path: Path | None = None
     openvino_path: Path | None = None
     openvino_calibrator_path: Path | None = None
+    portable_detector_calibrator_path: Path | None = None
     compact_classifier_path: Path | None = None
     padim_score_threshold: float = 0.5
     baseline_score_threshold: float = 1.34
     baseline_residual_threshold: float = 1.34
+    subtype_confidence_threshold: float = 0.55
+    input_size: int = 256
 
     @property
     def has_advanced_model(self) -> bool:
@@ -110,18 +148,6 @@ def registry_file() -> Path:
 
 
 def _default_spec(category: str) -> CategoryModelSpec:
-    if category == "bottle":
-        return CategoryModelSpec(
-            category="bottle",
-            model_kind="padim",
-            checkpoint_path=MODELS_DIR / "local_checkpoints" / "padim_mvtec_bottle_v1.ckpt",
-            classifier_path=MODELS_DIR / "defect_classifier.pkl",
-            baseline_profile_path=MODELS_DIR / "inference" / "normal_profile.npz",
-            metadata_path=MODELS_DIR / "model_metadata.json",
-            openvino_path=MODELS_DIR / "exported" / "bottle" / "weights" / "openvino" / "model.xml",
-            openvino_calibrator_path=MODELS_DIR / "inference" / "openvino_calibrator.npz",
-        )
-
     category_dir = MODELS_DIR / "categories" / category
     return CategoryModelSpec(
         category=category,
@@ -133,6 +159,7 @@ def _default_spec(category: str) -> CategoryModelSpec:
         cnn_classifier_path=category_dir / "cnn_defect_classifier.onnx",
         openvino_path=MODELS_DIR / "exported" / category / "weights" / "openvino" / "model.xml",
         openvino_calibrator_path=category_dir / "openvino_calibrator.npz",
+        portable_detector_calibrator_path=category_dir / "portable_detector_calibrator.npz",
         compact_classifier_path=category_dir / "defect_classifier_runtime.npz",
     )
 
@@ -143,7 +170,7 @@ def _read_registry(path_value: str, modified_ns: int) -> dict:
     if not path.exists():
         return {}
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
         return payload if isinstance(payload, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
@@ -184,51 +211,112 @@ def category_model_spec(category: str | None) -> CategoryModelSpec:
         openvino_calibrator_path=optional_path_value(
             "openvino_calibrator_path", default.openvino_calibrator_path
         ),
+        portable_detector_calibrator_path=optional_path_value(
+            "portable_detector_calibrator_path", default.portable_detector_calibrator_path
+        ),
         compact_classifier_path=optional_path_value("compact_classifier_path", default.compact_classifier_path),
         padim_score_threshold=float(override.get("padim_score_threshold", default.padim_score_threshold)),
         baseline_score_threshold=float(override.get("baseline_score_threshold", default.baseline_score_threshold)),
         baseline_residual_threshold=float(
             override.get("baseline_residual_threshold", default.baseline_residual_threshold)
         ),
+        subtype_confidence_threshold=float(
+            override.get("subtype_confidence_threshold", default.subtype_confidence_threshold)
+        ),
+        input_size=int(override.get("input_size", default.input_size)),
     )
 
 
-def category_model_statuses(advanced_enabled: bool = False, openvino_enabled: bool = False) -> list[dict]:
-    return [
-        {
-            "category": category,
-            "available": (spec := category_model_spec(category)).is_runnable,
-            "runnable": spec.is_runnable,
-            "fully_ready": spec.is_fully_ready,
-            "trained": spec.has_advanced_model,
-            "advanced_model_available": spec.has_advanced_model,
-            "classification_trained": spec.classifier_path.exists(),
-            "portable_cnn_available": bool(spec.cnn_classifier_path and spec.cnn_classifier_path.exists()),
-            "model_kind": spec.model_kind,
-            "active_engine": (
-                f"{spec.model_kind}_openvino"
-                if openvino_enabled
-                and spec.openvino_path is not None
-                and spec.openvino_path.exists()
-                and spec.openvino_path.with_suffix(".bin").exists()
-                else spec.model_kind
-                if advanced_enabled and spec.has_advanced_model
-                else "opencv-baseline"
-            ),
-            "decision_threshold": spec.padim_score_threshold,
-            "baseline_score_threshold": spec.baseline_score_threshold,
-            "artifacts": {
-                "profile": artifact_descriptor(spec.baseline_profile_path),
-                "classifier": artifact_descriptor(spec.classifier_path),
-                "cnn_classifier": artifact_descriptor(spec.cnn_classifier_path) if spec.cnn_classifier_path else None,
-                "openvino_calibrator": artifact_descriptor(spec.openvino_calibrator_path)
-                if spec.openvino_calibrator_path
-                else None,
-                "compact_classifier": artifact_descriptor(spec.compact_classifier_path)
-                if spec.compact_classifier_path
-                else None,
-                "metadata": artifact_descriptor(spec.metadata_path),
-            },
+def _json_artifact_is_valid(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        return isinstance(json.loads(path.read_text(encoding="utf-8-sig")), dict)
+    except (OSError, json.JSONDecodeError):
+        return False
+
+
+def classifier_runtime_status(spec: CategoryModelSpec) -> dict:
+    """Describe the first usable subtype runtime in production priority order."""
+    if spec.cnn_classifier_path is not None:
+        metadata_path = spec.cnn_classifier_path.with_suffix(".json")
+        if spec.cnn_classifier_path.exists() and _json_artifact_is_valid(metadata_path):
+            return {
+                "engine": "fine_tuned_resnet18_onnx",
+                "available": True,
+                "artifact": artifact_descriptor(spec.cnn_classifier_path),
+            }
+    if spec.compact_classifier_path is not None and spec.compact_classifier_path.exists():
+        return {
+            "engine": "portable_forest",
+            "available": True,
+            "artifact": artifact_descriptor(spec.compact_classifier_path),
         }
-        for category in SUPPORTED_CATEGORIES
-    ]
+    if spec.classifier_path.exists():
+        return {
+            "engine": "sklearn_feature_classifier",
+            "available": True,
+            "artifact": artifact_descriptor(spec.classifier_path),
+        }
+    return {"engine": "unavailable", "available": False, "artifact": None}
+
+
+def category_model_statuses(advanced_enabled: bool = False, openvino_enabled: bool = False) -> list[dict]:
+    statuses = []
+    for category in SUPPORTED_CATEGORIES:
+        spec = category_model_spec(category)
+        classifier = classifier_runtime_status(spec)
+        openvino_ready = bool(
+            openvino_enabled
+            and spec.openvino_path is not None
+            and spec.openvino_path.exists()
+            and spec.openvino_path.with_suffix(".bin").exists()
+        )
+        active_engine = (
+            f"{spec.model_kind}_openvino"
+            if openvino_ready
+            else spec.model_kind
+            if advanced_enabled and is_valid_checkpoint(spec.checkpoint_path)
+            else "portable_baseline"
+        )
+        statuses.append(
+            {
+                "category": category,
+                "available": spec.is_runnable,
+                "runnable": spec.is_runnable,
+                "fully_ready": spec.is_runnable and classifier["available"],
+                "trained": spec.has_advanced_model,
+                "advanced_model_available": spec.has_advanced_model,
+                "classification_trained": classifier["available"],
+                "portable_cnn_available": classifier["engine"] == "fine_tuned_resnet18_onnx",
+                "model_kind": spec.model_kind,
+                "active_engine": active_engine,
+                "deployment_tier": "advanced" if active_engine != "portable_baseline" else "portable",
+                "classifier_engine": classifier["engine"],
+                "subtype_labels": list(CATEGORY_DEFECT_LABELS[category]),
+                "subtype_count": len(CATEGORY_DEFECT_LABELS[category]),
+                "subtype_confidence_threshold": spec.subtype_confidence_threshold,
+                "input_size": spec.input_size,
+                "decision_threshold": spec.padim_score_threshold,
+                "baseline_score_threshold": spec.baseline_score_threshold,
+                "artifacts": {
+                    "profile": artifact_descriptor(spec.baseline_profile_path),
+                    "classifier": artifact_descriptor(spec.classifier_path),
+                    "active_classifier": classifier["artifact"],
+                    "cnn_classifier": artifact_descriptor(spec.cnn_classifier_path)
+                    if spec.cnn_classifier_path
+                    else None,
+                    "openvino_calibrator": artifact_descriptor(spec.openvino_calibrator_path)
+                    if spec.openvino_calibrator_path
+                    else None,
+                    "portable_detector_calibrator": artifact_descriptor(spec.portable_detector_calibrator_path)
+                    if spec.portable_detector_calibrator_path
+                    else None,
+                    "compact_classifier": artifact_descriptor(spec.compact_classifier_path)
+                    if spec.compact_classifier_path
+                    else None,
+                    "metadata": artifact_descriptor(spec.metadata_path),
+                },
+            }
+        )
+    return statuses

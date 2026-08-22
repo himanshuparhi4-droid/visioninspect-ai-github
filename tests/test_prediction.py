@@ -5,7 +5,13 @@ import cv2
 import numpy as np
 
 from ml import predict
-from ml.inference import InferenceConfig, build_explainability, classify_prediction, compute_defect_geometry
+from ml.inference import (
+    InferenceConfig,
+    build_explainability,
+    calibrated_subtype_confidence,
+    classify_prediction,
+    compute_defect_geometry,
+)
 from ml.model_registry import category_model_spec
 from ml.padim_detector import openvino_spatial_features
 
@@ -21,9 +27,6 @@ def test_inspect_image_returns_backend_ready_output(monkeypatch):
             fail_severity_threshold = 60
 
         return RuntimeSettings()
-
-    def fake_resolve_backend_path(value):
-        return Path(value)
 
     def fake_inspect_image_runtime(image_path, config):
         assert image_path == expected_image
@@ -47,7 +50,6 @@ def test_inspect_image_returns_backend_ready_output(monkeypatch):
         }
 
     monkeypatch.setattr("app.services.model_settings_service.load_runtime_settings", fake_runtime_settings)
-    monkeypatch.setattr("app.services.prediction_service.resolve_backend_path", fake_resolve_backend_path)
     monkeypatch.setattr("ml.inference.inspect_image", fake_inspect_image_runtime)
 
     result = predict.inspect_image(expected_image)
@@ -130,16 +132,42 @@ def test_runtime_keeps_detection_and_subtype_confidence_separate(monkeypatch, tm
         padim_score_threshold=0.5,
         review_severity_threshold=40,
         fail_severity_threshold=60,
+        subtype_model_macro_f1=0.70,
     )
 
     result = inspect_image(image_path, config)
 
-    assert result["confidence"] == 0.6
+    assert result["confidence"] == 0.8
     assert result["detection_confidence"] == 0.8
     assert result["classification_confidence"] == 0.6
     assert result["severity_components"]["confidence_score"] == 80.0
     assert result["explainability"]["detection_confidence"] == 0.8
     assert result["explainability"]["classification_confidence"] == 0.6
+    assert result["subtype_model_status"] == "Manual review"
+    assert result["manual_review_required"] is True
+
+
+def test_saved_isotonic_mapping_calibrates_subtype_confidence():
+    calibration = {
+        "method": "isotonic_oof_top_label",
+        "x_thresholds": [0.4, 0.6, 0.9],
+        "y_thresholds": [0.3, 0.7, 0.95],
+    }
+
+    calibrated, applied = calibrated_subtype_confidence(0.75, calibration)
+
+    assert applied is True
+    assert np.isclose(calibrated, 0.825)
+
+
+def test_unverified_calibration_keeps_raw_subtype_confidence():
+    calibrated, applied = calibrated_subtype_confidence(
+        0.72,
+        {"method": "not_applied_no_ece_gain"},
+    )
+
+    assert applied is False
+    assert calibrated == 0.72
 
 
 def test_geometry_uses_product_configured_critical_zones():

@@ -8,6 +8,7 @@ import DefectHeatmap from "../../components/DefectHeatmap";
 import InspectionResult from "../../components/InspectionResult";
 import { formatTime } from "../../services/dateTime";
 import { getCameraSamples, simulateCameraInspection, getModelCategories } from "../../services/inspectionApi";
+import { warmModelCategory } from "../../services/modelApi";
 
 export default function CameraPage() {
   const [modelCategories, setModelCategories] = useState([]);
@@ -19,10 +20,12 @@ export default function CameraPage() {
   const [feed, setFeed] = useState([]);
   const [selected, setSelected] = useState(null);
   const [message, setMessage] = useState("");
+  const [modelReady, setModelReady] = useState(null);
   const timerRef = useRef(null);
   const runningRef = useRef(false);
   const inFlightRef = useRef(false);
   const frameIndexRef = useRef(0);
+  const warmedCategoriesRef = useRef(new Set());
 
   async function loadSamples(targetCategory = category) {
     if (!targetCategory || typeof targetCategory !== "string") return;
@@ -45,6 +48,17 @@ export default function CameraPage() {
   useEffect(() => {
     if (category) {
       loadSamples(category);
+      setModelReady({ category, state: "warming" });
+      if (!warmedCategoriesRef.current.has(category)) {
+        warmModelCategory(category)
+          .then((payload) => {
+            warmedCategoriesRef.current.add(category);
+            setModelReady({ category, state: payload.ready ? "ready" : "warning", ...payload });
+          })
+          .catch((error) => setModelReady({ category, state: "warning", warnings: [error.message] }));
+      } else {
+        setModelReady({ category, state: "ready" });
+      }
       setLabel("");
       setFrameIndex(0);
       frameIndexRef.current = 0;
@@ -115,7 +129,7 @@ export default function CameraPage() {
           <RefreshCw size={16} />
           Refresh samples
         </button>
-        <button className="primary-button" type="button" onClick={startStream} disabled={running}>
+        <button className="primary-button" type="button" onClick={startStream} disabled={running || !category}>
           <Play size={16} />
           Start stream
         </button>
@@ -166,6 +180,12 @@ export default function CameraPage() {
               ))}
             </select>
           </label>
+          <div className="metric-box">
+            <small>Category model</small>
+            <strong>
+              {modelReady?.state === "warming" ? "Preparing" : modelReady?.state === "ready" ? "Ready" : "On demand"}
+            </strong>
+          </div>
           <div className="metric-box">
             <small>Stream status</small>
             <strong>{running ? "Running" : "Stopped"}</strong>

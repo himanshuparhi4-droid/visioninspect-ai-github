@@ -8,20 +8,18 @@
     256,
     256
   ],
-  "padim_features": 256,
+  "padim_features": 50,
   "train_good_images": 60,
   "accelerator": "gpu",
-  "checkpoint_path": "models\\categories\\toothbrush\\padim_v1.ckpt",
-  "baseline_profile_path": "models\\categories\\toothbrush\\normal_profile.npz",
-  "trained_at": "2026-07-23T17:55:30.243623+00:00",
-  "metrics": [
-    {
-      "image_AUROC": 0.8972221612930298,
-      "image_F1Score": 0.9354838728904724,
-      "pixel_AUROC": 0.990727961063385,
-      "pixel_F1Score": 0.6087708473205566
-    }
-  ],
+  "checkpoint_path": "models/categories/toothbrush/padim_v1.ckpt",
+  "baseline_profile_path": "models/categories/toothbrush/normal_profile.npz",
+  "trained_at": "2026-08-22T18:31:04.451718+05:30",
+  "metrics": {
+    "image_AUROC": 0.9805555939674377,
+    "image_F1Score": 0.9473684430122375,
+    "pixel_AUROC": 0.9851738214492798,
+    "pixel_F1Score": 0.5153639316558838
+  },
   "threshold_calibration": {
     "model_kind": "padim",
     "threshold": 0.544603,
@@ -58,14 +56,8 @@
         "support": 30.0
       }
     },
-    "confusion_matrix": [
-      [
-        30
-      ]
-    ],
-    "labels": [
-      "defective"
-    ],
+    "confusion_matrix": 30,
+    "labels": "defective",
     "train_size": 30,
     "eval_size": 30,
     "feature_extractor": "resnet18_imagenet1k_v1_plus_texture",
@@ -113,65 +105,130 @@
     "protocol": "nested stratified cross-validation on labelled MVTec test images; each outer fold performs calibrator and threshold selection using only its training partition; production calibrator is fitted on all labelled images after evaluation",
     "folds": 5,
     "samples": 42,
-    "selected_classifier": "extra_trees_sqrt_leaf1",
+    "selected_classifier": "extra_trees_sqrt_leaf2",
     "candidate_scores": {
-      "extra_trees_sqrt_leaf1": {
-        "threshold": 0.443333,
-        "balanced_accuracy": 0.925,
-        "f1": 0.9492,
-        "auroc": 0.9736
-      },
-      "extra_trees_wide_leaf1": {
-        "threshold": 0.416667,
-        "balanced_accuracy": 0.8833,
-        "f1": 0.9333,
-        "auroc": 0.9639
-      },
       "extra_trees_sqrt_leaf2": {
-        "threshold": 0.426858,
-        "balanced_accuracy": 0.9083,
-        "f1": 0.931,
-        "auroc": 0.9694
-      },
-      "random_forest_sqrt_leaf1": {
-        "threshold": 0.376667,
-        "balanced_accuracy": 0.875,
-        "f1": 0.9524,
-        "auroc": 0.9417
+        "threshold": 0.675,
+        "balanced_accuracy": 0.9333,
+        "f1": 0.9286,
+        "auroc": 0.9639
       }
     },
     "outer_selection_frequency": {
-      "extra_trees_sqrt_leaf1": 3,
-      "extra_trees_wide_leaf1": 2
+      "extra_trees_sqrt_leaf2": 5
     },
     "outer_thresholds": [
-      0.675,
-      0.5,
-      0.516667,
-      0.6,
-      0.37
+      0.525,
+      0.65,
+      0.625,
+      0.55,
+      0.575
     ],
-    "decision_threshold": 0.443333,
-    "accuracy": 0.9762,
-    "precision": 0.9677,
-    "recall": 1.0,
+    "decision_threshold": 0.675,
+    "accuracy": 0.881,
+    "precision": 0.963,
+    "recall": 0.8667,
     "specificity": 0.9167,
-    "balanced_accuracy": 0.9583,
-    "f1": 0.9836,
-    "auroc": 0.9639,
+    "balanced_accuracy": 0.8917,
+    "f1": 0.9123,
+    "auroc": 0.95,
     "confusion_matrix": [
       [
         11,
         1
       ],
       [
-        0,
-        30
+        4,
+        26
       ]
     ],
     "defect_subtype_recall": {
-      "defective": 1.0
+      "defective": 0.8667
     },
     "artifact": "models/categories/toothbrush/openvino_calibrator.npz"
+  },
+  "input_quality": {
+    "resolution": 256,
+    "roi_scale": 1.0,
+    "preprocessor": "resize"
+  },
+  "model_history": [
+    {
+      "model_name": "padim",
+      "model_version": "v1",
+      "padim_features": 256,
+      "trained_at": "2026-07-23T23:25:30.243623+05:30",
+      "metrics": {
+        "image_AUROC": 0.8972221612930298,
+        "image_F1Score": 0.9354838728904724,
+        "pixel_AUROC": 0.990727961063385,
+        "pixel_F1Score": 0.6087708473205566
+      }
+    },
+    {
+      "model_name": "padim",
+      "model_version": "v1",
+      "padim_features": 50,
+      "coreset_sampling_ratio": null,
+      "trained_at": "2026-08-22T17:33:11.197477+05:30",
+      "metrics": {
+        "image_AUROC": 0.9805555939674377,
+        "image_F1Score": 0.9473684430122375,
+        "pixel_AUROC": 0.9851738214492798,
+        "pixel_F1Score": 0.5153639316558838
+      }
+    }
+  ],
+  "openvino_export": {
+    "precision": "FP16",
+    "xml_size_mb": 0.11,
+    "bin_size_mb": 25.23,
+    "input_size": [
+      256,
+      256
+    ],
+    "path": "models/exported/toothbrush/weights/openvino/model.xml"
+  },
+  "coreset_sampling_ratio": null,
+  "num_neighbors": null,
+  "deployed_subtype_validation": {
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "classification_report": {
+      "defective": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 30.0
+      },
+      "accuracy": 1.0,
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 30.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 30.0
+      }
+    },
+    "confusion_matrix": 30,
+    "labels": "defective",
+    "samples": 30,
+    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active OpenVINO anomaly masks",
+    "classifier_engine": "sklearn_feature_classifier",
+    "feature_mode": "global_texture",
+    "mask_source": "active OpenVINO anomaly detector",
+    "confidence_calibration": {
+      "method": "not_available",
+      "reason": "Insufficient independent confidence variation",
+      "review_threshold": 0.55,
+      "target_accuracy": 0.85,
+      "target_achieved": true,
+      "raw_ece": 0.0
+    }
   }
 }

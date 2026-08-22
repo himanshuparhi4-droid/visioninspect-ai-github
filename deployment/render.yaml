@@ -19,10 +19,6 @@ services:
         value: "60"
       - key: MONGODB_DATABASE
         value: visioninspect_ai
-      - key: CLASSIFIER_MODEL_PATH
-        value: ../models/defect_classifier.pkl
-      - key: MODEL_METADATA_PATH
-        value: ../models/model_metadata.json
       - key: BASELINE_THRESHOLD
         value: "1.34"
       - key: USE_PADIM_INFERENCE
@@ -31,6 +27,10 @@ services:
         value: "true"
       - key: OPENVINO_INFERENCE_DEVICE
         value: CPU
+      - key: ANOMALY_MODEL_CACHE_SIZE
+        value: "1"
+      - key: CLASSIFIER_MODEL_CACHE_SIZE
+        value: "1"
       - key: WEB_CONCURRENCY
         value: "1"
       - key: OPENCV_NUM_THREADS

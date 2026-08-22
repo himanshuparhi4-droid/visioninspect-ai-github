@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -12,8 +13,9 @@ class PadimInferenceError(RuntimeError):
     pass
 
 
-ANOMALY_MODEL_CACHE_SIZE = max(1, min(int(os.getenv("ANOMALY_MODEL_CACHE_SIZE", "2")), 4))
+ANOMALY_MODEL_CACHE_SIZE = max(1, min(int(os.getenv("ANOMALY_MODEL_CACHE_SIZE", "1")), 4))
 OPENVINO_INFERENCE_LOCK = Lock()
+logger = logging.getLogger(__name__)
 
 
 def choose_accelerator(configured: str = "auto") -> str:
@@ -68,7 +70,7 @@ def load_anomaly_runtime(checkpoint_path: str, model_kind: str = "padim", accele
     return model, engine
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=ANOMALY_MODEL_CACHE_SIZE)
 def load_openvino_runtime(model_path: str, device: str = "CPU") -> object:
     path = Path(model_path)
     if not path.exists():
@@ -91,7 +93,7 @@ def load_openvino_runtime(model_path: str, device: str = "CPU") -> object:
         raise PadimInferenceError(f"Could not load OpenVINO model on {device}") from exc
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=ANOMALY_MODEL_CACHE_SIZE)
 def load_openvino_calibrator(path_value: str) -> dict:
     path = Path(path_value)
     if not path.exists():
@@ -160,6 +162,7 @@ def predict_with_openvino(
     score_threshold: float,
     device: str,
     calibrator_path: str | Path | None,
+    input_size: int = 256,
 ) -> dict:
     import cv2
 
@@ -168,7 +171,7 @@ def predict_with_openvino(
     if image is None:
         raise PadimInferenceError(f"Could not read image: {image_path}")
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image = cv2.resize(image, (256, 256)).astype(np.float32) / 255.0
+    image = cv2.resize(image, (input_size, input_size)).astype(np.float32) / 255.0
     tensor = image.transpose(2, 0, 1)[None]
     try:
         with OPENVINO_INFERENCE_LOCK:
@@ -234,6 +237,7 @@ def predict_with_anomaly_model(
     openvino_path: str | Path | None = None,
     openvino_device: str = "CPU",
     openvino_calibrator_path: str | Path | None = None,
+    input_size: int = 256,
 ) -> dict:
     model_kind = model_kind.lower()
     image_path = Path(image_path)
@@ -249,6 +253,7 @@ def predict_with_anomaly_model(
     except Exception as exc:
         raise PadimInferenceError(f"Could not validate image: {image_path}") from exc
 
+    openvino_fallback_reason = None
     if openvino_path and Path(openvino_path).exists():
         try:
             return predict_with_openvino(
@@ -258,10 +263,18 @@ def predict_with_anomaly_model(
                 score_threshold=score_threshold,
                 device=openvino_device,
                 calibrator_path=openvino_calibrator_path,
+                input_size=input_size,
             )
         except Exception as exc:
             if not (checkpoint_path and Path(checkpoint_path).exists()):
                 raise PadimInferenceError("OpenVINO prediction failed") from exc
+            openvino_fallback_reason = str(exc)
+            logger.warning(
+                "anomaly_detector_fallback openvino=%s checkpoint=%s reason=%s",
+                openvino_path,
+                checkpoint_path,
+                exc,
+            )
 
     model, engine = load_anomaly_runtime(str(checkpoint_path), model_kind, accelerator)
 
@@ -298,8 +311,8 @@ def predict_with_anomaly_model(
         "detection_confidence": padim_detection_confidence(score, score_threshold, is_defective),
         "anomaly_map": anomaly_map,
         "pred_mask": pred_mask,
-        "fallback_used": False,
-        "fallback_reason": None,
+        "fallback_used": openvino_fallback_reason is not None,
+        "fallback_reason": openvino_fallback_reason,
     }
 
 

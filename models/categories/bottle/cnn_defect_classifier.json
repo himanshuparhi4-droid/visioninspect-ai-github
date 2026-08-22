@@ -1,0 +1,22 @@
+{
+  "artifact_type": "visioninspect_resnet18_finetuned_classifier_onnx",
+  "category": "bottle",
+  "model_version": "v1",
+  "labels": [
+    "broken_large",
+    "broken_small",
+    "contamination"
+  ],
+  "image_size": 320,
+  "preprocessing": {
+    "view": "defect",
+    "alignment": "elongated_object_deskew",
+    "contrast": "LAB_CLAHE"
+  },
+  "classifier_engine": "fine_tuned_resnet18_onnx",
+  "metrics": {
+    "accuracy": 0.9231,
+    "macro_f1": 0.9259,
+    "protocol": "untouched stratified test split"
+  }
+}

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
@@ -20,6 +22,10 @@ class DefectClassifierError(RuntimeError):
     pass
 
 
+logger = logging.getLogger(__name__)
+PORTABLE_CNN_CACHE_SIZE = max(1, min(int(os.getenv("CLASSIFIER_MODEL_CACHE_SIZE", "2")), 4))
+
+
 class PortableCNNClassifier:
     """Thread-safe OpenCV DNN runtime for a fine-tuned CNN classifier."""
 
@@ -34,13 +40,13 @@ class PortableCNNClassifier:
             return self.net.forward()
 
 
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=PORTABLE_CNN_CACHE_SIZE)
 def load_portable_cnn_runtime(model_path_value: str, metadata_path_value: str) -> PortableCNNClassifier:
     model_path = Path(model_path_value)
     metadata_path = Path(metadata_path_value)
     if not model_path.exists() or not metadata_path.exists():
         raise DefectClassifierError(f"Portable CNN classifier artifacts are incomplete: {model_path.parent}")
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8-sig"))
     if metadata.get("artifact_type") != "visioninspect_resnet18_finetuned_classifier_onnx":
         raise DefectClassifierError(f"Unsupported portable CNN classifier metadata: {metadata_path}")
     return PortableCNNClassifier(model_path, metadata)
@@ -57,7 +63,7 @@ def predict_portable_cnn_defect_type(
 
     metadata_path = Path(metadata_path)
     model_path = Path(model_path)
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8-sig"))
     image_size = int(metadata["image_size"])
     crop_mode = str(metadata.get("preprocessing", {}).get("view", "defect"))
     image_bgr = read_bgr(image_path)
@@ -80,24 +86,10 @@ def predict_portable_cnn_defect_type(
     std = np.asarray((0.229, 0.224, 0.225), dtype=np.float32)
     tensor = np.transpose((rgb - mean) / std, (2, 0, 1))[None].astype(np.float32, copy=False)
 
-    # Ensemble inference: average logits from multiple models
-    ensemble_model_names = metadata.get("ensemble_models")
-    if ensemble_model_names:
-        model_dir = model_path.parent
-        all_logits = []
-        for name in ensemble_model_names:
-            ensemble_path = model_dir / name
-            if ensemble_path.exists():
-                runtime = load_portable_cnn_runtime(str(ensemble_path), str(metadata_path))
-                all_logits.append(runtime.predict(tensor).reshape(-1))
-        if all_logits:
-            logits = np.mean(all_logits, axis=0)
-        else:
-            runtime = load_portable_cnn_runtime(str(model_path), str(metadata_path))
-            logits = runtime.predict(tensor).reshape(-1)
-    else:
-        runtime = load_portable_cnn_runtime(str(model_path), str(metadata_path))
-        logits = runtime.predict(tensor).reshape(-1)
+    runtime = load_portable_cnn_runtime(str(model_path), str(metadata_path))
+    logits = runtime.predict(tensor).reshape(-1)
+    temperature = max(float(metadata.get("temperature", 1.0)), 0.05)
+    logits = logits / temperature
 
     probabilities = np.exp(logits - np.max(logits))
     probabilities /= probabilities.sum()
@@ -110,11 +102,14 @@ def predict_portable_cnn_defect_type(
             label: round(float(probability), 4)
             for label, probability in zip(labels, probabilities, strict=True)
         },
-        "classifier_engine": "fine_tuned_resnet18_onnx_ensemble" if ensemble_model_names else "fine_tuned_resnet18_onnx",
+        "classifier_engine": "fine_tuned_resnet18_onnx",
+        "classifier_fallback_used": False,
+        "classifier_fallback_reason": None,
+        "confidence_calibrated": "temperature" in metadata,
     }
 
 
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=PORTABLE_CNN_CACHE_SIZE)
 def load_classifier_runtime(path_value: str) -> dict:
     from ml.classifier import load_classifier_bundle
 
@@ -190,13 +185,10 @@ def classify_defect_type(
     if "capsule" in Path(classifier_model_path).parts:
         defect_mask = refine_defect_mask_for_classification(defect_mask)
     classifier_model_path = Path(classifier_model_path)
-    cnn_onnx_path = (
-        Path(cnn_classifier_path)
-        if cnn_classifier_path is not None
-        else classifier_model_path.with_name("cnn_defect_classifier.onnx")
-    )
-    cnn_metadata_path = cnn_onnx_path.with_suffix(".json")
-    if cnn_onnx_path.exists() and cnn_metadata_path.exists():
+    cnn_onnx_path = Path(cnn_classifier_path) if cnn_classifier_path is not None else None
+    cnn_metadata_path = cnn_onnx_path.with_suffix(".json") if cnn_onnx_path is not None else None
+    classifier_fallback_reason = None
+    if cnn_onnx_path is not None and cnn_metadata_path is not None and cnn_onnx_path.exists() and cnn_metadata_path.exists():
         try:
             return predict_portable_cnn_defect_type(
                 image_path,
@@ -204,9 +196,14 @@ def classify_defect_type(
                 cnn_metadata_path,
                 defect_mask=defect_mask,
             )
-        except Exception:
-            # Continue to the compact classifier if portable CNN loading fails.
-            pass
+        except Exception as exc:
+            classifier_fallback_reason = f"Portable CNN could not be used: {exc}"
+            logger.warning(
+                "subtype_classifier_fallback cnn=%s fallback=%s reason=%s",
+                cnn_onnx_path,
+                compact_classifier_path or classifier_model_path,
+                exc,
+            )
 
     compact_path = Path(compact_classifier_path) if compact_classifier_path is not None else None
     if compact_path is not None and compact_path.exists():
@@ -227,6 +224,9 @@ def classify_defect_type(
                 for class_name, probability in zip(classes, probabilities, strict=True)
             },
             "classifier_engine": "portable_forest",
+            "classifier_fallback_used": classifier_fallback_reason is not None,
+            "classifier_fallback_reason": classifier_fallback_reason,
+            "confidence_calibrated": False,
         }
 
     bundle = load_classifier_runtime(str(classifier_model_path))
@@ -306,4 +306,8 @@ def classify_defect_type(
         "defect_type": label,
         "confidence": round(float(max(probabilities)), 4),
         "class_probabilities": class_probabilities,
+        "classifier_engine": f"sklearn_{feature_mode or 'resnet18_features'}",
+        "classifier_fallback_used": classifier_fallback_reason is not None,
+        "classifier_fallback_reason": classifier_fallback_reason,
+        "confidence_calibrated": False,
     }

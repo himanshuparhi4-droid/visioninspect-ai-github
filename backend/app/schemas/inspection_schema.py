@@ -27,6 +27,18 @@ class InspectionResponse(BaseModel):
     confidence: float | None = None
     detection_confidence: float | None = None
     classification_confidence: float | None = None
+    raw_classification_confidence: float | None = None
+    classification_confidence_calibrated: bool = False
+    subtype_model_status: str | None = None
+    subtype_model_macro_f1: float | None = None
+    manual_review_required: bool = False
+    detector_engine: str | None = None
+    detector_kind: str | None = None
+    classifier_engine: str | None = None
+    detector_fallback_used: bool = False
+    detector_fallback_reason: str | None = None
+    classifier_fallback_used: bool = False
+    classifier_fallback_reason: str | None = None
     anomaly_score: float | None = None
     defect_area_ratio: float | None = None
     class_probabilities: dict = Field(default_factory=dict)

@@ -12,16 +12,14 @@
   "train_good_images": 240,
   "accelerator": "gpu",
   "checkpoint_path": "models/categories/zipper/patchcore_v1.ckpt",
-  "baseline_profile_path": "models\\categories\\zipper\\normal_profile.npz",
-  "trained_at": "2026-08-15T11:24:46.266024+00:00",
-  "metrics": [
-    {
-      "image_AUROC": 0.9661239981651306,
-      "image_F1Score": 0.9709543585777283,
-      "pixel_AUROC": 0.9797542095184326,
-      "pixel_F1Score": 0.5330473184585571
-    }
-  ],
+  "baseline_profile_path": "models/categories/zipper/normal_profile.npz",
+  "trained_at": "2026-08-15T16:54:46.266024+05:30",
+  "metrics": {
+    "image_AUROC": 0.9661239981651306,
+    "image_F1Score": 0.9709543585777283,
+    "pixel_AUROC": 0.9797542095184326,
+    "pixel_F1Score": 0.5330473184585571
+  },
   "defect_classifier": {
     "accuracy": 0.8571,
     "macro_f1": 0.8568,
@@ -216,5 +214,193 @@
   "selected_from_benchmark": true,
   "backbone": "wide_resnet50_2",
   "coreset_sampling_ratio": 0.05,
-  "num_neighbors": 9
+  "num_neighbors": 9,
+  "deployed_subtype_validation": {
+    "accuracy": 0.7311,
+    "macro_f1": 0.7294,
+    "classification_report": {
+      "broken_teeth": {
+        "precision": 0.6666666666666666,
+        "recall": 0.631578947368421,
+        "f1-score": 0.6486486486486487,
+        "support": 19.0
+      },
+      "combined": {
+        "precision": 0.47058823529411764,
+        "recall": 0.5,
+        "f1-score": 0.48484848484848486,
+        "support": 16.0
+      },
+      "fabric_border": {
+        "precision": 0.7391304347826086,
+        "recall": 1.0,
+        "f1-score": 0.85,
+        "support": 17.0
+      },
+      "fabric_interior": {
+        "precision": 0.8571428571428571,
+        "recall": 0.75,
+        "f1-score": 0.8,
+        "support": 16.0
+      },
+      "rough": {
+        "precision": 0.8666666666666667,
+        "recall": 0.7647058823529411,
+        "f1-score": 0.8125,
+        "support": 17.0
+      },
+      "split_teeth": {
+        "precision": 0.8235294117647058,
+        "recall": 0.7777777777777778,
+        "f1-score": 0.8,
+        "support": 18.0
+      },
+      "squeezed_teeth": {
+        "precision": 0.7333333333333333,
+        "recall": 0.6875,
+        "f1-score": 0.7096774193548387,
+        "support": 16.0
+      },
+      "accuracy": 0.7310924369747899,
+      "macro avg": {
+        "precision": 0.7367225150929937,
+        "recall": 0.7302232296427343,
+        "f1-score": 0.7293820789788532,
+        "support": 119.0
+      },
+      "weighted avg": {
+        "precision": 0.7375275429865041,
+        "recall": 0.7310924369747899,
+        "f1-score": 0.7302457041309034,
+        "support": 119.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        12,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2
+      ],
+      [
+        1,
+        8,
+        2,
+        0,
+        1,
+        2,
+        2
+      ],
+      [
+        0,
+        0,
+        17,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        3,
+        12,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        3,
+        0,
+        0,
+        13,
+        0,
+        0
+      ],
+      [
+        2,
+        2,
+        0,
+        0,
+        0,
+        14,
+        0
+      ],
+      [
+        2,
+        2,
+        0,
+        1,
+        0,
+        0,
+        11
+      ]
+    ],
+    "labels": [
+      "broken_teeth",
+      "combined",
+      "fabric_border",
+      "fabric_interior",
+      "rough",
+      "split_teeth",
+      "squeezed_teeth"
+    ],
+    "samples": 119,
+    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active OpenVINO anomaly masks",
+    "classifier_engine": "sklearn_feature_classifier",
+    "feature_mode": "global_roi_texture",
+    "mask_source": "active OpenVINO anomaly detector",
+    "confidence_calibration": {
+      "method": "isotonic_oof_top_label",
+      "review_threshold": 0.625,
+      "target_accuracy": 0.85,
+      "target_achieved": true,
+      "coverage": 0.6303,
+      "accepted_accuracy": 0.8533,
+      "raw_ece": 0.1908,
+      "cross_fitted_calibrated_ece": 0.098,
+      "x_thresholds": [
+        0.216523,
+        0.260005,
+        0.290188,
+        0.301955,
+        0.348134,
+        0.349282,
+        0.473459,
+        0.477229,
+        0.507881,
+        0.509729,
+        0.587481,
+        0.590253,
+        0.756729,
+        0.758306,
+        0.884321,
+        0.890657,
+        0.953662
+      ],
+      "y_thresholds": [
+        0.0,
+        0.333333,
+        0.333333,
+        0.5,
+        0.5,
+        0.541667,
+        0.541667,
+        0.764706,
+        0.764706,
+        0.888889,
+        0.888889,
+        0.90625,
+        0.90625,
+        0.909091,
+        0.909091,
+        1.0,
+        1.0
+      ]
+    }
+  }
 }

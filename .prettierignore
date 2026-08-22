@@ -4,7 +4,6 @@ frontend/.next
 frontend/out
 backend/app/uploads
 data
-models/checkpoints
 *.log
 *.pkl
 *.png

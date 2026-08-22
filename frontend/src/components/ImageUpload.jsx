@@ -2,7 +2,7 @@
 
 import { ImageUp, Loader2, ScanSearch } from "lucide-react";
 
-export default function ImageUpload({ file, onFileChange, onInspect, loading }) {
+export default function ImageUpload({ file, onFileChange, onInspect, loading, busyLabel = "Inspecting" }) {
   return (
     <section className="tool-panel">
       <div className="panel-heading">
@@ -28,7 +28,7 @@ export default function ImageUpload({ file, onFileChange, onInspect, loading }) 
 
       <button className="primary-button" type="button" onClick={onInspect} disabled={!file || loading}>
         {loading ? <Loader2 className="spin" size={18} /> : <ScanSearch size={18} />}
-        <span>{loading ? "Inspecting" : "Run Inspection"}</span>
+        <span>{loading ? busyLabel : "Run Inspection"}</span>
       </button>
     </section>
   );

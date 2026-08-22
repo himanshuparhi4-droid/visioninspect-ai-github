@@ -17,3 +17,4 @@ class ModelMetricsResponse(BaseModel):
     threshold_calibration: dict = Field(default_factory=dict)
     baseline_metrics: list[dict] = Field(default_factory=list)
     category_models: list[dict] = Field(default_factory=list)
+    release_summary: dict = Field(default_factory=dict)

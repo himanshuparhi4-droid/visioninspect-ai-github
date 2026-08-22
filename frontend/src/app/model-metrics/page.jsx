@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Database, Gauge } from "lucide-react";
+import { Cpu, Database, Gauge, ShieldCheck, UserCheck } from "lucide-react";
 
 import AppShell from "../../components/AppShell";
 import {
@@ -12,7 +12,9 @@ import {
   ModelComparisonPanel,
   ThresholdCalibrationPanel,
   ThresholdSettingsPanel,
-  formatMetric,
+  formatEngine,
+  formatPercentMetric,
+  metricStatusClass,
 } from "../../components/ModelMetricPanels";
 import { apiGet } from "../../services/api";
 import { getModelMetrics, updateModelSettings } from "../../services/modelApi";
@@ -22,6 +24,7 @@ export default function ModelMetricsPage() {
   const [metrics, setMetrics] = useState(null);
   const [settings, setSettings] = useState(null);
   const [message, setMessage] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     apiGet("/health", { token: null })
@@ -31,8 +34,12 @@ export default function ModelMetricsPage() {
       .then((payload) => {
         setMetrics(payload);
         setSettings(payload.runtime_settings);
+        setLoadError("");
       })
-      .catch(() => setMetrics(null));
+      .catch((error) => {
+        setMetrics(null);
+        setLoadError(error.message || "Model metrics could not be loaded.");
+      });
   }, []);
 
   async function saveSettings() {
@@ -57,17 +64,37 @@ export default function ModelMetricsPage() {
 
   return (
     <AppShell title="Model Metrics" subtitle="Current defect detection and classification model status.">
+      {loadError ? (
+        <section className="error-panel" role="alert">
+          <strong>Model metrics unavailable</strong>
+          <p>{loadError}</p>
+        </section>
+      ) : null}
       <section className="stats-grid">
-        {(metrics?.model_comparison || []).map((model) => (
-          <div key={model.name} className="stat-card">
-            <span className="stat-icon">
-              <Gauge size={18} />
-            </span>
-            <small>{model.primary_metric}</small>
-            <strong>{formatMetric(model.score)}</strong>
-            <small>{model.name}</small>
-          </div>
-        ))}
+        <SummaryCard
+          icon={ShieldCheck}
+          label="Production"
+          value={metrics?.release_summary?.production}
+          detail="Meets release targets"
+        />
+        <SummaryCard
+          icon={UserCheck}
+          label="Manual review"
+          value={metrics?.release_summary?.manual_review}
+          detail="Subtype below target"
+        />
+        <SummaryCard
+          icon={Gauge}
+          label="Binary target"
+          value={metrics?.release_summary?.binary_target_met}
+          detail="F1 at or above 90%"
+        />
+        <SummaryCard
+          icon={Cpu}
+          label="OpenVINO FP16"
+          value={metrics?.release_summary?.openvino}
+          detail="Active Render engines"
+        />
       </section>
 
       <div className="inspection-layout">
@@ -75,15 +102,11 @@ export default function ModelMetricsPage() {
         <ThresholdSettingsPanel settings={settings} message={message} onChange={updateSetting} onSave={saveSettings} />
       </div>
 
-      <ModelComparisonPanel models={metrics?.model_comparison || []} />
-      <ThresholdCalibrationPanel calibration={metrics?.threshold_calibration || {}} />
-      <BaselineMetricsTable rows={metrics?.baseline_metrics || []} />
-
       <section className="tool-panel">
         <div className="panel-heading">
           <div>
             <h2>Category Model Registry</h2>
-            <p>Portable and advanced model evidence for every supported product category.</p>
+            <p>Binary detection and defect subtype classification are evaluated and reported separately.</p>
           </div>
         </div>
         <div className="table-wrap">
@@ -91,14 +114,18 @@ export default function ModelMetricsPage() {
             <thead>
               <tr>
                 <th>Category</th>
-                <th>Runtime</th>
-                <th>Detector accuracy</th>
-                <th>Balanced accuracy</th>
-                <th>Detector F1</th>
-                <th>Detector AUROC</th>
-                <th>Pixel AUROC</th>
-                <th>Subtype accuracy</th>
+                <th>Release status</th>
+                <th>Active detector</th>
+                <th>Input</th>
+                <th>Binary accuracy</th>
+                <th>Binary F1</th>
+                <th>Defect recall</th>
+                <th>Good specificity</th>
+                <th>Binary AUROC</th>
+                <th>Subtype classifier</th>
                 <th>Subtype macro F1</th>
+                <th>Review threshold</th>
+                <th>Runtime size</th>
               </tr>
             </thead>
             <tbody>
@@ -106,25 +133,43 @@ export default function ModelMetricsPage() {
                 <tr key={model.category}>
                   <td>{model.category.replaceAll("_", " ")}</td>
                   <td>
-                    {model.active_engine
-                      ? model.active_engine.replaceAll("_", " ")
-                      : model.available
-                        ? "Portable baseline"
-                        : "Unavailable"}
+                    <strong className={`metric-status ${metricStatusClass(model.release_status)}`}>
+                      {model.release_status}
+                    </strong>
+                    <small className="metric-cell-note">{model.release_reason}</small>
                   </td>
-                  <td>{formatMetric(model.openvino_accuracy)}</td>
-                  <td>{formatMetric(model.openvino_balanced_accuracy)}</td>
-                  <td>{formatMetric(model.openvino_f1 ?? model.portable_cv_f1 ?? model.image_f1)}</td>
-                  <td>{formatMetric(model.openvino_auroc ?? model.image_auroc)}</td>
-                  <td>{formatMetric(model.pixel_auroc)}</td>
-                  <td>{formatMetric(model.classifier_accuracy)}</td>
-                  <td>{formatMetric(model.classifier_macro_f1)}</td>
+                  <td>
+                    {formatEngine(model.active_engine)}
+                    <small className="metric-cell-note">
+                      {model.deployment_precision || "FP32"} · {model.model_version || "v1"}
+                    </small>
+                  </td>
+                  <td>{model.input_size ? `${model.input_size} × ${model.input_size}` : "Pending"}</td>
+                  <td>{formatPercentMetric(model.binary_accuracy)}</td>
+                  <td>{formatPercentMetric(model.binary_f1)}</td>
+                  <td>{formatPercentMetric(model.binary_recall)}</td>
+                  <td>{formatPercentMetric(model.binary_specificity)}</td>
+                  <td>{formatPercentMetric(model.binary_auroc)}</td>
+                  <td>{formatEngine(model.classifier_engine)}</td>
+                  <td>
+                    {formatPercentMetric(model.subtype_macro_f1)}
+                    <small className="metric-cell-note">
+                      {model.subtype_metric_source}
+                      {model.subtype_validation_samples ? ` · ${model.subtype_validation_samples} samples` : ""}
+                    </small>
+                  </td>
+                  <td>{formatPercentMetric(model.subtype_confidence_threshold)}</td>
+                  <td>{model.model_size_mb != null ? `${model.model_size_mb.toFixed(1)} MB` : "Pending"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </section>
+
+      <ModelComparisonPanel models={metrics?.model_comparison || []} />
+      <ThresholdCalibrationPanel calibration={metrics?.threshold_calibration || {}} />
+      <BaselineMetricsTable rows={metrics?.baseline_metrics || []} />
 
       <div className="inspection-layout">
         <ConfusionMatrixPanel
@@ -135,16 +180,43 @@ export default function ModelMetricsPage() {
         <ClassifierReportPanel report={metrics?.classifier_report || {}} />
       </div>
 
-      <section className="tool-panel">
+      <section className="tool-panel runtime-summary-panel">
         <div className="panel-heading">
           <div>
             <h2>Runtime</h2>
-            <p>Service health from FastAPI.</p>
+            <p>Live backend, database, storage, and inference readiness.</p>
           </div>
           <Database size={22} />
         </div>
-        <pre className="json-panel">{JSON.stringify({ health, runtime_settings: settings }, null, 2)}</pre>
+        <div className="result-grid">
+          <RuntimeItem label="API" value={health?.status === "ok" ? "Online" : "Unavailable"} />
+          <RuntimeItem label="Database" value={health?.database_ready ? "Connected" : "Unavailable"} />
+          <RuntimeItem label="Storage" value={health?.storage?.backend || "Unknown"} />
+          <RuntimeItem label="Inference" value={health?.inference?.active_engine || "Unknown"} />
+        </div>
       </section>
     </AppShell>
+  );
+}
+
+function SummaryCard({ icon: Icon, label, value, detail }) {
+  return (
+    <div className="stat-card">
+      <span className="stat-icon">
+        <Icon size={18} />
+      </span>
+      <small>{label}</small>
+      <strong>{value ?? "-"}</strong>
+      <small>{detail}</small>
+    </div>
+  );
+}
+
+function RuntimeItem({ label, value }) {
+  return (
+    <div className="metric-box">
+      <small>{label}</small>
+      <strong>{String(value).replaceAll("_", " ")}</strong>
+    </div>
   );
 }

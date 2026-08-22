@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from threading import Lock
@@ -20,6 +21,7 @@ ROI_TEXTURE_FEATURE_MODE = "global_roi_texture"
 ROI_SHAPE_TEXTURE_FEATURE_MODE = "global_roi_shape_texture"
 ROI_PIXEL_TEXTURE_FEATURE_MODE = "global_roi_pixel_texture"
 HANDCRAFTED_ROI_SHAPE_FEATURE_MODE = "handcrafted_roi_shape_texture"
+PORTABLE_MODEL_CACHE_SIZE = max(1, min(int(os.getenv("CLASSIFIER_MODEL_CACHE_SIZE", "2")), 4))
 FEATURE_EXTRACTOR_NAME = "resnet18_imagenet1k_v1"
 GLOBAL_TEXTURE_EXTRACTOR_NAME = "resnet18_imagenet1k_v1_plus_texture"
 ROI_TEXTURE_EXTRACTOR_NAME = "resnet18_imagenet1k_v1_plus_roi_texture_geometry"
@@ -29,7 +31,7 @@ HANDCRAFTED_ROI_SHAPE_EXTRACTOR_NAME = "opencv_texture_gradient_color_mask_shape
 MASK_SHAPE_FEATURE_LENGTH = 284
 ROI_PIXEL_FEATURE_LENGTH = 3072
 DEFAULT_RESNET_WEIGHTS_PATH = Path(__file__).resolve().parents[1] / "models" / "inference" / "resnet18-f37072fd.pth"
-DEFAULT_RESNET_ONNX_PATH = Path(__file__).resolve().parents[1] / "models" / "inference" / "resnet18_features.onnx"
+DEFAULT_RESNET_ONNX_PATH = Path(__file__).resolve().parents[1] / "models" / "shared" / "resnet18_features.onnx"
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
@@ -1103,7 +1105,7 @@ def export_portable_forest(
     return output_path
 
 
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=PORTABLE_MODEL_CACHE_SIZE)
 def load_portable_forest(path_value: str, modified_ns: int) -> dict:
     del modified_ns
     path = Path(path_value)

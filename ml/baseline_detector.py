@@ -5,6 +5,7 @@ import numpy as np
 
 DEFAULT_VARIABILITY_FLOOR = 15.0
 DEFAULT_BASELINE_THRESHOLD = 1.34
+SPATIAL_GRID_SIZES = (2, 3)
 
 
 def load_image_bgr(image_path: str | Path) -> np.ndarray:
@@ -61,6 +62,8 @@ def save_reference_profile(profile: dict, destination: str | Path) -> None:
     }
     if "embedding_bank" in profile:
         payload["embedding_bank"] = np.asarray(profile["embedding_bank"], dtype=np.float32)
+    if "spatial_embedding_bank" in profile:
+        payload["spatial_embedding_bank"] = np.asarray(profile["spatial_embedding_bank"], dtype=np.float32)
     np.savez_compressed(path, **payload)
 
 
@@ -77,12 +80,14 @@ def load_reference_profile(profile_path: str | Path) -> dict:
         }
         if "embedding_bank" in profile_file.files:
             profile["embedding_bank"] = profile_file["embedding_bank"].astype(np.float32)
+        if "spatial_embedding_bank" in profile_file.files:
+            profile["spatial_embedding_bank"] = profile_file["spatial_embedding_bank"].astype(np.float32)
         return profile
 
 
 def normalize_embeddings(features: np.ndarray) -> np.ndarray:
     features = np.asarray(features, dtype=np.float32)
-    return features / np.maximum(np.linalg.norm(features, axis=1, keepdims=True), 1e-9)
+    return features / np.maximum(np.linalg.norm(features, axis=-1, keepdims=True), 1e-9)
 
 
 def build_embedding_bank(
@@ -144,6 +149,176 @@ def embedding_anomaly_evidence(
         device=device,
     )
     return float(embedding_anomaly_scores(features, embedding_bank)[0]), features
+
+
+def spatial_crops(image) -> list:
+    """Return deterministic 2x2 and 3x3 product crops for local inspection."""
+    crops = []
+    width, height = image.size
+    for grid_size in SPATIAL_GRID_SIZES:
+        for row in range(grid_size):
+            for column in range(grid_size):
+                crops.append(
+                    image.crop(
+                        (
+                            column * width // grid_size,
+                            row * height // grid_size,
+                            (column + 1) * width // grid_size,
+                            (row + 1) * height // grid_size,
+                        )
+                    )
+                )
+    return crops
+
+
+def build_spatial_embedding_bank(
+    train_image_paths: list[str | Path],
+    *,
+    batch_size: int = 32,
+    maximum_images: int = 128,
+) -> np.ndarray:
+    """Build position-aware normal memories for local defect detection."""
+    if not train_image_paths:
+        raise ValueError("No normal training images provided.")
+    selected = list(train_image_paths)
+    if len(selected) > maximum_images:
+        indices = np.linspace(0, len(selected) - 1, maximum_images, dtype=int)
+        selected = [selected[index] for index in indices]
+
+    from ml.classifier import extract_pil_features, load_rgb_image
+    from ml.defect_classifier import shared_feature_runtime
+
+    feature_extractor, preprocess, device = shared_feature_runtime()
+    rows = []
+    for start in range(0, len(selected), 8):
+        images = [load_rgb_image(path) for path in selected[start : start + 8]]
+        crops = [crop for image in images for crop in spatial_crops(image)]
+        features = extract_pil_features(
+            crops,
+            batch_size=batch_size,
+            feature_extractor=feature_extractor,
+            preprocess=preprocess,
+            device=device,
+        )
+        rows.append(features.reshape(len(images), -1, features.shape[-1]))
+    bank = normalize_embeddings(np.concatenate(rows, axis=0))
+    return np.transpose(bank, (1, 0, 2)).astype(np.float32, copy=False)
+
+
+def spatial_embedding_anomaly_scores(
+    image_paths: list[str | Path],
+    spatial_embedding_bank: np.ndarray,
+    *,
+    batch_size: int = 32,
+) -> np.ndarray:
+    """Return nearest-normal cosine distances for each fixed crop position."""
+    from ml.classifier import extract_pil_features, load_rgb_image
+    from ml.defect_classifier import shared_feature_runtime
+
+    bank = np.asarray(spatial_embedding_bank, dtype=np.float32)
+    if bank.ndim != 3:
+        raise ValueError("Spatial embedding bank must have position, image, and feature dimensions.")
+    feature_extractor, preprocess, device = shared_feature_runtime()
+    rows = []
+    for start in range(0, len(image_paths), 8):
+        images = [load_rgb_image(path) for path in image_paths[start : start + 8]]
+        crops = [crop for image in images for crop in spatial_crops(image)]
+        features = extract_pil_features(
+            crops,
+            batch_size=batch_size,
+            feature_extractor=feature_extractor,
+            preprocess=preprocess,
+            device=device,
+        )
+        features = normalize_embeddings(features).reshape(len(images), bank.shape[0], -1)
+        chunk_scores = np.empty((len(images), bank.shape[0]), dtype=np.float32)
+        for position in range(bank.shape[0]):
+            chunk_scores[:, position] = 1.0 - np.max(
+                features[:, position] @ normalize_embeddings(bank[position]).T,
+                axis=1,
+            )
+        rows.append(chunk_scores)
+    return np.vstack(rows)
+
+
+def spatial_score_map(scores: np.ndarray, size: tuple[int, int]) -> np.ndarray:
+    """Project 2x2 and 3x3 crop scores back into a smooth localization map."""
+    scores = np.asarray(scores, dtype=np.float32).reshape(-1)
+    expected = sum(grid_size * grid_size for grid_size in SPATIAL_GRID_SIZES)
+    if len(scores) != expected:
+        raise ValueError(f"Expected {expected} spatial scores, received {len(scores)}.")
+    width, height = size
+    score_map = np.zeros((height, width), dtype=np.float32)
+    weights = np.zeros_like(score_map)
+    offset = 0
+    for grid_size in SPATIAL_GRID_SIZES:
+        for row in range(grid_size):
+            for column in range(grid_size):
+                y1, y2 = row * height // grid_size, (row + 1) * height // grid_size
+                x1, x2 = column * width // grid_size, (column + 1) * width // grid_size
+                score_map[y1:y2, x1:x2] += scores[offset]
+                weights[y1:y2, x1:x2] += 1.0
+                offset += 1
+    return cv2.GaussianBlur(score_map / np.maximum(weights, 1.0), (0, 0), sigmaX=8)
+
+
+def portable_anomaly_features(
+    embedding_score: float,
+    residual_map: np.ndarray,
+    foreground: np.ndarray,
+    spatial_scores: np.ndarray | None = None,
+) -> np.ndarray:
+    """Summarize global and localized anomaly evidence for compact calibration."""
+    residual = np.asarray(residual_map, dtype=np.float32)
+    mask = np.asarray(foreground, dtype=bool)
+    if residual.shape != mask.shape:
+        raise ValueError("Residual map and foreground mask dimensions do not match.")
+    values = residual[mask]
+    if not values.size:
+        raise ValueError("Foreground mask is empty.")
+
+    features = [
+        float(embedding_score),
+        float(values.mean()),
+        float(values.std()),
+        float(values.max()),
+        float(np.mean(np.partition(values, max(0, len(values) - max(1, len(values) // 100)))[-max(1, len(values) // 100) :])),
+    ]
+    features.extend(np.percentile(values, [50, 75, 85, 90, 95, 97, 98, 99, 99.5, 99.9]).tolist())
+    features.extend(float((values > threshold).mean()) for threshold in (0.5, 0.75, 1.0, 1.5, 2.0, 3.0))
+    if spatial_scores is not None:
+        local_scores = np.asarray(spatial_scores, dtype=np.float32).reshape(-1)
+        features.extend(
+            [
+                float(local_scores.mean()),
+                float(local_scores.std()),
+                float(local_scores.max()),
+                float(np.percentile(local_scores, 75)),
+                float(np.percentile(local_scores, 90)),
+                *local_scores.tolist(),
+            ]
+        )
+
+    height, width = residual.shape
+    for row in range(3):
+        for column in range(3):
+            cell = residual[
+                row * height // 3 : (row + 1) * height // 3,
+                column * width // 3 : (column + 1) * width // 3,
+            ]
+            cell_mask = mask[
+                row * height // 3 : (row + 1) * height // 3,
+                column * width // 3 : (column + 1) * width // 3,
+            ]
+            cell_values = cell[cell_mask]
+            features.extend(
+                [
+                    float(cell_values.mean()) if cell_values.size else 0.0,
+                    float(np.percentile(cell_values, 95)) if cell_values.size else 0.0,
+                    float(cell_values.max()) if cell_values.size else 0.0,
+                ]
+            )
+    return np.asarray(features, dtype=np.float32)
 
 
 def anomaly_map(image_bgr: np.ndarray, reference_image: np.ndarray, size: tuple[int, int] = (256, 256)) -> np.ndarray:

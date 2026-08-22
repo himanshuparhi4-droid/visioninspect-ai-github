@@ -8,7 +8,6 @@ exclude = '''
   | venv
   | frontend
   | data
-  | models/checkpoints
   | backend/app/uploads
 )/
 '''
@@ -23,7 +22,6 @@ exclude = [
   "frontend",
   "notebooks",
   "data",
-  "models/checkpoints",
   "backend/app/uploads",
 ]
 

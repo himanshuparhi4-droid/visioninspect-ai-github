@@ -1,11 +1,9 @@
 "use client";
 
+import { formatConfidence } from "../services/inspectionLabels";
+
 function countBy(items, field, expected) {
   return items.filter((item) => item[field] === expected).length;
-}
-
-function confidenceText(value) {
-  return value != null ? `${(value * 100).toFixed(1)}%` : "Pending";
 }
 
 export default function BatchInspectionResults({ results = [], summary = null, failures = [] }) {
@@ -18,7 +16,7 @@ export default function BatchInspectionResults({ results = [], summary = null, f
     ["QA Fail", summary?.fail ?? countBy(results, "pass_fail", "Fail")],
     ["Processing Errors", summary?.failed ?? failures.length],
     ["Critical", summary?.critical ?? countBy(results, "severity_level", "Critical")],
-    ["Avg Confidence", confidenceText(summary?.average_confidence)],
+    ["Avg Confidence", formatConfidence(summary?.average_confidence)],
   ];
 
   return (
@@ -51,7 +49,7 @@ export default function BatchInspectionResults({ results = [], summary = null, f
                 <td>{item.defect_type}</td>
                 <td>{item.severity_level}</td>
                 <td>{item.pass_fail}</td>
-                <td>{confidenceText(item.confidence)}</td>
+                <td>{formatConfidence(item.confidence)}</td>
               </tr>
             ))}
           </tbody>

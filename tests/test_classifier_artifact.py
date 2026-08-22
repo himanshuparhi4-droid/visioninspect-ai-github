@@ -18,7 +18,7 @@ from ml.defect_classifier import classify_defect_type
 
 
 def test_defect_classifier_artifact_loads():
-    path = Path("models/defect_classifier.pkl")
+    path = Path("models/categories/bottle/defect_classifier.pkl")
 
     assert path.exists()
 
@@ -37,7 +37,7 @@ def test_defect_classifier_artifact_loads():
 
 
 def test_opencv_feature_runtime_returns_resnet_embeddings():
-    image_path = Path("models/inference/normal_reference.png")
+    image_path = Path("backend/app/demo_samples/bottle/test/good/000.png")
     runtime, preprocess, device = build_opencv_resnet18_feature_extractor()
 
     features = extract_features(
@@ -53,8 +53,8 @@ def test_opencv_feature_runtime_returns_resnet_embeddings():
 
 def test_handcrafted_bottle_classifier_uses_matching_runtime_features():
     result = classify_defect_type(
-        Path("models/inference/normal_reference.png"),
-        Path("models/defect_classifier.pkl"),
+        Path("backend/app/demo_samples/bottle/test/good/000.png"),
+        Path("models/categories/bottle/defect_classifier.pkl"),
         defect_mask=np.ones((256, 256), dtype=bool),
     )
 
@@ -90,6 +90,7 @@ def test_classifier_prefers_portable_cnn_artifact(monkeypatch, tmp_path):
         image_path,
         classifier_path,
         defect_mask=np.ones((8, 8), dtype=bool),
+        cnn_classifier_path=cnn_path,
     )
 
     assert result["defect_type"] == "crack"

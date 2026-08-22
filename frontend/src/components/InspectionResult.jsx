@@ -1,7 +1,7 @@
 import { CheckCircle2, ClipboardCheck, TriangleAlert, XCircle } from "lucide-react";
 
 import SeverityBadge from "./SeverityBadge";
-import { formatReviewStatus, formatSourceType } from "../services/inspectionLabels";
+import { formatConfidence, formatReviewStatus, formatSourceType } from "../services/inspectionLabels";
 
 function DecisionIcon({ decision }) {
   if (decision === "Pass") return <CheckCircle2 className="good-icon" size={22} />;
@@ -23,6 +23,8 @@ export default function InspectionResult({ result }) {
       </section>
     );
   }
+
+  const inferenceMs = result.explainability?.runtime_ms?.inference;
 
   return (
     <section className="tool-panel">
@@ -48,8 +50,8 @@ export default function InspectionResult({ result }) {
           <strong>{result.defect_type || "Unknown"}</strong>
         </div>
         <div className="metric-box">
-          <small>Confidence</small>
-          <strong>{result.confidence != null ? `${(result.confidence * 100).toFixed(1)}%` : "Pending"}</strong>
+          <small>Decision Confidence</small>
+          <strong>{formatConfidence(result.confidence)}</strong>
         </div>
         <div className="metric-box">
           <small>Severity</small>
@@ -61,6 +63,63 @@ export default function InspectionResult({ result }) {
           <strong>{formatScore(result.anomaly_score)}</strong>
         </div>
       </div>
+
+      <div className="runtime-strip">
+        <span>
+          <small>Detector</small>
+          <strong>{(result.detector_engine || result.explainability?.engine || "Unknown").replaceAll("_", " ")}</strong>
+        </span>
+        <span>
+          <small>Subtype Model</small>
+          <strong>
+            {(result.classifier_engine || result.explainability?.classifier_engine || "Not applicable").replaceAll(
+              "_",
+              " "
+            )}
+          </strong>
+        </span>
+        <span>
+          <small>Model Category</small>
+          <strong>{(result.category || "Unknown").replaceAll("_", " ")}</strong>
+        </span>
+        <span>
+          <small>Subtype Assurance</small>
+          <strong>
+            {result.prediction === "Good" ? "Not applicable" : result.subtype_model_status || "Unverified"}
+          </strong>
+        </span>
+        <span>
+          <small>Inference Time</small>
+          <strong>{inferenceMs != null ? `${Number(inferenceMs).toFixed(1)} ms` : "Not recorded"}</strong>
+        </span>
+      </div>
+
+      {result.manual_review_required ? (
+        <div className="model-quality-warning" role="status">
+          <TriangleAlert size={17} />
+          <span>
+            <strong>Manual subtype review required</strong>
+            <small>
+              The Good/Defective decision remains active, but this category&apos;s subtype model is below the release
+              target or could not identify the defect reliably.
+            </small>
+          </span>
+        </div>
+      ) : null}
+
+      {result.detector_fallback_used || result.classifier_fallback_used ? (
+        <div className="model-fallback-warning" role="status">
+          <TriangleAlert size={17} />
+          <span>
+            <strong>Compatibility fallback active</strong>
+            <small>
+              {result.detector_fallback_reason ||
+                result.classifier_fallback_reason ||
+                "A preferred model was unavailable."}
+            </small>
+          </span>
+        </div>
+      ) : null}
 
       <div className="recommendation">
         <small>Recommended action</small>
@@ -100,14 +159,33 @@ export default function InspectionResult({ result }) {
           <span>
             <strong>Detection confidence:</strong>{" "}
             {result.explainability?.detection_confidence != null
-              ? `${(result.explainability.detection_confidence * 100).toFixed(1)}%`
+              ? formatConfidence(result.explainability.detection_confidence)
               : "Pending"}
           </span>
           <span>
-            <strong>Subtype confidence:</strong>{" "}
-            {result.explainability?.classification_confidence != null
-              ? `${(result.explainability.classification_confidence * 100).toFixed(1)}%`
-              : "Not applicable"}
+            <strong>
+              {result.classification_confidence_calibrated ? "Subtype reliability:" : "Subtype confidence:"}
+            </strong>{" "}
+            {formatConfidence(result.explainability?.classification_confidence, "Not applicable")}
+          </span>
+          {result.raw_classification_confidence != null && result.classification_confidence_calibrated ? (
+            <span>
+              <strong>Raw model score:</strong> {`${(result.raw_classification_confidence * 100).toFixed(1)}%`}
+            </span>
+          ) : null}
+          <span>
+            <strong>Confidence calibration:</strong>{" "}
+            {result.classification_confidence == null
+              ? "Not applicable"
+              : result.classification_confidence_calibrated
+                ? "Calibrated"
+                : "Raw probability"}
+          </span>
+          <span>
+            <strong>Subtype model macro F1:</strong>{" "}
+            {result.subtype_model_macro_f1 != null
+              ? `${(result.subtype_model_macro_f1 * 100).toFixed(1)}%`
+              : "Unverified"}
           </span>
           <span>
             <strong>Defect area:</strong>{" "}

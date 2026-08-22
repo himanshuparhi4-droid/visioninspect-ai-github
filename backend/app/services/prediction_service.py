@@ -12,7 +12,7 @@ import numpy as np
 
 from app.config import settings
 from app.services.cloudinary_service import cleanup_stored_image, upload_image_or_local_url
-from app.utils import resolve_backend_path, uploads_path
+from app.utils import uploads_path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 logger = logging.getLogger(__name__)
@@ -26,16 +26,19 @@ class PredictionError(RuntimeError):
     pass
 
 
-def load_model_metadata() -> dict:
-    from ml.inference import load_model_metadata as load_ml_model_metadata
-
-    return load_ml_model_metadata(str(resolve_backend_path(settings.model_metadata_path)))
-
-
 def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
-    from app.services.model_settings_service import load_runtime_settings
+    from app.services.model_settings_service import (
+        load_active_classifier_evidence,
+        load_runtime_settings,
+        read_json_artifact,
+    )
     from ml.inference import InferenceConfig
-    from ml.model_registry import CategoryModelError, category_model_spec, is_valid_checkpoint
+    from ml.model_registry import (
+        CategoryModelError,
+        category_model_spec,
+        classifier_runtime_status,
+        is_valid_checkpoint,
+    )
 
     runtime_settings = load_runtime_settings()
     try:
@@ -47,9 +50,7 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
             f"The {spec.category} runtime artifacts are unavailable. "
             "Restore its normal profile and model metadata before inspection."
         )
-    checkpoint_path = (
-        resolve_backend_path(settings.model_checkpoint_path) if spec.category == "bottle" else spec.checkpoint_path
-    )
+    checkpoint_path = spec.checkpoint_path
     advanced_model_available = is_valid_checkpoint(checkpoint_path) or (
         spec.openvino_path is not None
         and spec.openvino_path.exists()
@@ -61,6 +62,14 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
         and spec.openvino_path is not None
         and spec.openvino_path.exists()
         and spec.openvino_path.with_suffix(".bin").exists()
+    )
+    category_metadata = read_json_artifact(spec.metadata_path)
+    classifier_status = classifier_runtime_status(spec)
+    subtype_metrics, _ = load_active_classifier_evidence(spec, classifier_status, category_metadata)
+    deployed_subtype_validation = category_metadata.get("deployed_subtype_validation") or {}
+    confidence_calibration = deployed_subtype_validation.get("confidence_calibration") or None
+    calibrated_review_threshold = (
+        confidence_calibration.get("review_threshold") if confidence_calibration else None
     )
     return InferenceConfig(
         category=spec.category,
@@ -88,10 +97,20 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
         ),
         review_severity_threshold=runtime_settings.review_severity_threshold,
         fail_severity_threshold=runtime_settings.fail_severity_threshold,
+        subtype_confidence_threshold=float(calibrated_review_threshold or spec.subtype_confidence_threshold),
+        portable_threshold_scale=max(0.25, min(2.0, runtime_settings.baseline_threshold / 1.34)),
         critical_zones=critical_zones,
         openvino_path=spec.openvino_path if use_openvino else None,
         openvino_calibrator_path=spec.openvino_calibrator_path if use_openvino else None,
+        portable_detector_calibrator_path=spec.portable_detector_calibrator_path,
         compact_classifier_path=spec.compact_classifier_path,
+        input_size=spec.input_size,
+        subtype_model_macro_f1=(
+            deployed_subtype_validation.get("macro_f1")
+            if deployed_subtype_validation
+            else subtype_metrics.get("macro_f1")
+        ),
+        subtype_confidence_calibration=confidence_calibration,
     )
 
 
@@ -168,8 +187,73 @@ def inspect_image_file(
     return {**result, **outputs}
 
 
+def warm_category_runtime(category: str) -> dict:
+    """Load one category's detector and subtype runtime before inspection."""
+    from ml.defect_classifier import (
+        load_classifier_runtime,
+        load_portable_cnn_runtime,
+        shared_feature_runtime,
+    )
+    from ml.inference import load_normal_profile
+    from ml.model_registry import category_model_spec, classifier_runtime_status
+    from ml.padim_detector import load_anomaly_runtime, load_openvino_runtime
+
+    started_at = perf_counter()
+    config = build_inference_config(category)
+    spec = category_model_spec(category)
+    warnings: list[str] = []
+
+    if config.use_openvino_inference and config.openvino_path is not None:
+        load_openvino_runtime(str(config.openvino_path), config.openvino_inference_device)
+        detector_engine = f"{config.anomaly_model_kind}_openvino"
+    elif config.use_padim_inference:
+        load_anomaly_runtime(
+            str(config.model_checkpoint_path),
+            config.anomaly_model_kind,
+            config.padim_inference_accelerator,
+        )
+        detector_engine = config.anomaly_model_kind
+    else:
+        load_normal_profile(str(config.baseline_profile_path))
+        if config.portable_detector_calibrator_path and config.portable_detector_calibrator_path.exists():
+            from ml.classifier import load_portable_forest
+
+            calibrator_path = config.portable_detector_calibrator_path
+            load_portable_forest(str(calibrator_path), calibrator_path.stat().st_mtime_ns)
+        detector_engine = "portable_baseline"
+
+    classifier = classifier_runtime_status(spec)
+    classifier_engine = str(classifier["engine"])
+    try:
+        if classifier_engine == "fine_tuned_resnet18_onnx" and spec.cnn_classifier_path is not None:
+            load_portable_cnn_runtime(
+                str(spec.cnn_classifier_path),
+                str(spec.cnn_classifier_path.with_suffix(".json")),
+            )
+        elif classifier_engine == "portable_forest" and spec.compact_classifier_path is not None:
+            from ml.classifier import load_portable_forest
+
+            compact_path = spec.compact_classifier_path
+            load_portable_forest(str(compact_path), compact_path.stat().st_mtime_ns)
+        elif classifier_engine == "sklearn_feature_classifier":
+            load_classifier_runtime(str(spec.classifier_path))
+            shared_feature_runtime()
+    except Exception as exc:
+        warnings.append(str(exc))
+        classifier_engine = "fallback_on_first_inference"
+
+    return {
+        "category": spec.category,
+        "ready": not warnings,
+        "detector_engine": detector_engine,
+        "classifier_engine": classifier_engine,
+        "warnings": warnings,
+        "warmup_ms": round((perf_counter() - started_at) * 1000, 1),
+    }
+
+
 __all__ = [
     "PredictionError",
     "inspect_image_file",
-    "load_model_metadata",
+    "warm_category_runtime",
 ]

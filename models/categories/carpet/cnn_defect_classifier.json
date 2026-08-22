@@ -1,6 +1,7 @@
 {
   "artifact_type": "visioninspect_resnet18_finetuned_classifier_onnx",
   "category": "carpet",
+  "model_version": "v1",
   "labels": [
     "color",
     "cut",
@@ -14,5 +15,10 @@
     "alignment": "elongated_object_deskew",
     "contrast": "LAB_CLAHE"
   },
-  "classifier_engine": "fine_tuned_resnet18_onnx"
+  "classifier_engine": "fine_tuned_resnet18_onnx",
+  "metrics": {
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "protocol": "untouched stratified test split"
+  }
 }

@@ -13,10 +13,12 @@ import {
   Gauge,
   ImageUp,
   LogOut,
+  Menu,
   ScanSearch,
   ShieldCheck,
   Wrench,
   Users,
+  X,
 } from "lucide-react";
 
 import { logout } from "../services/authApi";
@@ -81,13 +83,20 @@ export const navItems = [
   { href: "/users", label: "Users", icon: Users, section: "Admin", roles: ["admin", "quality_manager"] },
 ];
 
-export default function Sidebar({ user, collapsed = false, onToggleCollapse }) {
+export default function Sidebar({
+  user,
+  collapsed = false,
+  mobileOpen = false,
+  onNavigate,
+  onToggleCollapse,
+  onToggleMobile,
+}) {
   const pathname = usePathname();
   const role = user?.role || "quality_engineer";
 
   function handleLogout() {
     logout();
-    window.location.href = "/login";
+    window.location.replace("/login");
   }
 
   const visibleItems = navItems.filter((item) => item.roles.includes(role));
@@ -97,20 +106,42 @@ export default function Sidebar({ user, collapsed = false, onToggleCollapse }) {
   }, {});
 
   const ToggleIcon = collapsed ? ChevronRight : ChevronLeft;
+  const MobileMenuIcon = mobileOpen ? X : Menu;
+  const sidebarClassName = ["sidebar", collapsed ? "collapsed" : "", mobileOpen ? "mobile-open" : ""]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <aside className={collapsed ? "sidebar collapsed" : "sidebar"}>
-      <Link href="/dashboard" className="brand" aria-label="VisionInspect AI dashboard" data-label="VisionInspect AI">
-        <span className="brand-mark">
-          <Factory size={22} />
-        </span>
-        <span>
-          <strong>VisionInspect AI</strong>
-          <small>Quality inspection</small>
-        </span>
-      </Link>
+    <aside className={sidebarClassName}>
+      <div className="sidebar-header">
+        <Link
+          href="/dashboard"
+          className="brand"
+          aria-label="VisionInspect AI dashboard"
+          data-label="VisionInspect AI"
+          onClick={onNavigate}
+        >
+          <span className="brand-mark">
+            <Factory size={22} />
+          </span>
+          <span>
+            <strong>VisionInspect AI</strong>
+            <small>Quality inspection</small>
+          </span>
+        </Link>
+        <button
+          className="ghost-button mobile-menu-button"
+          type="button"
+          onClick={onToggleMobile}
+          aria-expanded={mobileOpen}
+          aria-controls="primary-navigation"
+          aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+        >
+          <MobileMenuIcon size={20} />
+        </button>
+      </div>
 
-      <nav className="side-nav" aria-label="Main navigation">
+      <nav id="primary-navigation" className="side-nav" aria-label="Main navigation">
         {Object.entries(sections).map(([section, items]) => (
           <div key={section} className="nav-section">
             {section !== "Main" ? <span className="nav-section-label">{section}</span> : null}
@@ -124,6 +155,7 @@ export default function Sidebar({ user, collapsed = false, onToggleCollapse }) {
                   href={item.href}
                   data-label={item.label}
                   title={collapsed ? item.label : undefined}
+                  onClick={onNavigate}
                 >
                   <Icon size={18} />
                   <span>{item.label}</span>

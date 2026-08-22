@@ -108,7 +108,7 @@ def prepare_cnn_view(
     if crop_mode in {"defect", "object_crop_or_anomaly_mask_crop"}:
         return prepare_classifier_view(image_bgr, defect_mask, image_size=image_size)
     if crop_mode == "bbox":
-        from ml.object_preprocessing import crop_to_mask, bbox_from_mask
+        from ml.object_preprocessing import crop_to_mask
         if defect_mask is not None and np.any(defect_mask):
             crop = crop_to_mask(image_bgr, defect_mask, padding_ratio=0.10, min_size_ratio=0.10)
         else:
@@ -444,11 +444,13 @@ def export_cnn_classifier_onnx(
     )
     metadata = {
         "artifact_type": CNN_ONNX_ARTIFACT_TYPE,
+        "model_version": "v1",
         "category": str(artifact["category"]),
         "labels": [str(label) for label in artifact["labels"]],
         "image_size": image_size,
         "preprocessing": artifact.get("preprocessing", {}),
         "classifier_engine": "fine_tuned_resnet18_onnx",
+        "metrics": artifact.get("metrics", {}),
     }
     metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     return {

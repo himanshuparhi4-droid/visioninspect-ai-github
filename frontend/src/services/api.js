@@ -1,6 +1,6 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const TOKEN_KEY = "visioninspect_token";
-const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 90000;
 
 export class ApiError extends Error {
   constructor(message, options = {}) {
@@ -92,10 +92,13 @@ export async function apiRequest(path, options = {}) {
     });
   } catch (error) {
     if (error.name === "AbortError") {
-      throw new ApiError("The server took too long to process this request. Please try again.", {
-        status: 408,
-        code: "REQUEST_TIMEOUT",
-      });
+      throw new ApiError(
+        "The server is still starting or the request exceeded its processing limit. Please retry once.",
+        {
+          status: 408,
+          code: "REQUEST_TIMEOUT",
+        }
+      );
     }
     throw new ApiError("The inspection server could not be reached. Please try again shortly.", {
       status: 0,
@@ -111,6 +114,12 @@ export async function apiRequest(path, options = {}) {
 
   if (!response.ok) {
     const normalized = normalizeErrorPayload(payload);
+    if (response.status === 401 && token) {
+      setAuthToken(null);
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.assign("/login?reason=session_expired");
+      }
+    }
     throw new ApiError(normalized.message, {
       status: response.status,
       code: normalized.code,

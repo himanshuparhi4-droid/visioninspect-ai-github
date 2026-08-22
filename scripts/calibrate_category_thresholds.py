@@ -41,9 +41,13 @@ def baseline_score_rows(category: str, dataset_root: Path) -> list[dict]:
 
     from ml.baseline_detector import (
         anomaly_score,
+        build_spatial_embedding_bank,
         embedding_anomaly_scores,
         load_reference_profile,
         normalized_anomaly_map,
+        portable_anomaly_features,
+        save_reference_profile,
+        spatial_embedding_anomaly_scores,
     )
     from ml.classifier import extract_features
     from ml.defect_classifier import shared_feature_runtime
@@ -52,6 +56,10 @@ def baseline_score_rows(category: str, dataset_root: Path) -> list[dict]:
     profile = load_reference_profile(spec.baseline_profile_path)
     if "embedding_bank" not in profile:
         raise RuntimeError(f"{category} has no embedding bank. Run train_category_models.py --portable-only first.")
+    if "spatial_embedding_bank" not in profile:
+        train_paths = sorted((dataset_root / category / "train" / "good").glob("*.png"))
+        profile["spatial_embedding_bank"] = build_spatial_embedding_bank(train_paths)
+        save_reference_profile(profile, spec.baseline_profile_path)
 
     paths = []
     targets = []
@@ -69,9 +77,16 @@ def baseline_score_rows(category: str, dataset_root: Path) -> list[dict]:
         device=device,
     )
     embedding_scores = embedding_anomaly_scores(features, profile["embedding_bank"])
+    spatial_scores = spatial_embedding_anomaly_scores(paths, profile["spatial_embedding_bank"])
 
     rows = []
-    for path, target, embedding_score in zip(paths, targets, embedding_scores, strict=True):
+    for path, target, embedding_score, local_scores in zip(
+        paths,
+        targets,
+        embedding_scores,
+        spatial_scores,
+        strict=True,
+    ):
         image = cv2.imread(str(path))
         residual_map = normalized_anomaly_map(image, profile)
         residual_score = anomaly_score(residual_map, mask=profile["foreground_mask"])
@@ -80,6 +95,13 @@ def baseline_score_rows(category: str, dataset_root: Path) -> list[dict]:
                 "path": str(path),
                 "score": float(embedding_score),
                 "residual_score": float(residual_score),
+                "features": portable_anomaly_features(
+                    float(embedding_score),
+                    residual_map,
+                    profile["foreground_mask"],
+                    local_scores,
+                ),
+                "label": path.parent.name,
                 "target": target,
             }
         )
@@ -128,7 +150,7 @@ def openvino_feature_rows(category: str, dataset_root: Path) -> list[dict]:
             batch = []
             for path in batch_paths:
                 image = cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB)
-                image = cv2.resize(image, (256, 256)).astype(np.float32) / 255.0
+                image = cv2.resize(image, (spec.input_size, spec.input_size)).astype(np.float32) / 255.0
                 batch.append(image.transpose(2, 0, 1))
             outputs = compiled_model([np.stack(batch)])
             scores = np.asarray(outputs[compiled_model.output("pred_score")]).reshape(-1)
@@ -210,24 +232,103 @@ def calibrated_threshold(
     }
 
 
-def calibrate_baseline_category(category: str, dataset_root: Path, objective: str) -> dict:
+def calibrate_baseline_category(
+    category: str,
+    dataset_root: Path,
+    objective: str,
+    *,
+    artifact_path: Path,
+) -> dict:
     rows = baseline_score_rows(category, dataset_root)
     targets = np.asarray([row["target"] for row in rows], dtype=int)
     embedding_scores = np.asarray([row["score"] for row in rows], dtype=np.float32)
     residual_scores = np.asarray([row["residual_score"] for row in rows], dtype=np.float32)
-    calibration_index, holdout_index = calibration_split(targets)
-    result = calibrated_threshold(embedding_scores, targets, calibration_index, holdout_index, objective)
-    result.update(
-        {
-            "detector": "resnet18_normal_memory",
-            "localization": "opencv_normalized_residual",
-            "residual_threshold": round(
-                best_f1_threshold(residual_scores[calibration_index], targets[calibration_index]),
-                6,
-            ),
-        }
+    features = np.vstack([row["features"] for row in rows])
+    class_counts = np.bincount(targets)
+    folds = min(5, int(class_counts.min()))
+    if folds < 2:
+        raise ValueError(f"{category} does not contain enough good and defective images for calibration")
+
+    candidates = openvino_calibrator_candidates(include_linear=True)
+    outer_splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=42)
+    probabilities = np.zeros(len(targets), dtype=np.float32)
+    predictions = np.zeros(len(targets), dtype=int)
+    selections: list[str] = []
+    thresholds: list[float] = []
+    for fold, (train_index, test_index) in enumerate(outer_splitter.split(features, targets), start=1):
+        inner_counts = np.bincount(targets[train_index])
+        inner_folds = min(4, int(inner_counts.min()))
+        inner_splitter = StratifiedKFold(n_splits=inner_folds, shuffle=True, random_state=42 + fold)
+        inner_scores = calibrator_candidate_scores(
+            candidates,
+            features[train_index],
+            targets[train_index],
+            inner_splitter,
+        )
+        selected_name = best_calibrator_name(inner_scores)
+        selected_threshold = float(inner_scores[selected_name]["threshold"])
+        estimator = clone(candidates[selected_name])
+        estimator.fit(features[train_index], targets[train_index])
+        fold_probabilities = estimator.predict_proba(features[test_index])[:, 1]
+        probabilities[test_index] = fold_probabilities
+        predictions[test_index] = (fold_probabilities >= selected_threshold).astype(int)
+        selections.append(selected_name)
+        thresholds.append(selected_threshold)
+
+    production_splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=143)
+    candidate_scores = calibrator_candidate_scores(candidates, features, targets, production_splitter)
+    production_name = best_calibrator_name(candidate_scores)
+    decision_threshold = float(candidate_scores[production_name]["threshold"])
+    classifier = clone(candidates[production_name])
+    classifier.fit(features, targets)
+    export_portable_forest(
+        classifier,
+        artifact_path,
+        feature_mode="portable_anomaly_spatial_v1",
+        decision_threshold=decision_threshold,
     )
-    return result
+
+    true_negative, false_positive, false_negative, true_positive = confusion_matrix(
+        targets, predictions, labels=[0, 1]
+    ).ravel()
+    labels = np.asarray([row["label"] for row in rows])
+    subtype_recall = {
+        label: round(float(predictions[labels == label].mean()), 4)
+        for label in sorted(set(labels) - {"good"})
+    }
+    fallback_threshold = best_balanced_threshold(embedding_scores, targets)
+    return {
+        "detector": "resnet18_residual_calibrator",
+        "localization": "opencv_normalized_residual",
+        "protocol": (
+            "nested stratified cross-validation on labelled MVTec test images; each outer fold "
+            "selects the calibrator and decision threshold using only its training partition; "
+            "the production calibrator is fitted after out-of-fold evaluation"
+        ),
+        "folds": folds,
+        "samples": int(len(targets)),
+        "feature_count": int(features.shape[1]),
+        "selected_classifier": production_name,
+        "candidate_scores": candidate_scores,
+        "outer_selection_frequency": {name: selections.count(name) for name in sorted(set(selections))},
+        "outer_thresholds": [round(float(value), 6) for value in thresholds],
+        "decision_threshold": round(decision_threshold, 6),
+        "fallback_score_threshold": round(float(fallback_threshold), 6),
+        "residual_threshold": round(best_f1_threshold(residual_scores, targets), 6),
+        "cv_accuracy": round(float(accuracy_score(targets, predictions)), 4),
+        "cv_precision": round(float(precision_score(targets, predictions, zero_division=0)), 4),
+        "cv_recall": round(float(recall_score(targets, predictions, zero_division=0)), 4),
+        "cv_specificity": round(float(true_negative / max(true_negative + false_positive, 1)), 4),
+        "cv_balanced_accuracy": round(float(balanced_accuracy_score(targets, predictions)), 4),
+        "cv_f1": round(float(f1_score(targets, predictions, zero_division=0)), 4),
+        "auroc": round(float(roc_auc_score(targets, probabilities)), 4),
+        "confusion_matrix": [
+            [int(true_negative), int(false_positive)],
+            [int(false_negative), int(true_positive)],
+        ],
+        "defect_subtype_recall": subtype_recall,
+        "artifact": str(artifact_path.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+    }
 
 
 def calibrate_category(category: str, dataset_root: Path, objective: str) -> dict:
@@ -473,7 +574,9 @@ def calibrate_openvino_category(
 
 
 def calibration_metric_floor(result: dict) -> float:
-    return min(float(result.get("balanced_accuracy", 0.0)), float(result.get("f1", 0.0)))
+    balanced_accuracy = result.get("balanced_accuracy", result.get("cv_balanced_accuracy", 0.0))
+    f1 = result.get("f1", result.get("cv_f1", 0.0))
+    return min(float(balanced_accuracy), float(f1))
 
 
 def main() -> None:
@@ -525,7 +628,19 @@ def main() -> None:
         print(f"Calibrating {args.engine} detector for {category}...", flush=True)
         try:
             if args.engine == "baseline":
-                result = calibrate_baseline_category(category, dataset_root, args.objective)
+                spec = category_model_spec(category)
+                if spec.portable_detector_calibrator_path is None:
+                    raise RuntimeError(f"No portable detector calibrator path configured for {category}")
+                candidate_path = spec.portable_detector_calibrator_path.with_name(
+                    f"{spec.portable_detector_calibrator_path.stem}.candidate"
+                    f"{spec.portable_detector_calibrator_path.suffix}"
+                )
+                result = calibrate_baseline_category(
+                    category,
+                    dataset_root,
+                    args.objective,
+                    artifact_path=candidate_path,
+                )
             elif args.engine == "openvino":
                 spec = category_model_spec(category)
                 if spec.openvino_calibrator_path is None:
@@ -555,12 +670,17 @@ def main() -> None:
             "advanced": "threshold_calibration",
             "openvino": "openvino_spatial_calibration",
         }[args.engine]
-        if args.engine == "openvino":
+        if args.engine in {"baseline", "openvino"}:
             current = metadata.get(metadata_key, {})
             should_promote = args.force or not current or calibration_metric_floor(result) > calibration_metric_floor(current)
             if should_promote:
-                candidate_path.replace(spec.openvino_calibrator_path)
-                result["artifact"] = str(spec.openvino_calibrator_path.relative_to(PROJECT_ROOT)).replace("\\", "/")
+                destination = (
+                    spec.portable_detector_calibrator_path
+                    if args.engine == "baseline"
+                    else spec.openvino_calibrator_path
+                )
+                candidate_path.replace(destination)
+                result["artifact"] = str(destination.relative_to(PROJECT_ROOT)).replace("\\", "/")
             else:
                 candidate_path.unlink(missing_ok=True)
                 print(
@@ -573,8 +693,9 @@ def main() -> None:
         spec.metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         entry = registry.setdefault(category, {})
         if args.engine == "baseline":
-            entry["baseline_score_threshold"] = result["threshold"]
+            entry["baseline_score_threshold"] = result["fallback_score_threshold"]
             entry["baseline_residual_threshold"] = result["residual_threshold"]
+            entry["portable_detector_calibrator_path"] = result["artifact"]
         elif args.engine == "advanced":
             entry["padim_score_threshold"] = result["threshold"]
         else:

@@ -6,6 +6,4 @@
 *.npz binary
 *.pkl binary
 *.pth binary
-
-# Store deployable OpenVINO weights outside the regular Git object pack.
-models/exported/cable/weights/openvino/model.bin filter=lfs diff=lfs merge=lfs -text
+models/exported/**/model.bin binary

@@ -17,7 +17,7 @@ export default function Navbar({ title, subtitle, user }) {
 
   function handleLogout() {
     logout();
-    window.location.href = "/login";
+    window.location.replace("/login");
   }
 
   useEffect(() => {
@@ -52,6 +52,7 @@ export default function Navbar({ title, subtitle, user }) {
   const reworkCount = summary?.rework_queue || 0;
   const reviewCount = summary?.review_count || 0;
   const notificationCount = criticalCount + reworkCount + reviewCount;
+  const notificationBadge = notificationCount > 99 ? "99+" : notificationCount;
   const canManageUsers = ["admin", "quality_manager"].includes(user?.role);
 
   return (
@@ -65,11 +66,11 @@ export default function Navbar({ title, subtitle, user }) {
           <button
             className="icon-link notification-button"
             type="button"
-            aria-label="Notifications"
+            aria-label={notificationCount ? `Notifications, ${notificationCount} quality events` : "Notifications"}
             onClick={() => toggleMenu("notifications")}
           >
             <Bell size={16} />
-            {notificationCount ? <span>{notificationCount}</span> : null}
+            {notificationCount ? <span>{notificationBadge}</span> : null}
           </button>
           {openMenu === "notifications" ? (
             <div className="topbar-dropdown notification-dropdown">

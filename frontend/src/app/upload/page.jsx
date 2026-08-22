@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, FileText, ScanSearch } from "lucide-react";
 
 import AppShell from "../../components/AppShell";
@@ -12,6 +12,7 @@ import ProductionMetadataForm, { EMPTY_CATALOG, EMPTY_METADATA } from "../../com
 import { getCurrentUser } from "../../services/authApi";
 import { createInspectionReport } from "../../services/reportApi";
 import { getModelCategories, inspectBatch, inspectImage } from "../../services/inspectionApi";
+import { warmModelCategory } from "../../services/modelApi";
 import { getProductionCatalog } from "../../services/productionApi";
 
 function automaticMetadata(file, catalog, current) {
@@ -73,6 +74,8 @@ export default function UploadPage() {
   const [slowMessage, setSlowMessage] = useState("");
   const [catalog, setCatalog] = useState(EMPTY_CATALOG);
   const [modelCategories, setModelCategories] = useState([]);
+  const [modelWarmup, setModelWarmup] = useState(null);
+  const warmedCategories = useRef(new Set());
 
   useEffect(() => {
     if (!file) {
@@ -102,6 +105,24 @@ export default function UploadPage() {
       .then((user) => setMetadata((current) => ({ ...current, operator_name: current.operator_name || user.name })))
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    const category = metadata.category;
+    if (!category || warmedCategories.current.has(category)) return;
+    let active = true;
+    setModelWarmup({ category, state: "warming" });
+    warmModelCategory(category)
+      .then((payload) => {
+        warmedCategories.current.add(category);
+        if (active) setModelWarmup({ category, state: payload.ready ? "ready" : "warning", ...payload });
+      })
+      .catch((error) => {
+        if (active) setModelWarmup({ category, state: "warning", warnings: [error.message] });
+      });
+    return () => {
+      active = false;
+    };
+  }, [metadata.category]);
 
   function handleFileChange(nextFile) {
     setFile(nextFile);
@@ -231,6 +252,10 @@ export default function UploadPage() {
     }
   }
 
+  const modelIsWarming = Boolean(
+    metadata.category && modelWarmup?.category === metadata.category && modelWarmup.state === "warming"
+  );
+
   return (
     <AppShell title="Image Inspection" subtitle="Upload a product image and run AI defect detection.">
       <section className="workflow-banner" aria-label="Inspection workflow">
@@ -288,7 +313,8 @@ export default function UploadPage() {
             file={file}
             onFileChange={handleFileChange}
             onInspect={handleInspect}
-            loading={loading || batchLoading}
+            loading={loading || batchLoading || modelIsWarming}
+            busyLabel={modelIsWarming ? "Preparing Model" : "Inspecting"}
           />
           <section className="tool-panel">
             <div className="panel-heading">
@@ -303,8 +329,20 @@ export default function UploadPage() {
               catalog={catalog}
               modelCategories={modelCategories}
               onChange={handleMetadataChange}
-              disabled={loading || batchLoading}
+              disabled={loading || batchLoading || modelIsWarming}
             />
+            {metadata.category && modelWarmup?.category === metadata.category ? (
+              <div className={`model-readiness model-readiness-${modelWarmup.state}`} role="status">
+                <span />
+                <strong>
+                  {modelWarmup.state === "warming"
+                    ? "Preparing category model"
+                    : modelWarmup.state === "ready"
+                      ? `${(modelWarmup.detector_engine || "Model").replaceAll("_", " ")} ready`
+                      : "Model will initialize during inspection"}
+                </strong>
+              </div>
+            ) : null}
           </section>
         </div>
 
@@ -379,7 +417,7 @@ export default function UploadPage() {
             className="primary-button"
             type="button"
             onClick={handleBatchInspect}
-            disabled={!batchFiles.length || !metadata.category || batchLoading || loading}
+            disabled={!batchFiles.length || !metadata.category || batchLoading || loading || modelIsWarming}
           >
             {batchLoading ? "Processing" : "Run Batch"}
           </button>

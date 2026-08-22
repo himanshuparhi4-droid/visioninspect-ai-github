@@ -26,9 +26,13 @@ export default function ProductionMetadataForm({
   modelCategories = [],
 }) {
   const metadata = { ...EMPTY_METADATA, ...value };
-  const products = catalog.products || [];
+  const allProducts = catalog.products || [];
+  const products = metadata.category ? allProducts.filter((item) => item.category === metadata.category) : allProducts;
+  const productIds = new Set(products.map((item) => item.product_id));
   const lines = catalog.production_lines || [];
-  const batches = catalog.batches || [];
+  const batches = metadata.category
+    ? (catalog.batches || []).filter((item) => productIds.has(item.product_id))
+    : catalog.batches || [];
   const shifts = catalog.shifts || [];
   const labels = {
     batch: "Select batch",
@@ -75,8 +79,7 @@ export default function ProductionMetadataForm({
             .filter((item) => item.available || item.runnable || item.trained || item.is_trained)
             .map((item) => (
               <option key={item.category} value={item.category}>
-                {item.category.replaceAll("_", " ")}
-                {item.classification_trained ? "" : " (anomaly detection)"}
+                {item.category.replaceAll("_", " ")} — {item.deployment_tier === "advanced" ? "Advanced" : "Portable"}
               </option>
             ))}
           {!modelCategories.length ? <option value="">Loading categories...</option> : null}
