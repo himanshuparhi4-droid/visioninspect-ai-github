@@ -27,6 +27,16 @@ services:
         value: "true"
       - key: OPENVINO_INFERENCE_DEVICE
         value: CPU
+      - key: OPENVINO_CPU_THREADS
+        value: "1"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
+      - key: MALLOC_ARENA_MAX
+        value: "2"
       - key: MODEL_RUNTIME_PROFILE
         value: low_memory
       - key: ANOMALY_MODEL_CACHE_SIZE
@@ -36,7 +46,7 @@ services:
       - key: WEB_CONCURRENCY
         value: "1"
       - key: OPENCV_NUM_THREADS
-        value: "2"
+        value: "1"
       - key: WARM_MODEL_ON_STARTUP
         value: "false"
       - key: PADIM_INFERENCE_ACCELERATOR

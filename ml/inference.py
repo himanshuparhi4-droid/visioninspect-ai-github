@@ -21,7 +21,7 @@ from ml.baseline_detector import (
     spatial_embedding_anomaly_scores,
     spatial_score_map,
 )
-from ml.padim_detector import PadimInferenceError, predict_with_anomaly_model
+from ml.padim_detector import PadimInferenceError, predict_with_anomaly_model, release_anomaly_runtimes
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ class InferenceConfig:
     subtype_model_macro_f1: float | None = None
     subtype_release_target: float = 0.85
     subtype_confidence_calibration: dict | None = None
+    release_detector_before_classification: bool = False
 
 
 def default_model_metadata() -> dict:
@@ -556,6 +557,9 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
     score = float(anomaly["anomaly_score"])
     is_defective = bool(anomaly["is_defective"])
     detection_confidence = float(anomaly["detection_confidence"])
+
+    if config.release_detector_before_classification and anomaly["engine"].endswith("_openvino"):
+        release_anomaly_runtimes()
 
     classification = classify_prediction(
         image_path,

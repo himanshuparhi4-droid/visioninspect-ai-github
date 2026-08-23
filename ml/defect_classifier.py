@@ -147,6 +147,16 @@ def warm_shared_feature_runtime() -> None:
     )
 
 
+def release_classifier_runtimes() -> None:
+    """Drop cached subtype models after constrained-host inference."""
+    load_portable_cnn_runtime.cache_clear()
+    load_classifier_runtime.cache_clear()
+    shared_feature_runtime.cache_clear()
+    from ml.classifier import load_portable_forest
+
+    load_portable_forest.cache_clear()
+
+
 def refine_defect_mask_for_classification(mask: np.ndarray | None) -> np.ndarray | None:
     """Filter out soft reflection halos and isolate the core localized defect."""
     if mask is None or not np.any(mask):

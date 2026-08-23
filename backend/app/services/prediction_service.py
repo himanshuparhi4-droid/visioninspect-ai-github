@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import gc
 import logging
+import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from pathlib import Path
+from threading import Lock
 from time import perf_counter
 from uuid import uuid4
 
@@ -17,6 +21,7 @@ from app.utils import uploads_path
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 logger = logging.getLogger(__name__)
 storage_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="inspection-storage")
+inference_lock = Lock()
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -121,7 +126,41 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
             else subtype_metrics.get("macro_f1")
         ),
         subtype_confidence_calibration=confidence_calibration,
+        release_detector_before_classification=constrained_runtime,
     )
+
+
+def release_inference_runtimes() -> None:
+    """Return native model memory to the constrained deployment between requests."""
+    from ml.defect_classifier import release_classifier_runtimes
+    from ml.inference import load_model_metadata, load_normal_profile
+    from ml.padim_detector import release_anomaly_runtimes
+
+    release_anomaly_runtimes()
+    release_classifier_runtimes()
+    load_model_metadata.cache_clear()
+    load_normal_profile.cache_clear()
+    gc.collect()
+    if sys.platform.startswith("linux"):
+        try:
+            import ctypes
+
+            malloc_trim = getattr(ctypes.CDLL(None), "malloc_trim", None)
+            if malloc_trim is not None:
+                malloc_trim(0)
+        except (AttributeError, OSError):
+            logger.debug("Native heap trimming is unavailable", exc_info=True)
+
+
+def process_rss_mb() -> float | None:
+    """Read current Linux resident memory without adding a monitoring dependency."""
+    if not sys.platform.startswith("linux"):
+        return None
+    try:
+        resident_pages = int(Path("/proc/self/statm").read_text(encoding="ascii").split()[1])
+        return resident_pages * os.sysconf("SC_PAGE_SIZE") / (1024 * 1024)
+    except (OSError, IndexError, ValueError):
+        return None
 
 
 def save_visual_outputs(processed_image: np.ndarray, heatmap_image: np.ndarray) -> dict:
@@ -170,27 +209,35 @@ def inspect_image_file(
     from ml.inference import InferenceError, inspect_image
 
     started_at = perf_counter()
-    try:
-        result = inspect_image(image_path, build_inference_config(category, critical_zones))
-    except InferenceError as exc:
-        raise PredictionError(str(exc)) from exc
+    constrained_runtime = resource_constrained_runtime()
+    lock_context = inference_lock if constrained_runtime else nullcontext()
+    with lock_context:
+        try:
+            result = inspect_image(image_path, build_inference_config(category, critical_zones))
+        except InferenceError as exc:
+            raise PredictionError(str(exc)) from exc
+        finally:
+            if constrained_runtime:
+                release_inference_runtimes()
 
     inference_ms = (perf_counter() - started_at) * 1000
     storage_started_at = perf_counter()
     outputs = save_visual_outputs(result.pop("processed_image"), result.pop("heatmap_image"))
     storage_ms = (perf_counter() - storage_started_at) * 1000
     total_ms = (perf_counter() - started_at) * 1000
+    rss_mb = process_rss_mb()
     result.setdefault("explainability", {})["runtime_ms"] = {
         "inference": round(inference_ms, 1),
         "visual_storage": round(storage_ms, 1),
         "total": round(total_ms, 1),
     }
     logger.info(
-        "inspection_timing category=%s inference_ms=%.1f visual_storage_ms=%.1f total_ms=%.1f",
+        "inspection_timing category=%s inference_ms=%.1f visual_storage_ms=%.1f total_ms=%.1f rss_mb=%s",
         category,
         inference_ms,
         storage_ms,
         total_ms,
+        round(rss_mb, 1) if rss_mb is not None else "unavailable",
     )
     result.pop("anomaly_map", None)
     result.pop("pred_mask", None)

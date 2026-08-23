@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
     app.state.database_ready = False
     app.state.started_at = datetime.now(UTC)
     cv2.setUseOptimized(True)
-    cv2.setNumThreads(max(1, settings.opencv_num_threads))
+    cv2.setNumThreads(1 if resource_constrained_runtime() else max(1, settings.opencv_num_threads))
     warmup_task = None
     if settings.warm_model_on_startup and not resource_constrained_runtime():
         from ml.defect_classifier import warm_shared_feature_runtime

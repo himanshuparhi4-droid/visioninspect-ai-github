@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import logging
 import os
 from functools import lru_cache
@@ -104,6 +105,20 @@ def load_openvino_calibrator(path_value: str) -> dict:
         return load_portable_forest(str(path), path.stat().st_mtime_ns)
     except Exception as exc:
         raise PadimInferenceError(f"Could not load OpenVINO calibrator: {path}") from exc
+
+
+def release_anomaly_runtimes() -> None:
+    """Release native anomaly runtimes between stages on constrained hosts."""
+    load_anomaly_runtime.cache_clear()
+    load_openvino_runtime.cache_clear()
+    load_openvino_calibrator.cache_clear()
+    try:
+        from ml.classifier import load_portable_forest
+
+        load_portable_forest.cache_clear()
+    except ImportError:
+        pass
+    gc.collect()
 
 
 def openvino_spatial_features(score: float, anomaly_map: np.ndarray) -> np.ndarray:

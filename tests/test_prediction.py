@@ -78,6 +78,7 @@ def test_inspect_image_returns_backend_ready_output(monkeypatch):
 def test_runtime_keeps_detection_and_subtype_confidence_separate(monkeypatch, tmp_path):
     from ml.inference import inspect_image
 
+    runtime_events = []
     image_path = tmp_path / "sample.png"
     cv2.imwrite(str(image_path), np.full((32, 32, 3), 128, dtype=np.uint8))
     anomaly_map = np.zeros((32, 32), dtype=np.float32)
@@ -88,7 +89,7 @@ def test_runtime_keeps_detection_and_subtype_confidence_separate(monkeypatch, tm
     monkeypatch.setattr(
         "ml.inference.live_anomaly_prediction",
         lambda *_: {
-            "engine": "baseline",
+            "engine": "padim_openvino",
             "detector_kind": "normal-memory",
             "anomaly_score": 0.8,
             "decision_threshold": 0.5,
@@ -103,6 +104,7 @@ def test_runtime_keeps_detection_and_subtype_confidence_separate(monkeypatch, tm
     )
 
     def fake_classify_prediction(*_args, global_features=None):
+        assert runtime_events == ["detector_released"]
         assert global_features is not None
         assert np.array_equal(global_features, np.ones((1, 512), dtype=np.float32))
         return {
@@ -115,6 +117,10 @@ def test_runtime_keeps_detection_and_subtype_confidence_separate(monkeypatch, tm
     monkeypatch.setattr(
         "ml.inference.classify_prediction",
         fake_classify_prediction,
+    )
+    monkeypatch.setattr(
+        "ml.inference.release_anomaly_runtimes",
+        lambda: runtime_events.append("detector_released"),
     )
 
     missing = tmp_path / "missing"
@@ -133,6 +139,7 @@ def test_runtime_keeps_detection_and_subtype_confidence_separate(monkeypatch, tm
         review_severity_threshold=40,
         fail_severity_threshold=60,
         subtype_model_macro_f1=0.70,
+        release_detector_before_classification=True,
     )
 
     result = inspect_image(image_path, config)
