@@ -579,6 +579,33 @@ def calibration_metric_floor(result: dict) -> float:
     return min(float(balanced_accuracy), float(f1))
 
 
+def sync_registry_calibration(entry: dict, engine: str, result: dict, spec) -> None:
+    """Synchronize registry thresholds across current and legacy calibration schemas."""
+    if engine == "baseline":
+        score_threshold = result.get("fallback_score_threshold", result.get("threshold"))
+        if score_threshold is not None:
+            entry["baseline_score_threshold"] = float(score_threshold)
+        if result.get("residual_threshold") is not None:
+            entry["baseline_residual_threshold"] = float(result["residual_threshold"])
+
+        artifact = result.get("artifact")
+        artifact_path = PROJECT_ROOT / artifact if artifact else None
+        if artifact_path is not None and artifact_path.exists():
+            entry["portable_detector_calibrator_path"] = artifact
+        else:
+            entry.pop("portable_detector_calibrator_path", None)
+    elif engine == "advanced":
+        entry["padim_score_threshold"] = float(result["threshold"])
+    else:
+        artifact = result.get("artifact")
+        if artifact:
+            entry["openvino_calibrator_path"] = artifact
+        elif spec.openvino_calibrator_path is not None and spec.openvino_calibrator_path.exists():
+            entry["openvino_calibrator_path"] = str(
+                spec.openvino_calibrator_path.relative_to(PROJECT_ROOT)
+            ).replace("\\", "/")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--categories", default="all")
@@ -692,14 +719,7 @@ def main() -> None:
         metadata[metadata_key] = result
         spec.metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         entry = registry.setdefault(category, {})
-        if args.engine == "baseline":
-            entry["baseline_score_threshold"] = result["fallback_score_threshold"]
-            entry["baseline_residual_threshold"] = result["residual_threshold"]
-            entry["portable_detector_calibrator_path"] = result["artifact"]
-        elif args.engine == "advanced":
-            entry["padim_score_threshold"] = result["threshold"]
-        else:
-            entry["openvino_calibrator_path"] = result["artifact"]
+        sync_registry_calibration(entry, args.engine, result, spec)
         print(json.dumps({category: result}, indent=2), flush=True)
 
     registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")

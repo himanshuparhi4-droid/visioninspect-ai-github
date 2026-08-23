@@ -9,7 +9,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from ml.baseline_detector import load_reference_profile
-from ml.classifier import export_portable_forest, predict_portable_forest
+from ml.classifier import export_portable_forest, load_portable_forest, predict_portable_forest
 from ml.model_registry import (
     CATEGORY_DEFECT_LABELS,
     SUPPORTED_CATEGORIES,
@@ -19,6 +19,7 @@ from ml.model_registry import (
     classifier_runtime_status,
     openvino_runtime_is_memory_safe,
 )
+from scripts.calibrate_category_thresholds import sync_registry_calibration
 
 
 def portable_spec(tmp_path: Path) -> CategoryModelSpec:
@@ -108,6 +109,24 @@ def test_low_memory_profile_keeps_only_memory_safe_openvino_pairs():
     assert statuses["pill"]["openvino_deferred_for_memory"] is True
 
 
+def test_registered_portable_detector_calibrators_are_complete():
+    calibrated_categories = {"capsule", "grid", "hazelnut", "pill", "screw", "transistor"}
+
+    for category in calibrated_categories:
+        spec = category_model_spec(category)
+        assert spec.portable_detector_calibrator_path is not None
+        assert spec.portable_detector_calibrator_path.exists()
+
+        profile = load_reference_profile(spec.baseline_profile_path)
+        runtime = load_portable_forest(
+            str(spec.portable_detector_calibrator_path),
+            spec.portable_detector_calibrator_path.stat().st_mtime_ns,
+        )
+        assert profile["spatial_embedding_bank"].shape == (13, 128, 512)
+        assert str(runtime["feature_mode"]) == "portable_anomaly_spatial_v1"
+        assert 0.0 < float(runtime["decision_threshold"]) < 1.0
+
+
 def test_render_requirements_include_portable_inference_dependencies():
     requirements = (Path(__file__).resolve().parents[1] / "backend" / "requirements.txt").read_text(encoding="utf-8")
 
@@ -147,3 +166,24 @@ def test_portable_logistic_runtime_matches_sklearn(tmp_path):
 
     assert np.allclose(result["probabilities"], classifier.predict_proba(features), atol=1e-6)
     assert result["decision_threshold"] == np.float32(0.4)
+
+
+def test_legacy_baseline_calibration_can_sync_without_a_calibrator(tmp_path):
+    spec = portable_spec(tmp_path)
+    registry_entry = {"portable_detector_calibrator_path": "models/stale.npz"}
+
+    sync_registry_calibration(
+        registry_entry,
+        "baseline",
+        {
+            "threshold": 0.010643,
+            "residual_threshold": 0.790813,
+            "cv_balanced_accuracy": 0.9309,
+            "cv_f1": 0.9524,
+        },
+        spec,
+    )
+
+    assert registry_entry["baseline_score_threshold"] == 0.010643
+    assert registry_entry["baseline_residual_threshold"] == 0.790813
+    assert "portable_detector_calibrator_path" not in registry_entry

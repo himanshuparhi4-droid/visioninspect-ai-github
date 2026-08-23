@@ -224,27 +224,96 @@
   "portable_detector": "resnet18_normal_memory_with_opencv_localization",
   "portable_train_good_images": 213,
   "baseline_threshold_calibration": {
-    "threshold": 0.032319,
-    "protocol": "5-fold stratified balanced-threshold validation on labelled MVTec test images; production threshold maximizes sensitivity plus specificity on all labelled images",
-    "folds": 5,
-    "fold_thresholds": [
-      0.029394,
-      0.032319,
-      0.032319,
-      0.029394,
-      0.032319
-    ],
-    "samples": 100,
-    "cv_accuracy": 0.82,
-    "cv_precision": 0.775,
-    "cv_recall": 0.775,
-    "cv_specificity": 0.85,
-    "cv_balanced_accuracy": 0.8125,
-    "cv_f1": 0.775,
-    "auroc": 0.9217,
-    "detector": "resnet18_normal_memory",
+    "detector": "resnet18_residual_calibrator",
     "localization": "opencv_normalized_residual",
-    "residual_threshold": 2.115497
+    "protocol": "nested stratified cross-validation on labelled MVTec test images; each outer fold selects the calibrator and decision threshold using only its training partition; the production calibrator is fitted after out-of-fold evaluation",
+    "folds": 5,
+    "samples": 100,
+    "feature_count": 66,
+    "selected_classifier": "logistic_c10",
+    "candidate_scores": {
+      "logistic_c0.1": {
+        "threshold": 0.356413,
+        "balanced_accuracy": 0.8792,
+        "f1": 0.8506,
+        "auroc": 0.9371
+      },
+      "logistic_c1": {
+        "threshold": 0.412267,
+        "balanced_accuracy": 0.9208,
+        "f1": 0.8966,
+        "auroc": 0.9604
+      },
+      "logistic_c10": {
+        "threshold": 0.413817,
+        "balanced_accuracy": 0.925,
+        "f1": 0.9048,
+        "auroc": 0.96
+      },
+      "extra_trees_sqrt_leaf1": {
+        "threshold": 0.32,
+        "balanced_accuracy": 0.8875,
+        "f1": 0.8605,
+        "auroc": 0.9348
+      },
+      "extra_trees_wide_leaf1": {
+        "threshold": 0.55,
+        "balanced_accuracy": 0.8875,
+        "f1": 0.8684,
+        "auroc": 0.9417
+      },
+      "extra_trees_sqrt_leaf2": {
+        "threshold": 0.328825,
+        "balanced_accuracy": 0.8917,
+        "f1": 0.8636,
+        "auroc": 0.9308
+      },
+      "random_forest_sqrt_leaf1": {
+        "threshold": 0.26,
+        "balanced_accuracy": 0.9,
+        "f1": 0.8736,
+        "auroc": 0.9369
+      }
+    },
+    "outer_selection_frequency": {
+      "extra_trees_sqrt_leaf2": 1,
+      "extra_trees_wide_leaf1": 2,
+      "logistic_c1": 2
+    },
+    "outer_thresholds": [
+      0.293333,
+      0.386667,
+      0.411676,
+      0.417056,
+      0.396148
+    ],
+    "decision_threshold": 0.413817,
+    "fallback_score_threshold": 0.03231,
+    "residual_threshold": 2.115497,
+    "cv_accuracy": 0.88,
+    "cv_precision": 0.8182,
+    "cv_recall": 0.9,
+    "cv_specificity": 0.8667,
+    "cv_balanced_accuracy": 0.8833,
+    "cv_f1": 0.8571,
+    "auroc": 0.9481,
+    "confusion_matrix": [
+      [
+        52,
+        8
+      ],
+      [
+        4,
+        36
+      ]
+    ],
+    "defect_subtype_recall": {
+      "bent_lead": 1.0,
+      "cut_lead": 0.7,
+      "damaged_case": 0.9,
+      "misplaced": 1.0
+    },
+    "artifact": "models/categories/transistor/portable_detector_calibrator.npz"
   },
   "openvino_spatial_calibration": {
     "detector": "patchcore_openvino_spatial_calibrator",
