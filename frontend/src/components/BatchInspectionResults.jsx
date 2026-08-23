@@ -46,7 +46,12 @@ export default function BatchInspectionResults({ results = [], summary = null, f
               <tr key={item.id}>
                 <td>{item.source_label || item.original_filename || "Uploaded image"}</td>
                 <td>{item.prediction}</td>
-                <td>{item.defect_type}</td>
+                <td>
+                  {item.defect_type}
+                  {item.defect_type === "unknown_defect" && item.candidate_defect_type ? (
+                    <small>Suggestion: {item.candidate_defect_type.replaceAll("_", " ")}</small>
+                  ) : null}
+                </td>
                 <td>{item.severity_level}</td>
                 <td>{item.pass_fail}</td>
                 <td>{formatConfidence(item.confidence)}</td>

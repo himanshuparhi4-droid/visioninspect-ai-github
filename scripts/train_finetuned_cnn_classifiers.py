@@ -21,6 +21,7 @@ from ml.cnn_classifier import (
 )
 from ml.config import MVTEC_DATASET_ROOT
 from ml.model_registry import SUPPORTED_CATEGORIES, category_model_spec, registry_file
+from scripts.train_category_classifiers import attach_runtime_masks
 
 DEFAULT_CATEGORIES = ("capsule", "grid", "wood")
 
@@ -83,9 +84,15 @@ def main() -> None:
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument(
         "--crop-mode",
-        choices=("auto", "defect", "object", "full"),
+        choices=("auto", "bbox", "defect", "object", "full"),
         default="auto",
-        help="CNN input view. auto compares defect, object, and full views.",
+        help="CNN input view. auto compares tight bbox, defect, object, and full views.",
+    )
+    parser.add_argument(
+        "--mask-source",
+        choices=("ground_truth", "openvino", "render"),
+        default="openvino",
+        help="Localization masks used for CNN crops. OpenVINO is the intended Render deployment pair.",
     )
     parser.add_argument("--force", action="store_true", help="Promote CNN even if current classifier metrics are better.")
     args = parser.parse_args()
@@ -97,6 +104,8 @@ def main() -> None:
     for category in parse_categories(args.categories):
         spec = category_model_spec(category)
         records = category_records(dataset_root / category)
+        if args.mask_source in {"openvino", "render"}:
+            records = attach_runtime_masks(records, spec, profile=args.mask_source)
         defect_records = records[records["label"] != "good"]
         counts = defect_records["label"].value_counts()
         if defect_records.empty or (counts < 2).any():
@@ -106,7 +115,7 @@ def main() -> None:
         metadata = json.loads(spec.metadata_path.read_text(encoding="utf-8")) if spec.metadata_path.exists() else {}
         current_metrics = metadata.get("defect_classifier", {})
         final_path = spec.classifier_path.with_name(CNN_ONNX_FILE)
-        crop_modes = ("defect", "object", "full") if args.crop_mode == "auto" else (args.crop_mode,)
+        crop_modes = ("bbox", "defect", "object", "full") if args.crop_mode == "auto" else (args.crop_mode,)
         best_result = None
         best_candidate_path = None
         candidate_paths = []

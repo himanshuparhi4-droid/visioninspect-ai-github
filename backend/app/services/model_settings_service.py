@@ -156,7 +156,11 @@ def build_model_metrics_payload() -> dict:
             status,
             category_metadata,
         )
-        deployed_subtype_metrics = category_metadata.get("deployed_subtype_validation") or {}
+        deployed_subtype_metrics = (
+            category_metadata.get("render_runtime_audit")
+            or category_metadata.get("deployed_subtype_validation")
+            or {}
+        )
         candidate_classifier_metrics = category_metadata.get("defect_classifier_revalidation") or {}
         advanced_active = status["active_engine"].endswith("_openvino") or status["active_engine"] in {
             "padim",
@@ -175,7 +179,8 @@ def build_model_metrics_payload() -> dict:
         if deployed_subtype_metrics:
             subtype_accuracy = deployed_subtype_metrics.get("accuracy")
             subtype_f1 = deployed_subtype_metrics.get("macro_f1")
-            subtype_metric_source = "Render-equivalent OpenVINO-mask validation"
+            mask_source = deployed_subtype_metrics.get("mask_source", "active detector")
+            subtype_metric_source = f"Render-equivalent runtime audit ({mask_source})"
         else:
             subtype_accuracy = active_classifier_metrics.get("accuracy")
             subtype_f1 = active_classifier_metrics.get("macro_f1")

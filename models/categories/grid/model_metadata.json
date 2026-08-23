@@ -628,5 +628,137 @@
         1.0
       ]
     }
+  },
+  "render_runtime_audit": {
+    "accuracy": 0.4737,
+    "macro_f1": 0.4757,
+    "classification_report": {
+      "bent": {
+        "precision": 0.2857142857142857,
+        "recall": 0.3333333333333333,
+        "f1-score": 0.3076923076923077,
+        "support": 12.0
+      },
+      "broken": {
+        "precision": 0.625,
+        "recall": 0.4166666666666667,
+        "f1-score": 0.5,
+        "support": 12.0
+      },
+      "glue": {
+        "precision": 0.5,
+        "recall": 0.45454545454545453,
+        "f1-score": 0.47619047619047616,
+        "support": 11.0
+      },
+      "metal_contamination": {
+        "precision": 0.45454545454545453,
+        "recall": 0.45454545454545453,
+        "f1-score": 0.45454545454545453,
+        "support": 11.0
+      },
+      "thread": {
+        "precision": 0.5714285714285714,
+        "recall": 0.7272727272727273,
+        "f1-score": 0.64,
+        "support": 11.0
+      },
+      "accuracy": 0.47368421052631576,
+      "macro avg": {
+        "precision": 0.48733766233766235,
+        "recall": 0.47727272727272735,
+        "f1-score": 0.4756856476856477,
+        "support": 57.0
+      },
+      "weighted avg": {
+        "precision": 0.4862155388471178,
+        "recall": 0.47368421052631576,
+        "f1-score": 0.47316496369127947,
+        "support": 57.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        4,
+        1,
+        3,
+        3,
+        1
+      ],
+      [
+        3,
+        5,
+        0,
+        0,
+        4
+      ],
+      [
+        3,
+        0,
+        5,
+        3,
+        0
+      ],
+      [
+        3,
+        1,
+        1,
+        5,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        0,
+        8
+      ]
+    ],
+    "labels": [
+      "bent",
+      "broken",
+      "glue",
+      "metal_contamination",
+      "thread"
+    ],
+    "samples": 57,
+    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks",
+    "classifier_engine": "sklearn_feature_classifier",
+    "feature_mode": "global_roi_pixel_texture",
+    "mask_source": "portable_baseline",
+    "confidence_calibration": {
+      "method": "isotonic_oof_top_label",
+      "review_threshold": 0.95,
+      "target_accuracy": 0.85,
+      "target_achieved": false,
+      "coverage": 0.0702,
+      "accepted_accuracy": 0.75,
+      "raw_ece": 0.1708,
+      "cross_fitted_calibrated_ece": 0.133,
+      "x_thresholds": [
+        0.213333,
+        0.246667,
+        0.253333,
+        0.273333,
+        0.28,
+        0.373333,
+        0.383333,
+        0.386667,
+        0.393333,
+        0.443333
+      ],
+      "y_thresholds": [
+        0.333333,
+        0.333333,
+        0.384615,
+        0.384615,
+        0.46875,
+        0.46875,
+        0.666667,
+        0.666667,
+        1.0,
+        1.0
+      ]
+    }
   }
 }

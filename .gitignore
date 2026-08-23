@@ -31,6 +31,8 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 frontend/next-dev*.log
+frontend/AGENTS.md
+frontend/CLAUDE.md
 pnpm-lock.yaml
 
 # Large local artifacts

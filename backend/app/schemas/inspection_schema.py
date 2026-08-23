@@ -24,6 +24,7 @@ class InspectionResponse(BaseModel):
     heatmap_url: str | None = None
     prediction: str | None = None
     defect_type: str | None = None
+    candidate_defect_type: str | None = None
     confidence: float | None = None
     detection_confidence: float | None = None
     classification_confidence: float | None = None

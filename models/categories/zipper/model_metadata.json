@@ -402,5 +402,191 @@
         1.0
       ]
     }
+  },
+  "render_runtime_audit": {
+    "accuracy": 0.5882,
+    "macro_f1": 0.5828,
+    "classification_report": {
+      "broken_teeth": {
+        "precision": 0.3125,
+        "recall": 0.2631578947368421,
+        "f1-score": 0.2857142857142857,
+        "support": 19.0
+      },
+      "combined": {
+        "precision": 0.4,
+        "recall": 0.375,
+        "f1-score": 0.3870967741935484,
+        "support": 16.0
+      },
+      "fabric_border": {
+        "precision": 0.7894736842105263,
+        "recall": 0.8823529411764706,
+        "f1-score": 0.8333333333333334,
+        "support": 17.0
+      },
+      "fabric_interior": {
+        "precision": 0.5789473684210527,
+        "recall": 0.6875,
+        "f1-score": 0.6285714285714286,
+        "support": 16.0
+      },
+      "rough": {
+        "precision": 0.7777777777777778,
+        "recall": 0.8235294117647058,
+        "f1-score": 0.8,
+        "support": 17.0
+      },
+      "split_teeth": {
+        "precision": 0.6470588235294118,
+        "recall": 0.6111111111111112,
+        "f1-score": 0.6285714285714286,
+        "support": 18.0
+      },
+      "squeezed_teeth": {
+        "precision": 0.5333333333333333,
+        "recall": 0.5,
+        "f1-score": 0.5161290322580645,
+        "support": 16.0
+      },
+      "accuracy": 0.5882352941176471,
+      "macro avg": {
+        "precision": 0.5770129981817289,
+        "recall": 0.5918073369698755,
+        "f1-score": 0.5827737546631556,
+        "support": 119.0
+      },
+      "weighted avg": {
+        "precision": 0.5749943269361407,
+        "recall": 0.5882352941176471,
+        "f1-score": 0.5799855426041385,
+        "support": 119.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        5,
+        1,
+        1,
+        4,
+        2,
+        2,
+        4
+      ],
+      [
+        0,
+        6,
+        2,
+        1,
+        1,
+        4,
+        2
+      ],
+      [
+        1,
+        0,
+        15,
+        1,
+        0,
+        0,
+        0
+      ],
+      [
+        3,
+        0,
+        1,
+        11,
+        0,
+        0,
+        1
+      ],
+      [
+        2,
+        1,
+        0,
+        0,
+        14,
+        0,
+        0
+      ],
+      [
+        3,
+        3,
+        0,
+        0,
+        1,
+        11,
+        0
+      ],
+      [
+        2,
+        4,
+        0,
+        2,
+        0,
+        0,
+        8
+      ]
+    ],
+    "labels": [
+      "broken_teeth",
+      "combined",
+      "fabric_border",
+      "fabric_interior",
+      "rough",
+      "split_teeth",
+      "squeezed_teeth"
+    ],
+    "samples": 119,
+    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks",
+    "classifier_engine": "sklearn_feature_classifier",
+    "feature_mode": "global_roi_texture",
+    "mask_source": "portable_baseline",
+    "confidence_calibration": {
+      "method": "isotonic_oof_top_label",
+      "review_threshold": 0.95,
+      "target_accuracy": 0.85,
+      "target_achieved": false,
+      "coverage": 0.0924,
+      "accepted_accuracy": 1.0,
+      "raw_ece": 0.1649,
+      "cross_fitted_calibrated_ece": 0.0817,
+      "x_thresholds": [
+        0.214416,
+        0.234428,
+        0.244292,
+        0.265754,
+        0.276132,
+        0.305765,
+        0.306579,
+        0.316111,
+        0.319559,
+        0.36916,
+        0.36991,
+        0.466675,
+        0.469334,
+        0.672814,
+        0.699705,
+        0.895698
+      ],
+      "y_thresholds": [
+        0.0,
+        0.0,
+        0.25,
+        0.25,
+        0.266667,
+        0.266667,
+        0.428571,
+        0.428571,
+        0.5,
+        0.5,
+        0.580645,
+        0.580645,
+        0.758621,
+        0.758621,
+        1.0,
+        1.0
+      ]
+    }
   }
 }

@@ -217,6 +217,7 @@ def test_missing_classifier_reports_unknown_without_inventing_a_class(tmp_path):
     )
 
     assert classification["defect_type"] == "unknown_defect"
+    assert classification["candidate_defect_type"] is None
     assert classification["classification_confidence"] is None
     assert "not found" in classification["classification_error"]
 

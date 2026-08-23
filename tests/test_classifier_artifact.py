@@ -8,7 +8,7 @@ from ml.classifier import (
     ROI_PIXEL_TEXTURE_FEATURE_MODE,
     ROI_SHAPE_TEXTURE_FEATURE_MODE,
     ROI_TEXTURE_FEATURE_MODE,
-    build_opencv_resnet18_feature_extractor,
+    build_openvino_resnet18_feature_extractor,
     export_portable_forest,
     extract_features,
     load_classifier_bundle,
@@ -36,9 +36,9 @@ def test_defect_classifier_artifact_loads():
     assert bundle["metrics"]["macro_f1"] >= 0.8
 
 
-def test_opencv_feature_runtime_returns_resnet_embeddings():
+def test_openvino_feature_runtime_returns_resnet_embeddings():
     image_path = Path("backend/app/demo_samples/bottle/test/good/000.png")
-    runtime, preprocess, device = build_opencv_resnet18_feature_extractor()
+    runtime, preprocess, device = build_openvino_resnet18_feature_extractor()
 
     features = extract_features(
         [image_path],

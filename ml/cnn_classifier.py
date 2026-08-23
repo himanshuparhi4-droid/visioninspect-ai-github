@@ -64,7 +64,8 @@ class DefectCropDataset(Dataset):
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         row = self.data.iloc[index]
         image_bgr = read_bgr(row["image_path"])
-        mask = read_mask(row.get("mask_path"))
+        mask_value = row.get("mask")
+        mask = np.asarray(mask_value, dtype=bool) if isinstance(mask_value, np.ndarray) else read_mask(row.get("mask_path"))
         view = prepare_cnn_view(image_bgr, mask, image_size=self.image_size, crop_mode=self.crop_mode)
         image_rgb = cv2.cvtColor(view, cv2.COLOR_BGR2RGB)
         image = Image.fromarray(image_rgb)

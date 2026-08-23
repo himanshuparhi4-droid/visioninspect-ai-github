@@ -7,3 +7,4 @@
 *.pkl binary
 *.pth binary
 models/exported/**/model.bin binary
+models/shared/*.bin binary

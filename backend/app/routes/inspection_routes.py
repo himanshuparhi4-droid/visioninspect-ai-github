@@ -44,6 +44,7 @@ PREDICTION_FIELDS = [
     "heatmap_path",
     "prediction",
     "defect_type",
+    "candidate_defect_type",
     "confidence",
     "detection_confidence",
     "classification_confidence",

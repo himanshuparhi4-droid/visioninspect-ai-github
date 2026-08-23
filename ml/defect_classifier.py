@@ -123,10 +123,14 @@ def load_classifier_runtime(path_value: str) -> dict:
 def shared_feature_runtime():
     from ml.classifier import (
         DEFAULT_RESNET_ONNX_PATH,
+        DEFAULT_RESNET_OPENVINO_PATH,
         build_opencv_resnet18_feature_extractor,
+        build_openvino_resnet18_feature_extractor,
         build_resnet18_feature_extractor,
     )
 
+    if DEFAULT_RESNET_OPENVINO_PATH.exists() and DEFAULT_RESNET_OPENVINO_PATH.with_suffix(".bin").exists():
+        return build_openvino_resnet18_feature_extractor()
     if DEFAULT_RESNET_ONNX_PATH.exists():
         return build_opencv_resnet18_feature_extractor()
     return build_resnet18_feature_extractor()

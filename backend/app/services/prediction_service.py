@@ -81,7 +81,11 @@ def build_inference_config(category: str, critical_zones: tuple[str, ...] = ()):
     )
     category_metadata = read_json_artifact(spec.metadata_path)
     subtype_metrics, _ = load_active_classifier_evidence(spec, classifier_status, category_metadata)
-    deployed_subtype_validation = category_metadata.get("deployed_subtype_validation") or {}
+    deployed_subtype_validation = (
+        category_metadata.get("render_runtime_audit")
+        or category_metadata.get("deployed_subtype_validation")
+        or {}
+    )
     confidence_calibration = deployed_subtype_validation.get("confidence_calibration") or None
     calibrated_review_threshold = (
         confidence_calibration.get("review_threshold") if confidence_calibration else None

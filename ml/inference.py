@@ -306,6 +306,7 @@ def classify_prediction(
     if not is_defective:
         return {
             "defect_type": "good",
+            "candidate_defect_type": None,
             "confidence": detection_confidence,
             "detection_confidence": detection_confidence,
             "classification_confidence": None,
@@ -320,6 +321,7 @@ def classify_prediction(
     if not config.classifier_model_path.exists():
         return {
             "defect_type": "unknown_defect",
+            "candidate_defect_type": None,
             "confidence": detection_confidence,
             "detection_confidence": detection_confidence,
             "classification_confidence": None,
@@ -345,6 +347,7 @@ def classify_prediction(
     except Exception as exc:
         return {
             "defect_type": "unknown_defect",
+            "candidate_defect_type": None,
             "confidence": detection_confidence,
             "detection_confidence": detection_confidence,
             "classification_confidence": None,
@@ -370,6 +373,7 @@ def classify_prediction(
         fallback_reason = classification.get("classifier_fallback_reason")
         return {
             "defect_type": "unknown_defect",
+            "candidate_defect_type": classification.get("defect_type"),
             "confidence": detection_confidence,
             "detection_confidence": detection_confidence,
             "classification_confidence": classification_confidence,
@@ -388,6 +392,7 @@ def classify_prediction(
         # high "good" probability as confidence in an unknown defect type.
         return {
             "defect_type": "unknown_defect",
+            "candidate_defect_type": None,
             "confidence": detection_confidence,
             "detection_confidence": detection_confidence,
             "classification_confidence": None,
@@ -408,6 +413,7 @@ def classify_prediction(
     classification["confidence"] = classification_confidence
     classification["confidence_calibrated"] = confidence_calibrated
     classification["classification_error"] = None
+    classification["candidate_defect_type"] = classification["defect_type"]
     return classification
 
 
@@ -574,6 +580,7 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
     # subtype probability is reported separately and must not inflate it.
     confidence = detection_confidence
     defect_type = classification["defect_type"]
+    candidate_defect_type = classification.get("candidate_defect_type")
     prediction = "Defective" if is_defective else "Good"
     geometry = compute_defect_geometry(binary_mask, defect_type, config.critical_zones)
     severity = calculate_severity_from_prediction(
@@ -654,6 +661,7 @@ def inspect_image(image_path: str | Path, config: InferenceConfig) -> dict:
         "model_category": config.category,
         "prediction": prediction,
         "defect_type": defect_type,
+        "candidate_defect_type": candidate_defect_type,
         "confidence": confidence,
         "detection_confidence": detection_confidence,
         "classification_confidence": classification.get("classification_confidence"),

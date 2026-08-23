@@ -32,6 +32,9 @@ MASK_SHAPE_FEATURE_LENGTH = 284
 ROI_PIXEL_FEATURE_LENGTH = 3072
 DEFAULT_RESNET_WEIGHTS_PATH = Path(__file__).resolve().parents[1] / "models" / "inference" / "resnet18-f37072fd.pth"
 DEFAULT_RESNET_ONNX_PATH = Path(__file__).resolve().parents[1] / "models" / "shared" / "resnet18_features.onnx"
+DEFAULT_RESNET_OPENVINO_PATH = (
+    Path(__file__).resolve().parents[1] / "models" / "shared" / "resnet18_features_fp16.xml"
+)
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
@@ -50,6 +53,32 @@ class OpenCVResNet18FeatureExtractor:
                 batch = np.stack([preprocess(image) for image in images[start : start + batch_size]])
                 self.net.setInput(batch.astype(np.float32, copy=False))
                 features.append(self.net.forward().reshape(len(batch), -1))
+        return np.vstack(features).astype(np.float32, copy=False)
+
+
+class OpenVINOResNet18FeatureExtractor:
+    """Run the shared FP16 feature extractor with a bounded OpenVINO CPU runtime."""
+
+    def __init__(self, model_path: str | Path):
+        import openvino as ov
+
+        core = ov.Core()
+        self.model = core.compile_model(
+            str(model_path),
+            "CPU",
+            {"INFERENCE_NUM_THREADS": "1", "NUM_STREAMS": "1", "PERFORMANCE_HINT": "LATENCY"},
+        )
+        self.input = self.model.input(0)
+        self.output = self.model.output(0)
+        self.lock = Lock()
+
+    def extract(self, images: list[Image.Image], preprocess, batch_size: int = 16) -> np.ndarray:
+        features: list[np.ndarray] = []
+        with self.lock:
+            for start in range(0, len(images), batch_size):
+                batch = np.stack([preprocess(image) for image in images[start : start + batch_size]])
+                result = self.model({self.input: batch.astype(np.float32, copy=False)})
+                features.append(np.asarray(result[self.output]).reshape(len(batch), -1))
         return np.vstack(features).astype(np.float32, copy=False)
 
 
@@ -74,6 +103,13 @@ def build_opencv_resnet18_feature_extractor(model_path: str | Path = DEFAULT_RES
     if not path.exists() or path.stat().st_size < 1_000_000:
         raise FileNotFoundError(f"Portable ResNet18 ONNX model not found: {path}")
     return OpenCVResNet18FeatureExtractor(path), imagenet_preprocess, "cpu"
+
+
+def build_openvino_resnet18_feature_extractor(model_path: str | Path = DEFAULT_RESNET_OPENVINO_PATH):
+    path = Path(model_path)
+    if not path.exists() or not path.with_suffix(".bin").exists():
+        raise FileNotFoundError(f"OpenVINO FP16 ResNet18 model not found: {path}")
+    return OpenVINOResNet18FeatureExtractor(path), imagenet_preprocess, "cpu"
 
 
 def get_device():
@@ -115,11 +151,13 @@ def extract_pil_features(
     device=None,
 ) -> np.ndarray:
     if feature_extractor is None or preprocess is None:
-        if DEFAULT_RESNET_ONNX_PATH.exists():
+        if DEFAULT_RESNET_OPENVINO_PATH.exists() and DEFAULT_RESNET_OPENVINO_PATH.with_suffix(".bin").exists():
+            feature_extractor, preprocess, device = build_openvino_resnet18_feature_extractor()
+        elif DEFAULT_RESNET_ONNX_PATH.exists():
             feature_extractor, preprocess, device = build_opencv_resnet18_feature_extractor()
         else:
             feature_extractor, preprocess, device = build_resnet18_feature_extractor(device)
-    if isinstance(feature_extractor, OpenCVResNet18FeatureExtractor):
+    if isinstance(feature_extractor, (OpenCVResNet18FeatureExtractor, OpenVINOResNet18FeatureExtractor)):
         return feature_extractor.extract(images, preprocess, batch_size=batch_size)
 
     import torch

@@ -137,12 +137,14 @@ def test_render_requirements_include_portable_inference_dependencies():
     assert "pandas==" not in requirements
 
 
-def test_shared_onnx_feature_model_is_github_safe():
-    model_path = Path("models/shared/resnet18_features.onnx")
+def test_shared_openvino_feature_model_is_github_safe():
+    model_path = Path("models/shared/resnet18_features_fp16.xml")
+    weights_path = model_path.with_suffix(".bin")
     pytorch_weights_path = Path("models/shared/resnet18-f37072fd.pth")
 
     assert model_path.exists()
-    assert 1_000_000 < model_path.stat().st_size < 100_000_000
+    assert weights_path.exists()
+    assert 1_000_000 < weights_path.stat().st_size < 50_000_000
     assert not pytorch_weights_path.exists()
 
 

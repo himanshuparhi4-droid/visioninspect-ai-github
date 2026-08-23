@@ -641,5 +641,139 @@
         1.0
       ]
     }
+  },
+  "render_runtime_audit": {
+    "accuracy": 0.8696,
+    "macro_f1": 0.8672,
+    "classification_report": {
+      "color": {
+        "precision": 0.8947368421052632,
+        "recall": 0.8947368421052632,
+        "f1-score": 0.8947368421052632,
+        "support": 19.0
+      },
+      "cut": {
+        "precision": 0.75,
+        "recall": 0.9473684210526315,
+        "f1-score": 0.8372093023255814,
+        "support": 19.0
+      },
+      "fold": {
+        "precision": 0.8823529411764706,
+        "recall": 0.8823529411764706,
+        "f1-score": 0.8823529411764706,
+        "support": 17.0
+      },
+      "glue": {
+        "precision": 1.0,
+        "recall": 0.631578947368421,
+        "f1-score": 0.7741935483870968,
+        "support": 19.0
+      },
+      "poke": {
+        "precision": 0.9,
+        "recall": 1.0,
+        "f1-score": 0.9473684210526315,
+        "support": 18.0
+      },
+      "accuracy": 0.8695652173913043,
+      "macro avg": {
+        "precision": 0.8854179566563468,
+        "recall": 0.8712074303405573,
+        "f1-score": 0.8671722110094088,
+        "support": 92.0
+      },
+      "weighted avg": {
+        "precision": 0.8853260869565218,
+        "recall": 0.8695652173913043,
+        "f1-score": 0.8659704972009593,
+        "support": 92.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        17,
+        0,
+        0,
+        0,
+        2
+      ],
+      [
+        0,
+        18,
+        1,
+        0,
+        0
+      ],
+      [
+        1,
+        1,
+        15,
+        0,
+        0
+      ],
+      [
+        1,
+        5,
+        1,
+        12,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        18
+      ]
+    ],
+    "labels": [
+      "color",
+      "cut",
+      "fold",
+      "glue",
+      "poke"
+    ],
+    "samples": 92,
+    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks",
+    "classifier_engine": "sklearn_feature_classifier",
+    "feature_mode": "global_roi_texture",
+    "mask_source": "padim_openvino",
+    "confidence_calibration": {
+      "method": "isotonic_oof_top_label",
+      "review_threshold": 0.5,
+      "target_accuracy": 0.85,
+      "target_achieved": true,
+      "coverage": 0.9239,
+      "accepted_accuracy": 0.9059,
+      "raw_ece": 0.3521,
+      "cross_fitted_calibrated_ece": 0.1001,
+      "x_thresholds": [
+        0.28,
+        0.286667,
+        0.31,
+        0.313333,
+        0.363333,
+        0.373333,
+        0.453333,
+        0.456667,
+        0.57,
+        0.576667,
+        0.86
+      ],
+      "y_thresholds": [
+        0.0,
+        0.285714,
+        0.285714,
+        0.75,
+        0.75,
+        0.8125,
+        0.8125,
+        0.961538,
+        0.961538,
+        1.0,
+        1.0
+      ]
+    }
   }
 }

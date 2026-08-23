@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -36,13 +37,14 @@ from ml.defect_classifier import (
     refine_defect_mask_for_classification,
     shared_feature_runtime,
 )
+from ml.inference import InferenceConfig, live_anomaly_prediction
 from ml.model_registry import (
     SUPPORTED_CATEGORIES,
     category_model_spec,
     classifier_runtime_status,
+    openvino_runtime_is_memory_safe,
     registry_file,
 )
-from ml.padim_detector import load_openvino_runtime
 
 
 def category_records(category_root: Path) -> pd.DataFrame:
@@ -61,41 +63,84 @@ def category_records(category_root: Path) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
-def attach_openvino_masks(
+def render_inference_config(spec) -> InferenceConfig:
+    """Build the constrained runtime profile used by the Render service."""
+    classifier_engine = str(classifier_runtime_status(spec)["engine"])
+    openvino_ready = bool(
+        spec.openvino_path is not None
+        and spec.openvino_path.exists()
+        and spec.openvino_path.with_suffix(".bin").exists()
+        and openvino_runtime_is_memory_safe(spec, classifier_engine)
+    )
+    return InferenceConfig(
+        category=spec.category,
+        anomaly_model_kind=spec.model_kind,
+        use_padim_inference=False,
+        use_openvino_inference=openvino_ready,
+        openvino_inference_device="CPU",
+        padim_inference_accelerator="cpu",
+        model_checkpoint_path=spec.checkpoint_path,
+        classifier_model_path=spec.classifier_path,
+        cnn_classifier_model_path=spec.cnn_classifier_path,
+        model_metadata_path=spec.metadata_path,
+        baseline_profile_path=spec.baseline_profile_path,
+        baseline_threshold=spec.baseline_score_threshold,
+        baseline_residual_threshold=spec.baseline_residual_threshold,
+        padim_score_threshold=spec.padim_score_threshold,
+        review_severity_threshold=40.0,
+        fail_severity_threshold=60.0,
+        subtype_confidence_threshold=spec.subtype_confidence_threshold,
+        openvino_path=spec.openvino_path if openvino_ready else None,
+        openvino_calibrator_path=spec.openvino_calibrator_path if openvino_ready else None,
+        portable_detector_calibrator_path=spec.portable_detector_calibrator_path,
+        compact_classifier_path=spec.compact_classifier_path,
+        input_size=spec.input_size,
+    )
+
+
+def attach_runtime_masks(
     records: pd.DataFrame,
-    model_path: Path,
-    input_size: int,
+    spec,
     *,
-    category: str,
-    mask_policy: str = "model",
+    profile: str,
 ) -> pd.DataFrame:
-    if not model_path.exists():
-        raise FileNotFoundError(f"OpenVINO model not found: {model_path}")
-    compiled_model = load_openvino_runtime(str(model_path), "CPU")
     updated = records.copy()
-    masks = []
-    for image_path in updated["image_path"]:
+    config = render_inference_config(spec)
+    if profile == "openvino":
+        if spec.openvino_path is None or not spec.openvino_path.exists():
+            raise FileNotFoundError(f"OpenVINO model not found for {spec.category}")
+        config = dataclasses.replace(
+            config,
+            use_openvino_inference=True,
+            openvino_path=spec.openvino_path,
+            openvino_calibrator_path=spec.openvino_calibrator_path,
+        )
+    masks: list[np.ndarray | None] = []
+    detector_decisions: list[bool | None] = []
+    detector_engines: list[str] = []
+    for row in updated.itertuples(index=False):
+        if row.label == "good":
+            masks.append(None)
+            detector_decisions.append(None)
+            detector_engines.append("not_evaluated")
+            continue
+        image_path = Path(row.image_path)
         image_bgr = cv2.imread(str(image_path))
         if image_bgr is None:
             raise FileNotFoundError(f"Could not read image: {image_path}")
-        image = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        image = cv2.resize(image, (input_size, input_size)).astype(np.float32) / 255.0
-        outputs = compiled_model([image.transpose(2, 0, 1)[None]])
-        anomaly_map = np.asarray(outputs[compiled_model.output("anomaly_map")]).squeeze()
-        model_mask = np.asarray(outputs[compiled_model.output("pred_mask")]).squeeze().astype(bool)
-        if mask_policy == "model":
-            mask = model_mask
-        elif mask_policy.startswith("p"):
-            percentile = float(mask_policy[1:])
-            mask = anomaly_map >= np.percentile(anomaly_map, percentile)
-        else:
-            raise ValueError(f"Unsupported classification mask policy: {mask_policy}")
+        anomaly = live_anomaly_prediction(image_path, image_bgr, config)
+        anomaly_map = np.asarray(anomaly["anomaly_map"])
+        mask = np.asarray(anomaly["pred_mask"], dtype=bool)
         if not np.any(mask):
             mask = anomaly_map >= np.percentile(anomaly_map, 99)
-        if category == "capsule":
+        if spec.category == "capsule":
             mask = refine_defect_mask_for_classification(mask)
         masks.append(mask)
+        detector_decisions.append(bool(anomaly["is_defective"]))
+        detector_engines.append(str(anomaly["engine"]))
     updated["mask"] = masks
+    updated["detector_is_defective"] = detector_decisions
+    updated["mask_source"] = detector_engines
     return updated
 
 
@@ -185,6 +230,7 @@ def evaluated_subtype_metrics(
     protocol: str,
     classifier_engine: str,
     feature_mode: str,
+    mask_source: str,
 ) -> dict:
     confidences = probabilities.max(axis=1)
     correct = predictions == labels
@@ -204,7 +250,7 @@ def evaluated_subtype_metrics(
         "protocol": protocol,
         "classifier_engine": classifier_engine,
         "feature_mode": feature_mode,
-        "mask_source": "active OpenVINO anomaly detector",
+        "mask_source": mask_source,
         "confidence_calibration": confidence_calibration(confidences, correct),
     }
 
@@ -215,6 +261,10 @@ def evaluate_active_runtime(category: str, records: pd.DataFrame, spec) -> dict:
     label_order = sorted(defect_records["label"].unique().tolist())
     runtime = classifier_runtime_status(spec)
     engine = str(runtime["engine"])
+    mask_engines = sorted(
+        set(str(value) for value in defect_records.get("mask_source", pd.Series(dtype=str)).dropna())
+    )
+    mask_source = ", ".join(mask_engines) if mask_engines else "ground_truth"
 
     if engine == "fine_tuned_resnet18_onnx" and spec.cnn_classifier_path is not None:
         _, test_index = train_test_split(
@@ -240,9 +290,14 @@ def evaluate_active_runtime(category: str, records: pd.DataFrame, spec) -> dict:
             np.asarray(predictions),
             np.asarray(probabilities, dtype=np.float64),
             label_order,
-            protocol="Untouched stratified CNN test split evaluated with active OpenVINO anomaly masks",
+            protocol=(
+                "Stratified deployed-runtime audit subset using active detector masks; "
+                "the active CNN artifact was fitted on all labelled images, so this is diagnostic evidence, "
+                "not an untouched release metric"
+            ),
             classifier_engine=engine,
             feature_mode="cnn_openvino_anomaly_crop",
+            mask_source=mask_source,
         )
 
     bundle = joblib.load(spec.classifier_path)
@@ -280,10 +335,11 @@ def evaluate_active_runtime(category: str, records: pd.DataFrame, spec) -> dict:
         probabilities,
         label_order,
         protocol=(
-            "Stratified out-of-fold evaluation of the active classifier architecture using active OpenVINO anomaly masks"
+            "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks"
         ),
         classifier_engine=engine,
         feature_mode=feature_mode,
+        mask_source=mask_source,
     )
 
 
@@ -348,15 +404,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--mask-source",
-        choices=("ground_truth", "openvino"),
-        default="ground_truth",
-        help="Use annotation masks or production-style OpenVINO anomaly masks for ROI features.",
-    )
-    parser.add_argument(
-        "--mask-policy",
-        choices=("model", "p99.5", "p99", "p98", "p97", "p95"),
-        default="model",
-        help="Region used by subtype classification when OpenVINO masks are enabled.",
+        choices=("ground_truth", "openvino", "render"),
+        default="render",
+        help="Use annotation masks, forced OpenVINO masks, or the exact constrained Render detector profile.",
     )
     args = parser.parse_args()
 
@@ -369,19 +419,15 @@ def main() -> None:
         spec = category_model_spec(category)
         records = category_records(args.dataset_root / category)
         if args.evaluate_active_runtime:
-            if spec.openvino_path is None:
-                raise FileNotFoundError(f"No OpenVINO model configured for {category}")
             print(f"Evaluating deployed subtype pipeline for {category}...", flush=True)
-            deployed_records = attach_openvino_masks(
+            deployed_records = attach_runtime_masks(
                 records,
-                spec.openvino_path,
-                spec.input_size,
-                category=category,
-                mask_policy=args.mask_policy,
+                spec,
+                profile="render",
             )
             deployed_metrics = evaluate_active_runtime(category, deployed_records, spec)
             metadata = json.loads(spec.metadata_path.read_text(encoding="utf-8-sig"))
-            metadata["deployed_subtype_validation"] = deployed_metrics
+            metadata["render_runtime_audit"] = deployed_metrics
             spec.metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
             calibration = deployed_metrics["confidence_calibration"]
             print(
@@ -391,15 +437,11 @@ def main() -> None:
                 flush=True,
             )
             continue
-        if args.mask_source == "openvino":
-            if spec.openvino_path is None:
-                raise FileNotFoundError(f"No OpenVINO model configured for {category}")
-            records = attach_openvino_masks(
+        if args.mask_source in {"openvino", "render"}:
+            records = attach_runtime_masks(
                 records,
-                spec.openvino_path,
-                spec.input_size,
-                category=category,
-                mask_policy=args.mask_policy,
+                spec,
+                profile=args.mask_source,
             )
         defect_records = records[records["label"] != "good"]
         counts = defect_records["label"].value_counts()
@@ -413,8 +455,8 @@ def main() -> None:
         )
         metadata = json.loads(spec.metadata_path.read_text(encoding="utf-8"))
         current_metrics = (
-            metadata.get("deployed_subtype_validation", {})
-            if args.mask_source == "openvino"
+            metadata.get("render_runtime_audit", {}) or metadata.get("deployed_subtype_validation", {})
+            if args.mask_source in {"openvino", "render"}
             else metadata.get("defect_classifier", {})
         )
         feature_modes = (
@@ -449,7 +491,9 @@ def main() -> None:
                         "not an official held-out MVTec anomaly-detection benchmark"
                     ),
                     "category": category,
-                    "classification_mask_policy": args.mask_policy if args.mask_source == "openvino" else "ground_truth",
+                    "classification_mask_policy": (
+                        "active detector prediction mask" if args.mask_source != "ground_truth" else "ground_truth"
+                    ),
                 },
                 defect_only=True,
                 feature_mode=feature_mode,
@@ -465,8 +509,8 @@ def main() -> None:
                 flush=True,
             )
             if best_result is None or is_better(
-                metrics["production_classifier_cv"],
-                best_result["metrics"]["production_classifier_cv"],
+                metrics,
+                best_result["metrics"],
             ):
                 best_result = result
                 best_path = candidate_path
@@ -474,7 +518,7 @@ def main() -> None:
         assert best_result is not None and best_path is not None
         metadata["defect_classifier_revalidation"] = best_result["metrics"]
         should_promote = args.force or not current_metrics or is_better(
-            best_result["metrics"]["production_classifier_cv"],
+            best_result["metrics"],
             current_metrics,
         )
         if should_promote:

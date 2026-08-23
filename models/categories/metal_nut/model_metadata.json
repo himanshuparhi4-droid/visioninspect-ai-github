@@ -578,5 +578,117 @@
         0.945946
       ]
     }
+  },
+  "render_runtime_audit": {
+    "accuracy": 0.871,
+    "macro_f1": 0.874,
+    "classification_report": {
+      "bent": {
+        "precision": 0.7241379310344828,
+        "recall": 0.84,
+        "f1-score": 0.7777777777777778,
+        "support": 25.0
+      },
+      "color": {
+        "precision": 0.8947368421052632,
+        "recall": 0.7727272727272727,
+        "f1-score": 0.8292682926829268,
+        "support": 22.0
+      },
+      "flip": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 23.0
+      },
+      "scratch": {
+        "precision": 0.9090909090909091,
+        "recall": 0.8695652173913043,
+        "f1-score": 0.8888888888888888,
+        "support": 23.0
+      },
+      "accuracy": 0.8709677419354839,
+      "macro avg": {
+        "precision": 0.8819914205576638,
+        "recall": 0.8705731225296442,
+        "f1-score": 0.8739837398373983,
+        "support": 93.0
+      },
+      "weighted avg": {
+        "precision": 0.8784596743147179,
+        "recall": 0.8709677419354839,
+        "f1-score": 0.8723956056764869,
+        "support": 93.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        21,
+        2,
+        0,
+        2
+      ],
+      [
+        5,
+        17,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        23,
+        0
+      ],
+      [
+        3,
+        0,
+        0,
+        20
+      ]
+    ],
+    "labels": [
+      "bent",
+      "color",
+      "flip",
+      "scratch"
+    ],
+    "samples": 93,
+    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks",
+    "classifier_engine": "sklearn_feature_classifier",
+    "feature_mode": "global_roi_texture",
+    "mask_source": "padim_openvino",
+    "confidence_calibration": {
+      "method": "isotonic_oof_top_label",
+      "review_threshold": 0.5,
+      "target_accuracy": 0.85,
+      "target_achieved": true,
+      "coverage": 0.957,
+      "accepted_accuracy": 0.8876,
+      "raw_ece": 0.1186,
+      "cross_fitted_calibrated_ece": 0.0471,
+      "x_thresholds": [
+        0.590958,
+        0.795758,
+        0.818701,
+        0.971479,
+        0.985359,
+        0.989253,
+        0.999967,
+        1.0,
+        1.0
+      ],
+      "y_thresholds": [
+        0.0,
+        0.0,
+        0.333333,
+        0.333333,
+        0.5,
+        0.5,
+        0.75,
+        0.75,
+        0.945946
+      ]
+    }
   }
 }

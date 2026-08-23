@@ -230,5 +230,51 @@
       "target_achieved": true,
       "raw_ece": 0.0
     }
+  },
+  "render_runtime_audit": {
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "classification_report": {
+      "defective": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 30.0
+      },
+      "accuracy": 1.0,
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 30.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 30.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        30
+      ]
+    ],
+    "labels": [
+      "defective"
+    ],
+    "samples": 30,
+    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks",
+    "classifier_engine": "sklearn_feature_classifier",
+    "feature_mode": "global_texture",
+    "mask_source": "padim_openvino",
+    "confidence_calibration": {
+      "method": "not_available",
+      "reason": "Insufficient independent confidence variation",
+      "review_threshold": 0.55,
+      "target_accuracy": 0.85,
+      "target_achieved": true,
+      "raw_ece": 0.0
+    }
   }
 }

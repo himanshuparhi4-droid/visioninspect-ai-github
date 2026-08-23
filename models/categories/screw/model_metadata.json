@@ -790,5 +790,145 @@
         1.0
       ]
     }
+  },
+  "render_runtime_audit": {
+    "accuracy": 0.521,
+    "macro_f1": 0.5098,
+    "classification_report": {
+      "manipulated_front": {
+        "precision": 0.7037037037037037,
+        "recall": 0.7916666666666666,
+        "f1-score": 0.7450980392156863,
+        "support": 24.0
+      },
+      "scratch_head": {
+        "precision": 0.47619047619047616,
+        "recall": 0.4166666666666667,
+        "f1-score": 0.4444444444444444,
+        "support": 24.0
+      },
+      "scratch_neck": {
+        "precision": 0.7307692307692307,
+        "recall": 0.76,
+        "f1-score": 0.7450980392156863,
+        "support": 25.0
+      },
+      "thread_side": {
+        "precision": 0.2727272727272727,
+        "recall": 0.2608695652173913,
+        "f1-score": 0.26666666666666666,
+        "support": 23.0
+      },
+      "thread_top": {
+        "precision": 0.34782608695652173,
+        "recall": 0.34782608695652173,
+        "f1-score": 0.34782608695652173,
+        "support": 23.0
+      },
+      "accuracy": 0.5210084033613446,
+      "macro avg": {
+        "precision": 0.5062433540694411,
+        "recall": 0.5154057971014492,
+        "f1-score": 0.5098266552998011,
+        "support": 119.0
+      },
+      "weighted avg": {
+        "precision": 0.5114236836925913,
+        "recall": 0.5210084033613446,
+        "f1-score": 0.5152084363157027,
+        "support": 119.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        19,
+        1,
+        0,
+        3,
+        1
+      ],
+      [
+        3,
+        10,
+        3,
+        4,
+        4
+      ],
+      [
+        1,
+        2,
+        19,
+        1,
+        2
+      ],
+      [
+        2,
+        4,
+        3,
+        6,
+        8
+      ],
+      [
+        2,
+        4,
+        1,
+        8,
+        8
+      ]
+    ],
+    "labels": [
+      "manipulated_front",
+      "scratch_head",
+      "scratch_neck",
+      "thread_side",
+      "thread_top"
+    ],
+    "samples": 119,
+    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks",
+    "classifier_engine": "sklearn_feature_classifier",
+    "feature_mode": "global_roi_texture",
+    "mask_source": "portable_baseline",
+    "confidence_calibration": {
+      "method": "isotonic_oof_top_label",
+      "review_threshold": 0.95,
+      "target_accuracy": 0.85,
+      "target_achieved": false,
+      "coverage": 0.0504,
+      "accepted_accuracy": 0.6667,
+      "raw_ece": 0.2968,
+      "cross_fitted_calibrated_ece": 0.0939,
+      "x_thresholds": [
+        0.420957,
+        0.449329,
+        0.472322,
+        0.613125,
+        0.623575,
+        0.960366,
+        0.960639,
+        0.974198,
+        0.977045,
+        0.9934,
+        0.993528,
+        0.997911,
+        0.998072,
+        0.999975
+      ],
+      "y_thresholds": [
+        0.0,
+        0.0,
+        0.3,
+        0.3,
+        0.421053,
+        0.421053,
+        0.571429,
+        0.571429,
+        0.764706,
+        0.764706,
+        0.857143,
+        0.857143,
+        1.0,
+        1.0
+      ]
+    }
   }
 }

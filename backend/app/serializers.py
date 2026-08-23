@@ -32,6 +32,7 @@ def inspection_to_response(inspection: Inspection) -> InspectionResponse:
         heatmap_url=inspection.heatmap_url,
         prediction=inspection.prediction,
         defect_type=inspection.defect_type,
+        candidate_defect_type=inspection.candidate_defect_type,
         confidence=inspection.confidence,
         detection_confidence=inspection.detection_confidence,
         classification_confidence=inspection.classification_confidence,

@@ -48,6 +48,11 @@ export default function InspectionResult({ result }) {
         <div className="metric-box">
           <small>Defect Type</small>
           <strong>{result.defect_type || "Unknown"}</strong>
+          {result.defect_type === "unknown_defect" && result.candidate_defect_type ? (
+            <span className="metric-supporting-text">
+              AI suggestion: {result.candidate_defect_type.replaceAll("_", " ")}
+            </span>
+          ) : null}
         </div>
         <div className="metric-box">
           <small>Decision Confidence</small>
