@@ -371,10 +371,15 @@ def classify_prediction(
             f"review threshold {config.subtype_confidence_threshold:.4f}"
         )
         fallback_reason = classification.get("classifier_fallback_reason")
+        # Keep the subtype as an AI suggestion instead of hiding it as
+        # unknown_defect. The final inspection is still routed to manual review
+        # when the category model is below the release target or confidence is
+        # below the configured threshold.
+        suggested_defect_type = classification.get("defect_type") or "unknown_defect"
         return {
-            "defect_type": "unknown_defect",
-            "candidate_defect_type": classification.get("defect_type"),
-            "confidence": detection_confidence,
+            "defect_type": suggested_defect_type,
+            "candidate_defect_type": suggested_defect_type,
+            "confidence": classification_confidence,
             "detection_confidence": detection_confidence,
             "classification_confidence": classification_confidence,
             "raw_classification_confidence": raw_classification_confidence,

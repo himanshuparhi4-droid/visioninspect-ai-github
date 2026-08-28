@@ -177,6 +177,57 @@ def test_unverified_calibration_keeps_raw_subtype_confidence():
     assert calibrated == 0.72
 
 
+def test_low_confidence_subtype_is_kept_as_manual_review_suggestion(monkeypatch, tmp_path):
+    image_path = tmp_path / "sample.png"
+    image_path.write_bytes(b"placeholder")
+    classifier_path = tmp_path / "classifier.pkl"
+    classifier_path.write_bytes(b"placeholder")
+
+    def fake_classify_defect_type(*_args, **_kwargs):
+        return {
+            "defect_type": "scratch",
+            "confidence": 0.42,
+            "class_probabilities": {"scratch": 0.42, "crack": 0.38},
+            "classifier_engine": "sklearn_global_roi_texture",
+            "classifier_fallback_used": False,
+            "classifier_fallback_reason": None,
+            "confidence_calibrated": False,
+        }
+
+    monkeypatch.setattr("ml.defect_classifier.classify_defect_type", fake_classify_defect_type)
+
+    config = InferenceConfig(
+        category="capsule",
+        anomaly_model_kind="patchcore",
+        use_padim_inference=False,
+        padim_inference_accelerator="cpu",
+        model_checkpoint_path=tmp_path / "missing.ckpt",
+        classifier_model_path=classifier_path,
+        model_metadata_path=tmp_path / "missing.json",
+        baseline_profile_path=tmp_path / "missing.npz",
+        baseline_threshold=0.5,
+        baseline_residual_threshold=0.5,
+        padim_score_threshold=0.5,
+        review_severity_threshold=40,
+        fail_severity_threshold=60,
+        subtype_confidence_threshold=0.8,
+    )
+
+    classification = classify_prediction(
+        image_path,
+        score=0.9,
+        detection_confidence=0.91,
+        is_defective=True,
+        binary_mask=np.ones((8, 8), dtype=np.uint8),
+        config=config,
+    )
+
+    assert classification["defect_type"] == "scratch"
+    assert classification["candidate_defect_type"] == "scratch"
+    assert classification["classification_confidence"] == 0.42
+    assert classification["classification_error"].startswith("Subtype confidence")
+
+
 def test_geometry_uses_product_configured_critical_zones():
     mask = np.zeros((100, 100), dtype=np.uint8)
     mask[40:60, 40:60] = 1

@@ -42,21 +42,25 @@ export default function BatchInspectionResults({ results = [], summary = null, f
             </tr>
           </thead>
           <tbody>
-            {results.map((item) => (
-              <tr key={item.id}>
-                <td>{item.source_label || item.original_filename || "Uploaded image"}</td>
-                <td>{item.prediction}</td>
-                <td>
-                  {item.defect_type}
-                  {item.defect_type === "unknown_defect" && item.candidate_defect_type ? (
-                    <small>Suggestion: {item.candidate_defect_type.replaceAll("_", " ")}</small>
-                  ) : null}
-                </td>
-                <td>{item.severity_level}</td>
-                <td>{item.pass_fail}</td>
-                <td>{formatConfidence(item.confidence)}</td>
-              </tr>
-            ))}
+            {results.map((item) => {
+              const subtypeNeedsReview =
+                item.prediction === "Defective" &&
+                (item.manual_review_required ||
+                  (item.subtype_model_status && item.subtype_model_status !== "Production"));
+              return (
+                <tr key={item.id}>
+                  <td>{item.source_label || item.original_filename || "Uploaded image"}</td>
+                  <td>{item.prediction}</td>
+                  <td>
+                    {(item.defect_type || "Unknown").replaceAll("_", " ")}
+                    {subtypeNeedsReview ? <small>AI suggestion - confirm manually</small> : null}
+                  </td>
+                  <td>{item.severity_level}</td>
+                  <td>{item.pass_fail}</td>
+                  <td>{formatConfidence(item.confidence)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

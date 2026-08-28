@@ -66,7 +66,9 @@
     "baseline_residual_threshold": 1.079766,
     "openvino_calibrator_path": "models/categories/grid/openvino_calibrator.npz",
     "input_size": 320,
-    "portable_detector_calibrator_path": "models/categories/grid/portable_detector_calibrator.npz"
+    "portable_detector_calibrator_path": "models/categories/grid/portable_detector_calibrator.npz",
+    "cnn_classifier_path": null,
+    "compact_classifier_path": null
   },
   "hazelnut": {
     "checkpoint_path": "models/categories/hazelnut/patchcore_v1.ckpt",
@@ -199,6 +201,8 @@
     "model_kind": "patchcore",
     "baseline_score_threshold": 0.010643,
     "baseline_residual_threshold": 0.790813,
-    "openvino_calibrator_path": "models/categories/zipper/openvino_calibrator.npz"
+    "openvino_calibrator_path": "models/categories/zipper/openvino_calibrator.npz",
+    "cnn_classifier_path": null,
+    "compact_classifier_path": null
   }
 }

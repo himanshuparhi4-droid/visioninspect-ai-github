@@ -21,88 +21,88 @@
     "pixel_F1Score": 0.44922617077827454
   },
   "defect_classifier": {
-    "accuracy": 0.7798,
-    "macro_f1": 0.7795,
+    "accuracy": 0.5321,
+    "macro_f1": 0.5403,
     "classification_report": {
       "crack": {
-        "precision": 0.6538461538461539,
-        "recall": 0.7391304347826086,
-        "f1-score": 0.6938775510204082,
+        "precision": 0.43478260869565216,
+        "recall": 0.43478260869565216,
+        "f1-score": 0.43478260869565216,
         "support": 23.0
       },
       "faulty_imprint": {
-        "precision": 0.8,
-        "recall": 0.9090909090909091,
-        "f1-score": 0.851063829787234,
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1-score": 0.5,
         "support": 22.0
       },
       "poke": {
-        "precision": 0.7058823529411765,
-        "recall": 0.5714285714285714,
-        "f1-score": 0.631578947368421,
+        "precision": 0.47368421052631576,
+        "recall": 0.42857142857142855,
+        "f1-score": 0.45,
         "support": 21.0
       },
       "scratch": {
-        "precision": 0.8260869565217391,
-        "recall": 0.8260869565217391,
-        "f1-score": 0.8260869565217391,
+        "precision": 0.4,
+        "recall": 0.43478260869565216,
+        "f1-score": 0.4166666666666667,
         "support": 23.0
       },
       "squeeze": {
-        "precision": 0.9444444444444444,
-        "recall": 0.85,
-        "f1-score": 0.8947368421052632,
+        "precision": 0.9,
+        "recall": 0.9,
+        "f1-score": 0.9,
         "support": 20.0
       },
-      "accuracy": 0.7798165137614679,
+      "accuracy": 0.5321100917431193,
       "macro avg": {
-        "precision": 0.7860519815507029,
-        "recall": 0.7791473743647657,
-        "f1-score": 0.7794688253606131,
+        "precision": 0.5416933638443935,
+        "recall": 0.5396273291925466,
+        "f1-score": 0.5402898550724637,
         "support": 109.0
       },
       "weighted avg": {
-        "precision": 0.7830355948542673,
-        "recall": 0.7798165137614679,
-        "f1-score": 0.7783530519782628,
+        "precision": 0.5334620956059875,
+        "recall": 0.5321100917431193,
+        "f1-score": 0.5324159021406728,
         "support": 109.0
       }
     },
     "confusion_matrix": [
       [
-        17,
-        0,
-        4,
+        10,
         1,
+        6,
+        6,
+        0
+      ],
+      [
+        3,
+        11,
+        1,
+        6,
+        1
+      ],
+      [
+        6,
+        4,
+        9,
+        2,
+        0
+      ],
+      [
+        4,
+        5,
+        3,
+        10,
         1
       ],
       [
         0,
-        20,
         1,
-        1,
-        0
-      ],
-      [
-        6,
-        2,
-        12,
-        1,
-        0
-      ],
-      [
-        1,
-        3,
-        0,
-        19,
-        0
-      ],
-      [
-        2,
-        0,
         0,
         1,
-        17
+        18
       ]
     ],
     "labels": [
@@ -114,123 +114,129 @@
     ],
     "train_size": 109,
     "eval_size": 109,
-    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
-    "feature_mode": "global_roi_texture",
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_mask_shape",
+    "feature_mode": "global_roi_shape_texture",
     "defect_only": true,
     "evaluation": {
       "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
-      "selected_classifier": "logistic_c0.01",
+      "selected_classifier": "random_forest",
       "folds": 5,
       "candidate_scores": {
         "linear_svc_c0.01": {
-          "mean_accuracy": 0.6974,
-          "std_accuracy": 0.0607,
-          "mean_macro_f1": 0.6944,
-          "std_macro_f1": 0.0729
+          "mean_accuracy": 0.3948,
+          "std_accuracy": 0.0485,
+          "mean_macro_f1": 0.3444,
+          "std_macro_f1": 0.0561
         },
         "linear_svc_c0.05": {
-          "mean_accuracy": 0.6883,
-          "std_accuracy": 0.0772,
-          "mean_macro_f1": 0.6863,
-          "std_macro_f1": 0.0882
+          "mean_accuracy": 0.3948,
+          "std_accuracy": 0.0485,
+          "mean_macro_f1": 0.3452,
+          "std_macro_f1": 0.0563
         },
         "linear_svc_c0.1": {
-          "mean_accuracy": 0.6883,
-          "std_accuracy": 0.0772,
-          "mean_macro_f1": 0.6863,
-          "std_macro_f1": 0.0882
+          "mean_accuracy": 0.3948,
+          "std_accuracy": 0.0485,
+          "mean_macro_f1": 0.3452,
+          "std_macro_f1": 0.0563
         },
         "logistic_c0.01": {
-          "mean_accuracy": 0.7706,
-          "std_accuracy": 0.0291,
-          "mean_macro_f1": 0.7736,
-          "std_macro_f1": 0.0281
+          "mean_accuracy": 0.5043,
+          "std_accuracy": 0.0681,
+          "mean_macro_f1": 0.496,
+          "std_macro_f1": 0.0791
         },
         "logistic_c0.1": {
-          "mean_accuracy": 0.771,
-          "std_accuracy": 0.0483,
-          "mean_macro_f1": 0.7694,
-          "std_macro_f1": 0.0553
+          "mean_accuracy": 0.5039,
+          "std_accuracy": 0.0772,
+          "mean_macro_f1": 0.4971,
+          "std_macro_f1": 0.0863
         },
         "logistic_c1": {
-          "mean_accuracy": 0.771,
-          "std_accuracy": 0.0483,
-          "mean_macro_f1": 0.7676,
-          "std_macro_f1": 0.0548
+          "mean_accuracy": 0.5035,
+          "std_accuracy": 0.095,
+          "mean_macro_f1": 0.4986,
+          "std_macro_f1": 0.1047
         },
         "logistic_c10": {
-          "mean_accuracy": 0.7615,
-          "std_accuracy": 0.0337,
-          "mean_macro_f1": 0.7616,
-          "std_macro_f1": 0.0315
+          "mean_accuracy": 0.5126,
+          "std_accuracy": 0.0825,
+          "mean_macro_f1": 0.4982,
+          "std_macro_f1": 0.0753
         },
         "lda_shrinkage": {
-          "mean_accuracy": 0.7615,
-          "std_accuracy": 0.0601,
-          "mean_macro_f1": 0.7577,
-          "std_macro_f1": 0.059
+          "mean_accuracy": 0.4861,
+          "std_accuracy": 0.0728,
+          "mean_macro_f1": 0.4827,
+          "std_macro_f1": 0.082
         },
         "extra_trees": {
-          "mean_accuracy": 0.6896,
-          "std_accuracy": 0.107,
-          "mean_macro_f1": 0.6861,
-          "std_macro_f1": 0.1103
+          "mean_accuracy": 0.4121,
+          "std_accuracy": 0.0781,
+          "mean_macro_f1": 0.4109,
+          "std_macro_f1": 0.0761
         },
         "random_forest": {
-          "mean_accuracy": 0.6887,
-          "std_accuracy": 0.0704,
-          "mean_macro_f1": 0.6796,
-          "std_macro_f1": 0.0821
+          "mean_accuracy": 0.5216,
+          "std_accuracy": 0.1232,
+          "mean_macro_f1": 0.5219,
+          "std_macro_f1": 0.1219
         },
         "gradient_boosting": {
-          "mean_accuracy": 0.6056,
-          "std_accuracy": 0.1014,
-          "mean_macro_f1": 0.5995,
-          "std_macro_f1": 0.1054
+          "mean_accuracy": 0.5242,
+          "std_accuracy": 0.0734,
+          "mean_macro_f1": 0.51,
+          "std_macro_f1": 0.0775
         },
         "svc_rbf_c1": {
-          "mean_accuracy": 0.6974,
-          "std_accuracy": 0.0535,
-          "mean_macro_f1": 0.6993,
-          "std_macro_f1": 0.0515
+          "mean_accuracy": 0.368,
+          "std_accuracy": 0.1287,
+          "mean_macro_f1": 0.3679,
+          "std_macro_f1": 0.1301
         },
         "svc_rbf_c5": {
-          "mean_accuracy": 0.7065,
-          "std_accuracy": 0.0456,
-          "mean_macro_f1": 0.7048,
-          "std_macro_f1": 0.0522
+          "mean_accuracy": 0.4407,
+          "std_accuracy": 0.0904,
+          "mean_macro_f1": 0.4373,
+          "std_macro_f1": 0.099
         },
         "svc_rbf_c20": {
-          "mean_accuracy": 0.7065,
-          "std_accuracy": 0.0456,
-          "mean_macro_f1": 0.7048,
-          "std_macro_f1": 0.0522
+          "mean_accuracy": 0.4407,
+          "std_accuracy": 0.0904,
+          "mean_macro_f1": 0.4373,
+          "std_macro_f1": 0.099
         },
         "knn_3": {
-          "mean_accuracy": 0.6602,
-          "std_accuracy": 0.0807,
-          "mean_macro_f1": 0.6591,
-          "std_macro_f1": 0.0936
+          "mean_accuracy": 0.2654,
+          "std_accuracy": 0.0866,
+          "mean_macro_f1": 0.274,
+          "std_macro_f1": 0.0899
         },
         "knn_5": {
-          "mean_accuracy": 0.6234,
-          "std_accuracy": 0.0387,
-          "mean_macro_f1": 0.6035,
-          "std_macro_f1": 0.0322
+          "mean_accuracy": 0.2558,
+          "std_accuracy": 0.0718,
+          "mean_macro_f1": 0.2751,
+          "std_macro_f1": 0.074
         }
       },
       "outer_selection_frequency": {
         "lda_shrinkage": 1,
-        "linear_svc_c0.1": 1,
-        "logistic_c1": 1,
+        "logistic_c1": 2,
         "logistic_c10": 1,
         "random_forest": 1
       }
     },
     "dataset_context": {
       "source": "MVTec AD labelled test folders",
-      "protocol": "defect-only subtype classification with stratified cross-validation using ground truth masks; not an official held-out MVTec anomaly-detection benchmark",
-      "category": "capsule"
+      "protocol": "defect-only subtype classification with stratified cross-validation using render masks; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "capsule",
+      "classification_mask_policy": "active detector prediction mask"
+    },
+    "production_classifier_cv": {
+      "accuracy": 0.5216,
+      "macro_f1": 0.5219,
+      "classifier": "random_forest",
+      "protocol": "Cross-validation estimate for the fixed production classifier"
     }
   },
   "portable_detector": "resnet18_normal_memory_with_opencv_localization",
@@ -428,88 +434,88 @@
   "roi_scale": 1.0,
   "selected_from_benchmark": true,
   "defect_classifier_revalidation": {
-    "accuracy": 0.633,
-    "macro_f1": 0.6385,
+    "accuracy": 0.5321,
+    "macro_f1": 0.5403,
     "classification_report": {
       "crack": {
-        "precision": 0.6086956521739131,
-        "recall": 0.6086956521739131,
-        "f1-score": 0.6086956521739131,
+        "precision": 0.43478260869565216,
+        "recall": 0.43478260869565216,
+        "f1-score": 0.43478260869565216,
         "support": 23.0
       },
       "faulty_imprint": {
-        "precision": 0.7272727272727273,
-        "recall": 0.7272727272727273,
-        "f1-score": 0.7272727272727273,
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1-score": 0.5,
         "support": 22.0
       },
       "poke": {
-        "precision": 0.55,
-        "recall": 0.5238095238095238,
-        "f1-score": 0.5365853658536586,
+        "precision": 0.47368421052631576,
+        "recall": 0.42857142857142855,
+        "f1-score": 0.45,
         "support": 21.0
       },
       "scratch": {
-        "precision": 0.5172413793103449,
-        "recall": 0.6521739130434783,
-        "f1-score": 0.5769230769230769,
+        "precision": 0.4,
+        "recall": 0.43478260869565216,
+        "f1-score": 0.4166666666666667,
         "support": 23.0
       },
       "squeeze": {
-        "precision": 0.8666666666666667,
-        "recall": 0.65,
-        "f1-score": 0.7428571428571429,
+        "precision": 0.9,
+        "recall": 0.9,
+        "f1-score": 0.9,
         "support": 20.0
       },
-      "accuracy": 0.6330275229357798,
+      "accuracy": 0.5321100917431193,
       "macro avg": {
-        "precision": 0.6539752850847304,
-        "recall": 0.6323903632599286,
-        "f1-score": 0.6384667930161038,
+        "precision": 0.5416933638443935,
+        "recall": 0.5396273291925466,
+        "f1-score": 0.5402898550724637,
         "support": 109.0
       },
       "weighted avg": {
-        "precision": 0.6493567436465253,
-        "recall": 0.6330275229357798,
-        "f1-score": 0.6366483147642243,
+        "precision": 0.5334620956059875,
+        "recall": 0.5321100917431193,
+        "f1-score": 0.5324159021406728,
         "support": 109.0
       }
     },
     "confusion_matrix": [
       [
-        14,
+        10,
         1,
-        4,
-        2,
-        2
-      ],
-      [
-        0,
-        16,
-        1,
-        5,
+        6,
+        6,
         0
       ],
       [
-        4,
-        2,
+        3,
         11,
+        1,
+        6,
+        1
+      ],
+      [
+        6,
         4,
-        0
-      ],
-      [
+        9,
         2,
-        3,
-        3,
-        15,
         0
       ],
       [
+        4,
+        5,
         3,
+        10,
+        1
+      ],
+      [
         0,
         1,
-        3,
-        13
+        0,
+        1,
+        18
       ]
     ],
     "labels": [
@@ -521,129 +527,128 @@
     ],
     "train_size": 109,
     "eval_size": 109,
-    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
-    "feature_mode": "global_roi_texture",
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_mask_shape",
+    "feature_mode": "global_roi_shape_texture",
     "defect_only": true,
     "evaluation": {
       "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
-      "selected_classifier": "logistic_c1",
+      "selected_classifier": "random_forest",
       "folds": 5,
       "candidate_scores": {
         "linear_svc_c0.01": {
-          "mean_accuracy": 0.4511,
-          "std_accuracy": 0.1395,
-          "mean_macro_f1": 0.4071,
-          "std_macro_f1": 0.1438
+          "mean_accuracy": 0.3948,
+          "std_accuracy": 0.0485,
+          "mean_macro_f1": 0.3444,
+          "std_macro_f1": 0.0561
         },
         "linear_svc_c0.05": {
-          "mean_accuracy": 0.4511,
-          "std_accuracy": 0.1395,
-          "mean_macro_f1": 0.4082,
-          "std_macro_f1": 0.1437
+          "mean_accuracy": 0.3948,
+          "std_accuracy": 0.0485,
+          "mean_macro_f1": 0.3452,
+          "std_macro_f1": 0.0563
         },
         "linear_svc_c0.1": {
-          "mean_accuracy": 0.4511,
-          "std_accuracy": 0.1395,
-          "mean_macro_f1": 0.4066,
-          "std_macro_f1": 0.1419
+          "mean_accuracy": 0.3948,
+          "std_accuracy": 0.0485,
+          "mean_macro_f1": 0.3452,
+          "std_macro_f1": 0.0563
         },
         "logistic_c0.01": {
-          "mean_accuracy": 0.5866,
-          "std_accuracy": 0.0678,
-          "mean_macro_f1": 0.5825,
-          "std_macro_f1": 0.0709
+          "mean_accuracy": 0.5043,
+          "std_accuracy": 0.0681,
+          "mean_macro_f1": 0.496,
+          "std_macro_f1": 0.0791
         },
         "logistic_c0.1": {
-          "mean_accuracy": 0.5957,
-          "std_accuracy": 0.1152,
-          "mean_macro_f1": 0.594,
-          "std_macro_f1": 0.1221
+          "mean_accuracy": 0.5039,
+          "std_accuracy": 0.0772,
+          "mean_macro_f1": 0.4971,
+          "std_macro_f1": 0.0863
         },
         "logistic_c1": {
-          "mean_accuracy": 0.6052,
-          "std_accuracy": 0.1108,
-          "mean_macro_f1": 0.6033,
-          "std_macro_f1": 0.1176
+          "mean_accuracy": 0.5035,
+          "std_accuracy": 0.095,
+          "mean_macro_f1": 0.4986,
+          "std_macro_f1": 0.1047
         },
         "logistic_c10": {
-          "mean_accuracy": 0.5957,
-          "std_accuracy": 0.0708,
-          "mean_macro_f1": 0.5917,
-          "std_macro_f1": 0.0807
+          "mean_accuracy": 0.5126,
+          "std_accuracy": 0.0825,
+          "mean_macro_f1": 0.4982,
+          "std_macro_f1": 0.0753
         },
         "lda_shrinkage": {
-          "mean_accuracy": 0.587,
-          "std_accuracy": 0.0765,
-          "mean_macro_f1": 0.5851,
-          "std_macro_f1": 0.0924
+          "mean_accuracy": 0.4861,
+          "std_accuracy": 0.0728,
+          "mean_macro_f1": 0.4827,
+          "std_macro_f1": 0.082
         },
         "extra_trees": {
-          "mean_accuracy": 0.5688,
-          "std_accuracy": 0.0733,
-          "mean_macro_f1": 0.558,
-          "std_macro_f1": 0.0741
+          "mean_accuracy": 0.4121,
+          "std_accuracy": 0.0781,
+          "mean_macro_f1": 0.4109,
+          "std_macro_f1": 0.0761
         },
         "random_forest": {
-          "mean_accuracy": 0.5779,
-          "std_accuracy": 0.109,
-          "mean_macro_f1": 0.5746,
-          "std_macro_f1": 0.1041
+          "mean_accuracy": 0.5216,
+          "std_accuracy": 0.1232,
+          "mean_macro_f1": 0.5219,
+          "std_macro_f1": 0.1219
         },
         "gradient_boosting": {
-          "mean_accuracy": 0.4866,
-          "std_accuracy": 0.0491,
-          "mean_macro_f1": 0.485,
-          "std_macro_f1": 0.0499
+          "mean_accuracy": 0.5242,
+          "std_accuracy": 0.0734,
+          "mean_macro_f1": 0.51,
+          "std_macro_f1": 0.0775
         },
         "svc_rbf_c1": {
-          "mean_accuracy": 0.4952,
-          "std_accuracy": 0.0507,
-          "mean_macro_f1": 0.4841,
-          "std_macro_f1": 0.0591
+          "mean_accuracy": 0.368,
+          "std_accuracy": 0.1287,
+          "mean_macro_f1": 0.3679,
+          "std_macro_f1": 0.1301
         },
         "svc_rbf_c5": {
-          "mean_accuracy": 0.5407,
-          "std_accuracy": 0.0619,
-          "mean_macro_f1": 0.5307,
-          "std_macro_f1": 0.063
+          "mean_accuracy": 0.4407,
+          "std_accuracy": 0.0904,
+          "mean_macro_f1": 0.4373,
+          "std_macro_f1": 0.099
         },
         "svc_rbf_c20": {
-          "mean_accuracy": 0.5407,
-          "std_accuracy": 0.0619,
-          "mean_macro_f1": 0.5307,
-          "std_macro_f1": 0.063
+          "mean_accuracy": 0.4407,
+          "std_accuracy": 0.0904,
+          "mean_macro_f1": 0.4373,
+          "std_macro_f1": 0.099
         },
         "knn_3": {
-          "mean_accuracy": 0.4502,
-          "std_accuracy": 0.1081,
-          "mean_macro_f1": 0.4371,
-          "std_macro_f1": 0.0941
+          "mean_accuracy": 0.2654,
+          "std_accuracy": 0.0866,
+          "mean_macro_f1": 0.274,
+          "std_macro_f1": 0.0899
         },
         "knn_5": {
-          "mean_accuracy": 0.4225,
-          "std_accuracy": 0.1031,
-          "mean_macro_f1": 0.3884,
-          "std_macro_f1": 0.1051
+          "mean_accuracy": 0.2558,
+          "std_accuracy": 0.0718,
+          "mean_macro_f1": 0.2751,
+          "std_macro_f1": 0.074
         }
       },
       "outer_selection_frequency": {
         "lda_shrinkage": 1,
-        "logistic_c0.01": 1,
-        "logistic_c0.1": 1,
-        "logistic_c1": 1,
-        "logistic_c10": 1
+        "logistic_c1": 2,
+        "logistic_c10": 1,
+        "random_forest": 1
       }
     },
     "dataset_context": {
       "source": "MVTec AD labelled test folders",
-      "protocol": "defect-only subtype classification with stratified cross-validation using openvino masks; not an official held-out MVTec anomaly-detection benchmark",
+      "protocol": "defect-only subtype classification with stratified cross-validation using render masks; not an official held-out MVTec anomaly-detection benchmark",
       "category": "capsule",
-      "classification_mask_policy": "model"
+      "classification_mask_policy": "active detector prediction mask"
     },
     "production_classifier_cv": {
-      "accuracy": 0.6052,
-      "macro_f1": 0.6033,
-      "classifier": "logistic_c1",
+      "accuracy": 0.5216,
+      "macro_f1": 0.5219,
+      "classifier": "random_forest",
       "protocol": "Cross-validation estimate for the fixed production classifier"
     }
   },

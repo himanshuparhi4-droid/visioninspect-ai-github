@@ -25,6 +25,11 @@ export default function InspectionResult({ result }) {
   }
 
   const inferenceMs = result.explainability?.runtime_ms?.inference;
+  const subtypeNeedsReview =
+    result.prediction === "Defective" &&
+    (result.manual_review_required ||
+      (result.subtype_model_status && result.subtype_model_status !== "Production"));
+  const displayedDefectType = (result.defect_type || "Unknown").replaceAll("_", " ");
 
   return (
     <section className="tool-panel">
@@ -46,11 +51,11 @@ export default function InspectionResult({ result }) {
           <strong>{result.prediction || "Pending"}</strong>
         </div>
         <div className="metric-box">
-          <small>Defect Type</small>
-          <strong>{result.defect_type || "Unknown"}</strong>
-          {result.defect_type === "unknown_defect" && result.candidate_defect_type ? (
+          <small>{subtypeNeedsReview ? "AI Suggested Defect" : "Defect Type"}</small>
+          <strong>{displayedDefectType}</strong>
+          {subtypeNeedsReview ? (
             <span className="metric-supporting-text">
-              AI suggestion: {result.candidate_defect_type.replaceAll("_", " ")}
+              Manual subtype confirmation required
             </span>
           ) : null}
         </div>

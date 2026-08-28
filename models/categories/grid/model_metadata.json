@@ -49,42 +49,222 @@
   "roi_scale": 1.15,
   "selected_from_benchmark": true,
   "defect_classifier": {
-    "accuracy": 0.7719,
-    "macro_f1": 0.7742,
-    "selected_model": "random_forest",
-    "feature_mode": "global_roi_pixel_texture",
-    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_mask_shape_pixels",
+    "accuracy": 0.4737,
+    "macro_f1": 0.4656,
     "classification_report": {
       "bent": {
-        "precision": 0.5833,
-        "recall": 0.6364,
-        "f1-score": 0.6087,
+        "precision": 0.45454545454545453,
+        "recall": 0.4166666666666667,
+        "f1-score": 0.43478260869565216,
         "support": 12.0
       },
       "broken": {
-        "precision": 0.6923,
-        "recall": 0.6923,
-        "f1-score": 0.6923,
+        "precision": 0.42857142857142855,
+        "recall": 0.25,
+        "f1-score": 0.3157894736842105,
         "support": 12.0
       },
       "glue": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1-score": 1.0,
+        "precision": 0.5454545454545454,
+        "recall": 0.5454545454545454,
+        "f1-score": 0.5454545454545454,
         "support": 11.0
       },
       "metal_contamination": {
-        "precision": 0.9091,
-        "recall": 0.7692,
-        "f1-score": 0.8333,
+        "precision": 0.38461538461538464,
+        "recall": 0.45454545454545453,
+        "f1-score": 0.4166666666666667,
         "support": 11.0
       },
       "thread": {
-        "precision": 0.7,
-        "recall": 0.7778,
-        "f1-score": 0.7368,
+        "precision": 0.5333333333333333,
+        "recall": 0.7272727272727273,
+        "f1-score": 0.6153846153846154,
         "support": 11.0
+      },
+      "accuracy": 0.47368421052631576,
+      "macro avg": {
+        "precision": 0.46930402930402926,
+        "recall": 0.4787878787878788,
+        "f1-score": 0.46561558197713804,
+        "support": 57.0
+      },
+      "weighted avg": {
+        "precision": 0.46833049990944725,
+        "recall": 0.47368421052631576,
+        "f1-score": 0.4624461244056571,
+        "support": 57.0
       }
+    },
+    "confusion_matrix": [
+      [
+        5,
+        0,
+        3,
+        3,
+        1
+      ],
+      [
+        3,
+        3,
+        2,
+        2,
+        2
+      ],
+      [
+        2,
+        1,
+        6,
+        1,
+        1
+      ],
+      [
+        1,
+        2,
+        0,
+        5,
+        3
+      ],
+      [
+        0,
+        1,
+        0,
+        2,
+        8
+      ]
+    ],
+    "labels": [
+      "bent",
+      "broken",
+      "glue",
+      "metal_contamination",
+      "thread"
+    ],
+    "train_size": 57,
+    "eval_size": 57,
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
+    "feature_mode": "global_roi_texture",
+    "defect_only": true,
+    "evaluation": {
+      "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
+      "selected_classifier": "gradient_boosting",
+      "folds": 5,
+      "candidate_scores": {
+        "linear_svc_c0.01": {
+          "mean_accuracy": 0.3303,
+          "std_accuracy": 0.1051,
+          "mean_macro_f1": 0.2918,
+          "std_macro_f1": 0.1306
+        },
+        "linear_svc_c0.05": {
+          "mean_accuracy": 0.3485,
+          "std_accuracy": 0.0835,
+          "mean_macro_f1": 0.3203,
+          "std_macro_f1": 0.1206
+        },
+        "linear_svc_c0.1": {
+          "mean_accuracy": 0.3485,
+          "std_accuracy": 0.0835,
+          "mean_macro_f1": 0.3163,
+          "std_macro_f1": 0.1204
+        },
+        "logistic_c0.01": {
+          "mean_accuracy": 0.3515,
+          "std_accuracy": 0.0794,
+          "mean_macro_f1": 0.3,
+          "std_macro_f1": 0.0883
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.3515,
+          "std_accuracy": 0.0794,
+          "mean_macro_f1": 0.3015,
+          "std_macro_f1": 0.0848
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.3348,
+          "std_accuracy": 0.1039,
+          "mean_macro_f1": 0.2971,
+          "std_macro_f1": 0.0986
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.3364,
+          "std_accuracy": 0.1103,
+          "mean_macro_f1": 0.3003,
+          "std_macro_f1": 0.11
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.3515,
+          "std_accuracy": 0.121,
+          "mean_macro_f1": 0.326,
+          "std_macro_f1": 0.1304
+        },
+        "extra_trees": {
+          "mean_accuracy": 0.403,
+          "std_accuracy": 0.0673,
+          "mean_macro_f1": 0.3515,
+          "std_macro_f1": 0.0946
+        },
+        "random_forest": {
+          "mean_accuracy": 0.4045,
+          "std_accuracy": 0.0948,
+          "mean_macro_f1": 0.3595,
+          "std_macro_f1": 0.1031
+        },
+        "gradient_boosting": {
+          "mean_accuracy": 0.4909,
+          "std_accuracy": 0.1617,
+          "mean_macro_f1": 0.4318,
+          "std_macro_f1": 0.179
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.4045,
+          "std_accuracy": 0.1249,
+          "mean_macro_f1": 0.363,
+          "std_macro_f1": 0.1479
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.3348,
+          "std_accuracy": 0.1231,
+          "mean_macro_f1": 0.2994,
+          "std_macro_f1": 0.1431
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.3348,
+          "std_accuracy": 0.1231,
+          "mean_macro_f1": 0.2994,
+          "std_macro_f1": 0.1431
+        },
+        "knn_3": {
+          "mean_accuracy": 0.3682,
+          "std_accuracy": 0.1545,
+          "mean_macro_f1": 0.3342,
+          "std_macro_f1": 0.1767
+        },
+        "knn_5": {
+          "mean_accuracy": 0.35,
+          "std_accuracy": 0.1242,
+          "mean_macro_f1": 0.3353,
+          "std_macro_f1": 0.1499
+        }
+      },
+      "outer_selection_frequency": {
+        "extra_trees": 1,
+        "lda_shrinkage": 1,
+        "logistic_c0.01": 1,
+        "random_forest": 2
+      }
+    },
+    "dataset_context": {
+      "source": "MVTec AD labelled test folders",
+      "protocol": "defect-only subtype classification with stratified cross-validation using render masks; not an official held-out MVTec anomaly-detection benchmark",
+      "category": "grid",
+      "classification_mask_policy": "active detector prediction mask"
+    },
+    "production_classifier_cv": {
+      "accuracy": 0.4909,
+      "macro_f1": 0.4318,
+      "classifier": "gradient_boosting",
+      "protocol": "Cross-validation estimate for the fixed production classifier"
     }
   },
   "portable_detector": "resnet18_normal_memory_with_opencv_localization",
@@ -323,88 +503,88 @@
   "coreset_sampling_ratio": 0.03,
   "num_neighbors": 5,
   "defect_classifier_revalidation": {
-    "accuracy": 0.3684,
-    "macro_f1": 0.367,
+    "accuracy": 0.4737,
+    "macro_f1": 0.4656,
     "classification_report": {
       "bent": {
-        "precision": 0.15384615384615385,
-        "recall": 0.16666666666666666,
-        "f1-score": 0.16,
+        "precision": 0.45454545454545453,
+        "recall": 0.4166666666666667,
+        "f1-score": 0.43478260869565216,
         "support": 12.0
       },
       "broken": {
-        "precision": 0.25,
-        "recall": 0.16666666666666666,
-        "f1-score": 0.2,
+        "precision": 0.42857142857142855,
+        "recall": 0.25,
+        "f1-score": 0.3157894736842105,
         "support": 12.0
       },
       "glue": {
-        "precision": 0.3076923076923077,
-        "recall": 0.36363636363636365,
-        "f1-score": 0.3333333333333333,
+        "precision": 0.5454545454545454,
+        "recall": 0.5454545454545454,
+        "f1-score": 0.5454545454545454,
         "support": 11.0
       },
       "metal_contamination": {
+        "precision": 0.38461538461538464,
+        "recall": 0.45454545454545453,
+        "f1-score": 0.4166666666666667,
+        "support": 11.0
+      },
+      "thread": {
         "precision": 0.5333333333333333,
         "recall": 0.7272727272727273,
         "f1-score": 0.6153846153846154,
         "support": 11.0
       },
-      "thread": {
-        "precision": 0.625,
-        "recall": 0.45454545454545453,
-        "f1-score": 0.5263157894736842,
-        "support": 11.0
-      },
-      "accuracy": 0.3684210526315789,
+      "accuracy": 0.47368421052631576,
       "macro avg": {
-        "precision": 0.373974358974359,
-        "recall": 0.3757575757575758,
-        "f1-score": 0.3670067476383266,
+        "precision": 0.46930402930402926,
+        "recall": 0.4787878787878788,
+        "f1-score": 0.46561558197713804,
         "support": 57.0
       },
       "weighted avg": {
-        "precision": 0.3679374718848403,
-        "recall": 0.3684210526315789,
-        "f1-score": 0.3604451073703151,
+        "precision": 0.46833049990944725,
+        "recall": 0.47368421052631576,
+        "f1-score": 0.4624461244056571,
         "support": 57.0
       }
     },
     "confusion_matrix": [
       [
-        2,
-        4,
+        5,
+        0,
         3,
-        1,
+        3,
+        1
+      ],
+      [
+        3,
+        3,
+        2,
+        2,
         2
       ],
       [
+        2,
+        1,
         6,
-        2,
-        2,
         1,
         1
       ],
       [
-        2,
-        2,
-        4,
-        3,
-        0
-      ],
-      [
+        1,
         2,
         0,
-        1,
-        8,
-        0
+        5,
+        3
       ],
       [
+        0,
         1,
         0,
-        3,
         2,
-        5
+        8
       ]
     ],
     "labels": [
@@ -416,80 +596,128 @@
     ],
     "train_size": 57,
     "eval_size": 57,
-    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_mask_shape_pixels",
-    "feature_mode": "global_roi_pixel_texture",
+    "feature_extractor": "resnet18_imagenet1k_v1_plus_roi_texture_geometry",
+    "feature_mode": "global_roi_texture",
     "defect_only": true,
     "evaluation": {
       "protocol": "nested stratified cross-validation; model selection occurs inside each outer training fold, and the production classifier is fitted on all labelled defect images only after evaluation",
-      "selected_classifier": "random_forest",
+      "selected_classifier": "gradient_boosting",
       "folds": 5,
       "candidate_scores": {
-        "sgd_log_alpha0.0001": {
-          "mean_accuracy": 0.4167,
-          "std_accuracy": 0.1372,
-          "mean_macro_f1": 0.3901,
-          "std_macro_f1": 0.1606
-        },
-        "sgd_log_alpha0.001": {
-          "mean_accuracy": 0.453,
-          "std_accuracy": 0.0839,
-          "mean_macro_f1": 0.4257,
-          "std_macro_f1": 0.1209
-        },
-        "pca_logistic_c0.1": {
-          "mean_accuracy": 0.4015,
-          "std_accuracy": 0.0534,
-          "mean_macro_f1": 0.3554,
-          "std_macro_f1": 0.0705
-        },
-        "pca_svc_rbf_c5": {
-          "mean_accuracy": 0.3652,
-          "std_accuracy": 0.1191,
-          "mean_macro_f1": 0.2973,
-          "std_macro_f1": 0.1152
-        },
         "linear_svc_c0.01": {
-          "mean_accuracy": 0.2788,
-          "std_accuracy": 0.0555,
-          "mean_macro_f1": 0.1672,
-          "std_macro_f1": 0.0807
+          "mean_accuracy": 0.3303,
+          "std_accuracy": 0.1051,
+          "mean_macro_f1": 0.2918,
+          "std_macro_f1": 0.1306
         },
         "linear_svc_c0.05": {
-          "mean_accuracy": 0.2621,
-          "std_accuracy": 0.0488,
-          "mean_macro_f1": 0.1461,
-          "std_macro_f1": 0.0518
+          "mean_accuracy": 0.3485,
+          "std_accuracy": 0.0835,
+          "mean_macro_f1": 0.3203,
+          "std_macro_f1": 0.1206
+        },
+        "linear_svc_c0.1": {
+          "mean_accuracy": 0.3485,
+          "std_accuracy": 0.0835,
+          "mean_macro_f1": 0.3163,
+          "std_macro_f1": 0.1204
+        },
+        "logistic_c0.01": {
+          "mean_accuracy": 0.3515,
+          "std_accuracy": 0.0794,
+          "mean_macro_f1": 0.3,
+          "std_macro_f1": 0.0883
+        },
+        "logistic_c0.1": {
+          "mean_accuracy": 0.3515,
+          "std_accuracy": 0.0794,
+          "mean_macro_f1": 0.3015,
+          "std_macro_f1": 0.0848
+        },
+        "logistic_c1": {
+          "mean_accuracy": 0.3348,
+          "std_accuracy": 0.1039,
+          "mean_macro_f1": 0.2971,
+          "std_macro_f1": 0.0986
+        },
+        "logistic_c10": {
+          "mean_accuracy": 0.3364,
+          "std_accuracy": 0.1103,
+          "mean_macro_f1": 0.3003,
+          "std_macro_f1": 0.11
+        },
+        "lda_shrinkage": {
+          "mean_accuracy": 0.3515,
+          "std_accuracy": 0.121,
+          "mean_macro_f1": 0.326,
+          "std_macro_f1": 0.1304
         },
         "extra_trees": {
-          "mean_accuracy": 0.4545,
-          "std_accuracy": 0.0498,
-          "mean_macro_f1": 0.4112,
-          "std_macro_f1": 0.0554
+          "mean_accuracy": 0.403,
+          "std_accuracy": 0.0673,
+          "mean_macro_f1": 0.3515,
+          "std_macro_f1": 0.0946
         },
         "random_forest": {
-          "mean_accuracy": 0.5242,
-          "std_accuracy": 0.1413,
-          "mean_macro_f1": 0.4811,
-          "std_macro_f1": 0.1668
+          "mean_accuracy": 0.4045,
+          "std_accuracy": 0.0948,
+          "mean_macro_f1": 0.3595,
+          "std_macro_f1": 0.1031
+        },
+        "gradient_boosting": {
+          "mean_accuracy": 0.4909,
+          "std_accuracy": 0.1617,
+          "mean_macro_f1": 0.4318,
+          "std_macro_f1": 0.179
+        },
+        "svc_rbf_c1": {
+          "mean_accuracy": 0.4045,
+          "std_accuracy": 0.1249,
+          "mean_macro_f1": 0.363,
+          "std_macro_f1": 0.1479
+        },
+        "svc_rbf_c5": {
+          "mean_accuracy": 0.3348,
+          "std_accuracy": 0.1231,
+          "mean_macro_f1": 0.2994,
+          "std_macro_f1": 0.1431
+        },
+        "svc_rbf_c20": {
+          "mean_accuracy": 0.3348,
+          "std_accuracy": 0.1231,
+          "mean_macro_f1": 0.2994,
+          "std_macro_f1": 0.1431
+        },
+        "knn_3": {
+          "mean_accuracy": 0.3682,
+          "std_accuracy": 0.1545,
+          "mean_macro_f1": 0.3342,
+          "std_macro_f1": 0.1767
+        },
+        "knn_5": {
+          "mean_accuracy": 0.35,
+          "std_accuracy": 0.1242,
+          "mean_macro_f1": 0.3353,
+          "std_macro_f1": 0.1499
         }
       },
       "outer_selection_frequency": {
-        "extra_trees": 2,
-        "pca_logistic_c0.1": 1,
-        "random_forest": 1,
-        "sgd_log_alpha0.0001": 1
+        "extra_trees": 1,
+        "lda_shrinkage": 1,
+        "logistic_c0.01": 1,
+        "random_forest": 2
       }
     },
     "dataset_context": {
       "source": "MVTec AD labelled test folders",
-      "protocol": "defect-only subtype classification with stratified cross-validation using openvino masks; not an official held-out MVTec anomaly-detection benchmark",
+      "protocol": "defect-only subtype classification with stratified cross-validation using render masks; not an official held-out MVTec anomaly-detection benchmark",
       "category": "grid",
-      "classification_mask_policy": "p99"
+      "classification_mask_policy": "active detector prediction mask"
     },
     "production_classifier_cv": {
-      "accuracy": 0.5242,
-      "macro_f1": 0.4811,
-      "classifier": "random_forest",
+      "accuracy": 0.4909,
+      "macro_f1": 0.4318,
+      "classifier": "gradient_boosting",
       "protocol": "Cross-validation estimate for the fixed production classifier"
     }
   },
