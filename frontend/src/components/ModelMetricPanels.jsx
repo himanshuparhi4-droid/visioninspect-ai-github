@@ -15,6 +15,7 @@ export function formatPercentMetric(value) {
 
 export function metricStatusClass(status) {
   if (status === "Production") return "metric-status-strong";
+  if (status === "Strong") return "metric-status-strong";
   if (status === "Manual review") return "metric-status-review";
   if (status === "Needs tuning") return "metric-status-acceptable";
   if (status === "Experimental") return "metric-status-tuning";

@@ -80,6 +80,26 @@ def release_status(binary_f1: float | None, subtype_f1: float | None) -> str:
     return "Experimental"
 
 
+def detection_status(binary_f1: float | None) -> str:
+    if binary_f1 is None:
+        return "Unverified"
+    if binary_f1 >= 0.90:
+        return "Strong"
+    if binary_f1 >= 0.80:
+        return "Needs tuning"
+    return "Experimental"
+
+
+def subtype_status(subtype_f1: float | None) -> str:
+    if subtype_f1 is None:
+        return "Unverified"
+    if subtype_f1 >= 0.85:
+        return "Strong"
+    if subtype_f1 >= 0.70:
+        return "Manual review"
+    return "Needs tuning"
+
+
 def release_reason(binary_f1: float | None, subtype_f1: float | None) -> str:
     status = release_status(binary_f1, subtype_f1)
     if status == "Production":
@@ -241,6 +261,8 @@ def build_model_metrics_payload() -> dict:
                 "subtype_count": status["subtype_count"],
                 "release_status": category_release_status,
                 "release_reason": release_reason(binary_f1, subtype_f1),
+                "detection_status": detection_status(binary_f1),
+                "subtype_status": subtype_status(subtype_f1),
                 "binary_accuracy": binary_accuracy,
                 "binary_precision": binary_precision,
                 "binary_recall": binary_recall,

@@ -19,6 +19,15 @@ import {
 import { apiGet } from "../../services/api";
 import { getModelMetrics, updateModelSettings } from "../../services/modelApi";
 
+function StatusBadge({ status, note }) {
+  return (
+    <>
+      <strong className={`metric-status ${metricStatusClass(status)}`}>{status || "Unverified"}</strong>
+      {note ? <small className="metric-cell-note">{note}</small> : null}
+    </>
+  );
+}
+
 export default function ModelMetricsPage() {
   const [health, setHealth] = useState(null);
   const [metrics, setMetrics] = useState(null);
@@ -106,7 +115,11 @@ export default function ModelMetricsPage() {
         <div className="panel-heading">
           <div>
             <h2>Category Model Registry</h2>
-            <p>Binary detection and defect subtype classification are evaluated and reported separately.</p>
+          <p>Binary detection and defect subtype classification are evaluated and reported separately.</p>
+          <p>
+            Production requires both stages to pass: Good/Defective detection F1 at or above 90%, and subtype macro F1
+            at or above 85%.
+          </p>
           </div>
         </div>
         <div className="table-wrap">
@@ -114,18 +127,20 @@ export default function ModelMetricsPage() {
             <thead>
               <tr>
                 <th>Category</th>
-                <th>Release status</th>
+                <th>Final status</th>
                 <th>Active detector</th>
                 <th>Input</th>
-                <th>Binary accuracy</th>
-                <th>Binary F1</th>
+                <th>Detection status</th>
+                <th>Detection F1</th>
+                <th>Detection accuracy</th>
                 <th>Defect recall</th>
                 <th>Good specificity</th>
                 <th>Binary AUROC</th>
                 <th>Subtype classifier</th>
+                <th>Subtype status</th>
                 <th>Subtype accuracy</th>
                 <th>Subtype macro F1</th>
-                <th>Review threshold</th>
+                <th>Subtype review threshold</th>
                 <th>Runtime size</th>
               </tr>
             </thead>
@@ -134,10 +149,7 @@ export default function ModelMetricsPage() {
                 <tr key={model.category}>
                   <td>{model.category.replaceAll("_", " ")}</td>
                   <td>
-                    <strong className={`metric-status ${metricStatusClass(model.release_status)}`}>
-                      {model.release_status}
-                    </strong>
-                    <small className="metric-cell-note">{model.release_reason}</small>
+                    <StatusBadge status={model.release_status} note={model.release_reason} />
                   </td>
                   <td>
                     {formatEngine(model.active_engine)}
@@ -145,16 +157,22 @@ export default function ModelMetricsPage() {
                       {model.deployment_precision || "FP32"} · {model.model_version || "v1"}
                     </small>
                     {model.openvino_deferred_for_memory ? (
-                      <small className="metric-cell-note">OpenVINO available; portable selected for memory</small>
+                      <small className="metric-cell-note">Portable selected for Render memory safety</small>
                     ) : null}
                   </td>
                   <td>{model.input_size ? `${model.input_size} × ${model.input_size}` : "Pending"}</td>
-                  <td>{formatPercentMetric(model.binary_accuracy)}</td>
+                  <td>
+                    <StatusBadge status={model.detection_status} />
+                  </td>
                   <td>{formatPercentMetric(model.binary_f1)}</td>
+                  <td>{formatPercentMetric(model.binary_accuracy)}</td>
                   <td>{formatPercentMetric(model.binary_recall)}</td>
                   <td>{formatPercentMetric(model.binary_specificity)}</td>
                   <td>{formatPercentMetric(model.binary_auroc)}</td>
                   <td>{formatEngine(model.classifier_engine)}</td>
+                  <td>
+                    <StatusBadge status={model.subtype_status} />
+                  </td>
                   <td>{formatPercentMetric(model.subtype_accuracy)}</td>
                   <td>
                     {formatPercentMetric(model.subtype_macro_f1)}
@@ -169,6 +187,14 @@ export default function ModelMetricsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="explainability-box">
+          <strong>Why some 90%+ rows still need review</strong>
+          <p>
+            Detection metrics answer “is this product good or defective?” Subtype metrics answer “which exact defect is
+            it?” A category can have strong detection accuracy but still require operator review when subtype macro F1 is
+            uneven across smaller defect classes.
+          </p>
         </div>
       </section>
 
