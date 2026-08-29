@@ -3015,56 +3015,56 @@
     }
   },
   "render_runtime_audit": {
-    "accuracy": 0.8333,
-    "macro_f1": 0.8306,
+    "accuracy": 0.8989,
+    "macro_f1": 0.8983,
     "classification_report": {
       "color": {
-        "precision": 1.0,
-        "recall": 0.75,
-        "f1-score": 0.8571428571428571,
-        "support": 4.0
+        "precision": 0.9473684210526315,
+        "recall": 0.9473684210526315,
+        "f1-score": 0.9473684210526315,
+        "support": 19.0
       },
       "cut": {
-        "precision": 0.6,
-        "recall": 1.0,
-        "f1-score": 0.75,
-        "support": 3.0
+        "precision": 0.8333333333333334,
+        "recall": 0.8823529411764706,
+        "f1-score": 0.8571428571428571,
+        "support": 17.0
       },
       "hole": {
-        "precision": 1.0,
-        "recall": 0.6666666666666666,
-        "f1-score": 0.8,
-        "support": 3.0
+        "precision": 0.8333333333333334,
+        "recall": 0.8823529411764706,
+        "f1-score": 0.8571428571428571,
+        "support": 17.0
       },
       "metal_contamination": {
-        "precision": 0.8,
-        "recall": 1.0,
-        "f1-score": 0.8888888888888888,
-        "support": 4.0
+        "precision": 0.9411764705882353,
+        "recall": 0.9411764705882353,
+        "f1-score": 0.9411764705882353,
+        "support": 17.0
       },
       "thread": {
-        "precision": 1.0,
-        "recall": 0.75,
-        "f1-score": 0.8571428571428571,
-        "support": 4.0
+        "precision": 0.9411764705882353,
+        "recall": 0.8421052631578947,
+        "f1-score": 0.8888888888888888,
+        "support": 19.0
       },
-      "accuracy": 0.8333333333333334,
+      "accuracy": 0.898876404494382,
       "macro avg": {
-        "precision": 0.8800000000000001,
-        "recall": 0.8333333333333333,
-        "f1-score": 0.8306349206349207,
-        "support": 18.0
+        "precision": 0.8992776057791538,
+        "recall": 0.8990712074303404,
+        "f1-score": 0.8983438989630941,
+        "support": 89.0
       },
       "weighted avg": {
-        "precision": 0.8888888888888888,
-        "recall": 0.8333333333333334,
-        "f1-score": 0.8368165784832452,
-        "support": 18.0
+        "precision": 0.9012998457810091,
+        "recall": 0.898876404494382,
+        "f1-score": 0.8992331014802925,
+        "support": 89.0
       }
     },
     "confusion_matrix": [
       [
-        3,
+        18,
         1,
         0,
         0,
@@ -3072,31 +3072,31 @@
       ],
       [
         0,
-        3,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        1,
+        15,
         2,
         0,
         0
       ],
       [
         0,
+        2,
+        15,
         0,
-        0,
-        4,
         0
       ],
       [
         0,
         0,
         0,
+        16,
+        1
+      ],
+      [
         1,
-        3
+        0,
+        1,
+        1,
+        16
       ]
     ],
     "labels": [
@@ -3106,11 +3106,15 @@
       "metal_contamination",
       "thread"
     ],
-    "samples": 18,
-    "protocol": "Stratified deployed-runtime audit subset using active detector masks; the active CNN artifact was fitted on all labelled images, so this is diagnostic evidence, not an untouched release metric",
+    "samples": 89,
+    "failures": 0,
+    "protocol": "Full deployed Render API audit using real MVTec defective test images uploaded through /inspections/inspect after lightweight subtype artifact refresh.",
     "classifier_engine": "fine_tuned_resnet18_onnx",
-    "feature_mode": "cnn_openvino_anomaly_crop",
+    "feature_mode": "cnn_heatmap_object_crop",
     "mask_source": "padim_openvino",
+    "source": "Render production endpoint",
+    "endpoint": "https://visioninspect-ai-backend.onrender.com/inspections/inspect",
+    "audited_at": "2026-08-29",
     "confidence_calibration": {
       "method": "not_available",
       "reason": "Insufficient independent confidence variation",

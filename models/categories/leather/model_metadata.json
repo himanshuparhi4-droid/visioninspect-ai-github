@@ -643,88 +643,88 @@
     }
   },
   "render_runtime_audit": {
-    "accuracy": 0.8696,
-    "macro_f1": 0.8672,
+    "accuracy": 0.8478,
+    "macro_f1": 0.8533,
     "classification_report": {
       "color": {
-        "precision": 0.8947368421052632,
-        "recall": 0.8947368421052632,
-        "f1-score": 0.8947368421052632,
+        "precision": 1.0,
+        "recall": 0.7894736842105263,
+        "f1-score": 0.8823529411764706,
         "support": 19.0
       },
       "cut": {
-        "precision": 0.75,
-        "recall": 0.9473684210526315,
-        "f1-score": 0.8372093023255814,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
         "support": 19.0
       },
       "fold": {
-        "precision": 0.8823529411764706,
-        "recall": 0.8823529411764706,
-        "f1-score": 0.8823529411764706,
+        "precision": 0.5517241379310345,
+        "recall": 0.9411764705882353,
+        "f1-score": 0.6956521739130435,
         "support": 17.0
       },
       "glue": {
         "precision": 1.0,
-        "recall": 0.631578947368421,
-        "f1-score": 0.7741935483870968,
+        "recall": 0.8421052631578947,
+        "f1-score": 0.9142857142857143,
         "support": 19.0
       },
       "poke": {
-        "precision": 0.9,
-        "recall": 1.0,
-        "f1-score": 0.9473684210526315,
+        "precision": 0.9230769230769231,
+        "recall": 0.6666666666666666,
+        "f1-score": 0.7741935483870968,
         "support": 18.0
       },
-      "accuracy": 0.8695652173913043,
+      "accuracy": 0.8478260869565217,
       "macro avg": {
-        "precision": 0.8854179566563468,
-        "recall": 0.8712074303405573,
-        "f1-score": 0.8671722110094088,
+        "precision": 0.8949602122015916,
+        "recall": 0.8478844169246645,
+        "f1-score": 0.8532968755524649,
         "support": 92.0
       },
       "weighted avg": {
-        "precision": 0.8853260869565218,
-        "recall": 0.8695652173913043,
-        "f1-score": 0.8659704972009593,
+        "precision": 0.9021162495675239,
+        "recall": 0.8478260869565217,
+        "f1-score": 0.8575837530572933,
         "support": 92.0
       }
     },
     "confusion_matrix": [
       [
-        17,
-        0,
-        0,
-        0,
-        2
-      ],
-      [
-        0,
-        18,
-        1,
-        0,
-        0
-      ],
-      [
-        1,
-        1,
         15,
         0,
-        0
-      ],
-      [
-        1,
-        5,
-        1,
-        12,
+        4,
+        0,
         0
       ],
       [
         0,
+        19,
         0,
         0,
+        0
+      ],
+      [
         0,
-        18
+        0,
+        16,
+        0,
+        1
+      ],
+      [
+        0,
+        0,
+        3,
+        16,
+        0
+      ],
+      [
+        0,
+        0,
+        6,
+        0,
+        12
       ]
     ],
     "labels": [
@@ -735,10 +735,14 @@
       "poke"
     ],
     "samples": 92,
-    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks",
-    "classifier_engine": "sklearn_feature_classifier",
+    "failures": 0,
+    "protocol": "Full deployed Render API audit using real MVTec defective test images uploaded through /inspections/inspect after lightweight subtype artifact refresh.",
+    "classifier_engine": "sklearn_global_roi_texture",
     "feature_mode": "global_roi_texture",
     "mask_source": "padim_openvino",
+    "source": "Render production endpoint",
+    "endpoint": "https://visioninspect-ai-backend.onrender.com/inspections/inspect",
+    "audited_at": "2026-08-29",
     "confidence_calibration": {
       "method": "isotonic_oof_top_label",
       "review_threshold": 0.5,

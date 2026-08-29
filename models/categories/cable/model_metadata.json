@@ -898,31 +898,31 @@
     }
   },
   "render_runtime_audit": {
-    "accuracy": 0.8152,
+    "accuracy": 0.9022,
     "macro_f1": 0.8127,
     "classification_report": {
       "bent_wire": {
-        "precision": 0.7058823529411765,
+        "precision": 0.9230769230769231,
         "recall": 0.9230769230769231,
-        "f1-score": 0.8,
+        "f1-score": 0.9230769230769231,
         "support": 13.0
       },
       "cable_swap": {
-        "precision": 0.7272727272727273,
-        "recall": 0.6666666666666666,
-        "f1-score": 0.6956521739130435,
+        "precision": 1.0,
+        "recall": 0.75,
+        "f1-score": 0.8571428571428571,
         "support": 12.0
       },
       "combined": {
-        "precision": 0.8333333333333334,
-        "recall": 0.45454545454545453,
-        "f1-score": 0.5882352941176471,
+        "precision": 0.9166666666666666,
+        "recall": 1.0,
+        "f1-score": 0.9565217391304348,
         "support": 11.0
       },
       "cut_inner_insulation": {
-        "precision": 0.7857142857142857,
-        "recall": 0.7857142857142857,
-        "f1-score": 0.7857142857142857,
+        "precision": 0.8666666666666667,
+        "recall": 0.9285714285714286,
+        "f1-score": 0.896551724137931,
         "support": 14.0
       },
       "cut_outer_insulation": {
@@ -932,42 +932,47 @@
         "support": 10.0
       },
       "missing_cable": {
-        "precision": 0.8571428571428571,
+        "precision": 1.0,
         "recall": 1.0,
-        "f1-score": 0.9230769230769231,
+        "f1-score": 1.0,
         "support": 12.0
       },
       "missing_wire": {
-        "precision": 0.7272727272727273,
-        "recall": 0.8,
-        "f1-score": 0.7619047619047619,
+        "precision": 0.8181818181818182,
+        "recall": 0.9,
+        "f1-score": 0.8571428571428571,
         "support": 10.0
       },
       "poke_insulation": {
         "precision": 1.0,
-        "recall": 0.9,
-        "f1-score": 0.9473684210526315,
+        "recall": 0.7,
+        "f1-score": 0.8235294117647058,
         "support": 10.0
       },
-      "accuracy": 0.8152173913043478,
+      "micro avg": {
+        "precision": 0.9325842696629213,
+        "recall": 0.9021739130434783,
+        "f1-score": 0.9171270718232044,
+        "support": 92.0
+      },
       "macro avg": {
-        "precision": 0.8295772854596384,
-        "recall": 0.8162504162504163,
-        "f1-score": 0.8127439824724115,
+        "precision": 0.9405740093240094,
+        "recall": 0.900206043956044,
+        "f1-score": 0.9142456890494637,
         "support": 92.0
       },
       "weighted avg": {
-        "precision": 0.8220527341371332,
-        "recall": 0.8152173913043478,
-        "f1-score": 0.8085659698776919,
+        "precision": 0.9391139657444006,
+        "recall": 0.9021739130434783,
+        "f1-score": 0.9148467417734318,
         "support": 92.0
       }
     },
     "confusion_matrix": [
       [
         12,
-        1,
         0,
+        1,
         0,
         0,
         0,
@@ -976,32 +981,32 @@
       ],
       [
         0,
-        8,
-        0,
-        3,
-        0,
-        0,
-        1,
-        0
-      ],
-      [
-        4,
-        0,
-        5,
-        0,
+        9,
         0,
         2,
         0,
+        0,
+        1,
         0
       ],
       [
         0,
-        1,
         0,
         11,
         0,
         0,
-        2,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        13,
+        0,
+        0,
+        1,
         0
       ],
       [
@@ -1026,12 +1031,12 @@
       ],
       [
         0,
-        1,
-        1,
         0,
         0,
         0,
-        8,
+        0,
+        0,
+        9,
         0
       ],
       [
@@ -1042,7 +1047,7 @@
         0,
         0,
         0,
-        9
+        7
       ]
     ],
     "labels": [
@@ -1056,10 +1061,14 @@
       "poke_insulation"
     ],
     "samples": 92,
-    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks",
-    "classifier_engine": "portable_forest",
+    "failures": 0,
+    "protocol": "Full deployed Render API audit using real MVTec defective test images uploaded through /inspections/inspect after lightweight subtype artifact refresh.",
+    "classifier_engine": "not_applicable, portable_forest",
     "feature_mode": "handcrafted_roi_shape_texture",
     "mask_source": "patchcore_openvino",
+    "source": "Render production endpoint",
+    "endpoint": "https://visioninspect-ai-backend.onrender.com/inspections/inspect",
+    "audited_at": "2026-08-29",
     "confidence_calibration": {
       "method": "isotonic_oof_top_label",
       "review_threshold": 0.525,

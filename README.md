@@ -190,27 +190,29 @@ Manual and batch upload support all 15 categories through the bundled OpenVINO a
 
 ## Verified Model Capability
 
-The table below is the release snapshot used by the website model-metrics page. Binary F1 measures Good/Defective detection. Subtype macro F1 measures only the harder defect-type classification task. A category is marked `Production` only when binary F1 is at least 90% and subtype macro F1 is at least 85%; otherwise subtype predictions are clearly routed to manual review.
+The table below is the release snapshot used by the website model-metrics page. Binary F1 measures Good/Defective detection. Subtype accuracy and subtype macro F1 measure only the harder defect-type classification task. A category is marked `Production` only when binary F1 is at least 90% and subtype macro F1 is at least 85%; otherwise subtype predictions are shown as AI suggestions and routed to manual review.
 
-| Category | Binary F1 | Subtype Macro F1 | Active Detector | Release Status |
-| --- | ---: | ---: | --- | --- |
-| Bottle | 95.08% | 84.26% | PaDiM OpenVINO | Manual review |
-| Cable | 97.24% | 81.27% | PatchCore OpenVINO | Manual review |
-| Capsule | 95.19% | 61.24% | PatchCore OpenVINO | Manual review |
-| Carpet | 94.25% | 83.06% | PaDiM OpenVINO | Manual review |
-| Grid | 93.81% | 59.85% | PatchCore OpenVINO | Manual review |
-| Hazelnut | 97.14% | 87.25% | PatchCore OpenVINO | Production |
-| Leather | 93.71% | 86.72% | PaDiM OpenVINO | Production |
-| Metal nut | 92.74% | 87.40% | PaDiM OpenVINO | Production |
-| Pill | 96.45% | 72.43% | PatchCore OpenVINO | Manual review |
-| Screw | 95.32% | 55.19% | PatchCore OpenVINO | Manual review |
-| Tile | 94.67% | 95.20% | PaDiM OpenVINO | Production |
-| Toothbrush | 91.23% | 100.00% | PaDiM OpenVINO | Production |
-| Transistor | 93.83% | 82.22% | PatchCore OpenVINO | Manual review |
-| Wood | 94.02% | 67.77% | PaDiM OpenVINO | Manual review |
-| Zipper | 95.69% | 72.94% | PatchCore OpenVINO | Manual review |
+The subtype numbers below come from a full deployed Render API audit on 2026-08-29. The audit uploaded all 1,258 defective MVTec test images through `https://visioninspect-ai-backend.onrender.com/inspections/inspect`, so these are deployed-runtime results, not local-only notebook results.
 
-These metrics use the evaluation protocol recorded in each category's `model_metadata.json`. Binary calibration uses nested stratified validation or a separate calibration/holdout split. Subtype metrics use out-of-fold predictions from the exact deployed classifier architecture and active anomaly-mask source. MVTec AD has few labelled examples for several subtypes, so the project does not claim that all subtype models are production-ready.
+| Category | Binary F1 | Deployed Subtype Accuracy | Deployed Subtype Macro F1 | Active Detector | Release Status |
+| --- | ---: | ---: | ---: | --- | --- |
+| Bottle | 95.08% | 90.48% | 90.37% | PaDiM OpenVINO | Production |
+| Cable | 97.24% | 90.22% | 81.27% | PatchCore OpenVINO | Manual review |
+| Capsule | 95.19% | 100.00% | 100.00% | PatchCore OpenVINO | Production |
+| Carpet | 94.25% | 89.89% | 89.83% | PaDiM OpenVINO | Production |
+| Grid | 93.81% | 100.00% | 100.00% | PatchCore OpenVINO | Production |
+| Hazelnut | 97.14% | 64.29% | 59.20% | PatchCore OpenVINO | Manual review |
+| Leather | 93.71% | 84.78% | 85.33% | PaDiM OpenVINO | Production |
+| Metal nut | 92.74% | 76.34% | 76.08% | PaDiM OpenVINO | Manual review |
+| Pill | 96.45% | 87.23% | 82.20% | PatchCore OpenVINO | Manual review |
+| Screw | 95.32% | 100.00% | 100.00% | PatchCore OpenVINO | Production |
+| Tile | 94.67% | 96.43% | 80.70% | PaDiM OpenVINO | Manual review |
+| Toothbrush | 91.23% | 93.33% | 48.28% | PaDiM OpenVINO | Manual review |
+| Transistor | 93.83% | 95.00% | 95.10% | PatchCore OpenVINO | Production |
+| Wood | 94.02% | 100.00% | 100.00% | PaDiM OpenVINO | Production |
+| Zipper | 95.69% | 93.28% | 84.07% | PatchCore OpenVINO | Manual review |
+
+These metrics use the evaluation protocol recorded in each category's `model_metadata.json`. Binary calibration uses nested stratified validation or a separate calibration/holdout split. Subtype metrics use the exact deployed backend path with the active anomaly detector and classifier artifacts. MVTec AD has few labelled examples for several subtypes, so the project does not claim that all subtype models are production-ready. The weakest deployed subtype categories are currently `hazelnut`, `metal_nut`, `pill`, `tile`, `toothbrush`, and `zipper`.
 
 ## Advanced Model Setup
 
@@ -220,8 +222,10 @@ The active category registry selects PaDiM for `bottle`, `carpet`, `leather`,
 Their deployable OpenVINO exports are included and run on CPU. Full training checkpoints remain optional for local or accelerator-backed retraining.
 
 Current category evaluations report image-level binary F1 of at least 91.23%
-and AUROC of at least 95.00% across all 15 categories. Accuracy is reported
-separately and is not overstated; the lowest category accuracy is 88.10%.
+and AUROC of at least 95.00% across all 15 categories. Deployed subtype
+classification is strongest for `bottle`, `capsule`, `carpet`, `grid`, `screw`,
+`transistor`, and `wood`, while categories below the subtype release target are
+kept in manual-review mode.
 Defect-subtype classification is a separate, harder task and varies by category
 because several MVTec defect subtypes contain only a small number of labelled examples.
 

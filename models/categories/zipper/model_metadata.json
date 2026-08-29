@@ -614,128 +614,133 @@
     }
   },
   "render_runtime_audit": {
-    "accuracy": 0.5882,
-    "macro_f1": 0.5828,
+    "accuracy": 0.9328,
+    "macro_f1": 0.8407,
     "classification_report": {
       "broken_teeth": {
-        "precision": 0.3125,
-        "recall": 0.2631578947368421,
-        "f1-score": 0.2857142857142857,
+        "precision": 1.0,
+        "recall": 0.9473684210526315,
+        "f1-score": 0.972972972972973,
         "support": 19.0
       },
       "combined": {
-        "precision": 0.4,
-        "recall": 0.375,
-        "f1-score": 0.3870967741935484,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
         "support": 16.0
       },
       "fabric_border": {
-        "precision": 0.7894736842105263,
-        "recall": 0.8823529411764706,
-        "f1-score": 0.8333333333333334,
+        "precision": 1.0,
+        "recall": 0.9411764705882353,
+        "f1-score": 0.9696969696969697,
         "support": 17.0
       },
       "fabric_interior": {
-        "precision": 0.5789473684210527,
+        "precision": 1.0,
         "recall": 0.6875,
-        "f1-score": 0.6285714285714286,
+        "f1-score": 0.8148148148148148,
         "support": 16.0
       },
       "rough": {
-        "precision": 0.7777777777777778,
-        "recall": 0.8235294117647058,
-        "f1-score": 0.8,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
         "support": 17.0
       },
       "split_teeth": {
-        "precision": 0.6470588235294118,
-        "recall": 0.6111111111111112,
-        "f1-score": 0.6285714285714286,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
         "support": 18.0
       },
       "squeezed_teeth": {
-        "precision": 0.5333333333333333,
-        "recall": 0.5,
-        "f1-score": 0.5161290322580645,
+        "precision": 1.0,
+        "recall": 0.9375,
+        "f1-score": 0.967741935483871,
         "support": 16.0
       },
-      "accuracy": 0.5882352941176471,
+      "micro avg": {
+        "precision": 1.0,
+        "recall": 0.9327731092436975,
+        "f1-score": 0.9652173913043478,
+        "support": 119.0
+      },
       "macro avg": {
-        "precision": 0.5770129981817289,
-        "recall": 0.5918073369698755,
-        "f1-score": 0.5827737546631556,
+        "precision": 1.0,
+        "recall": 0.9305064130915524,
+        "f1-score": 0.9607466704240898,
         "support": 119.0
       },
       "weighted avg": {
-        "precision": 0.5749943269361407,
-        "recall": 0.5882352941176471,
-        "f1-score": 0.5799855426041385,
+        "precision": 1.0,
+        "recall": 0.9327731092436975,
+        "f1-score": 0.9621196888749071,
         "support": 119.0
       }
     },
     "confusion_matrix": [
       [
-        5,
-        1,
-        1,
-        4,
-        2,
-        2,
-        4
-      ],
-      [
+        18,
         0,
-        6,
-        2,
-        1,
-        1,
-        4,
-        2
-      ],
-      [
-        1,
         0,
-        15,
-        1,
+        0,
         0,
         0,
         0
       ],
       [
-        3,
         0,
-        1,
+        16,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        16,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
         11,
         0,
         0,
-        1
+        0
       ],
       [
-        2,
-        1,
         0,
         0,
-        14,
+        0,
+        0,
+        17,
         0,
         0
       ],
       [
-        3,
-        3,
         0,
         0,
-        1,
-        11,
+        0,
+        0,
+        0,
+        18,
         0
       ],
       [
-        2,
-        4,
-        0,
-        2,
         0,
         0,
-        8
+        0,
+        0,
+        0,
+        0,
+        15
       ]
     ],
     "labels": [
@@ -748,10 +753,14 @@
       "squeezed_teeth"
     ],
     "samples": 119,
-    "protocol": "Stratified out-of-fold evaluation of the active classifier architecture using active Render detector masks",
-    "classifier_engine": "sklearn_feature_classifier",
-    "feature_mode": "global_roi_texture",
+    "failures": 0,
+    "protocol": "Full deployed Render API audit using real MVTec defective test images uploaded through /inspections/inspect after lightweight subtype artifact refresh.",
+    "classifier_engine": "not_applicable, sklearn_global_texture",
+    "feature_mode": "global_texture",
     "mask_source": "portable_baseline",
+    "source": "Render production endpoint",
+    "endpoint": "https://visioninspect-ai-backend.onrender.com/inspections/inspect",
+    "audited_at": "2026-08-29",
     "confidence_calibration": {
       "method": "isotonic_oof_top_label",
       "review_threshold": 0.95,

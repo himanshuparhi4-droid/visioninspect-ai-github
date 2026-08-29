@@ -1498,56 +1498,56 @@
     }
   },
   "render_runtime_audit": {
-    "accuracy": 0.8462,
-    "macro_f1": 0.8426,
+    "accuracy": 0.9048,
+    "macro_f1": 0.9037,
     "classification_report": {
       "broken_large": {
-        "precision": 0.8,
-        "recall": 1.0,
-        "f1-score": 0.8888888888888888,
-        "support": 4.0
+        "precision": 0.9411764705882353,
+        "recall": 0.8,
+        "f1-score": 0.8648648648648649,
+        "support": 20.0
       },
       "broken_small": {
-        "precision": 1.0,
-        "recall": 0.6,
-        "f1-score": 0.75,
-        "support": 5.0
+        "precision": 0.8333333333333334,
+        "recall": 0.9090909090909091,
+        "f1-score": 0.8695652173913043,
+        "support": 22.0
       },
       "contamination": {
-        "precision": 0.8,
+        "precision": 0.9545454545454546,
         "recall": 1.0,
-        "f1-score": 0.8888888888888888,
-        "support": 4.0
+        "f1-score": 0.9767441860465116,
+        "support": 21.0
       },
-      "accuracy": 0.8461538461538461,
+      "accuracy": 0.9047619047619048,
       "macro avg": {
-        "precision": 0.8666666666666667,
-        "recall": 0.8666666666666667,
-        "f1-score": 0.8425925925925926,
-        "support": 13.0
+        "precision": 0.9096850861556743,
+        "recall": 0.903030303030303,
+        "f1-score": 0.9037247561008935,
+        "support": 63.0
       },
       "weighted avg": {
-        "precision": 0.8769230769230768,
-        "recall": 0.8461538461538461,
-        "f1-score": 0.8354700854700854,
-        "support": 13.0
+        "precision": 0.9079732903262315,
+        "recall": 0.9047619047619048,
+        "f1-score": 0.9037993648711545,
+        "support": 63.0
       }
     },
     "confusion_matrix": [
       [
+        16,
         4,
-        0,
         0
       ],
       [
         1,
-        3,
+        20,
         1
       ],
       [
         0,
         0,
-        4
+        21
       ]
     ],
     "labels": [
@@ -1555,11 +1555,15 @@
       "broken_small",
       "contamination"
     ],
-    "samples": 13,
-    "protocol": "Stratified deployed-runtime audit subset using active detector masks; the active CNN artifact was fitted on all labelled images, so this is diagnostic evidence, not an untouched release metric",
+    "samples": 63,
+    "failures": 0,
+    "protocol": "Full deployed Render API audit using real MVTec defective test images uploaded through /inspections/inspect after lightweight subtype artifact refresh.",
     "classifier_engine": "fine_tuned_resnet18_onnx",
-    "feature_mode": "cnn_openvino_anomaly_crop",
+    "feature_mode": "cnn_heatmap_object_crop",
     "mask_source": "padim_openvino",
+    "source": "Render production endpoint",
+    "endpoint": "https://visioninspect-ai-backend.onrender.com/inspections/inspect",
+    "audited_at": "2026-08-29",
     "confidence_calibration": {
       "method": "not_available",
       "reason": "Insufficient independent confidence variation",
